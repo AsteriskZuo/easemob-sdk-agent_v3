@@ -1,0 +1,4537 @@
+{
+  "fetchedAt": "2026-07-16T03:28:00.602Z",
+  "jiraUrl": "https://j1.private.easemob.com",
+  "total": 647,
+  "active": 106,
+  "inactive": 541,
+  "users": [
+    {
+      "name": "admin",
+      "key": "admin",
+      "displayName": "admin",
+      "emailAddress": "kefusre@easemob.com",
+      "active": true
+    },
+    {
+      "name": "licx1",
+      "key": "licx1",
+      "displayName": "AI李晨星",
+      "emailAddress": "licx1@easemob.com",
+      "active": false
+    },
+    {
+      "name": "Alex",
+      "key": "alex",
+      "displayName": "Alex",
+      "emailAddress": "chenxiaodi@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lianaoqi",
+      "key": "lianaoqi",
+      "displayName": "Allen Lian",
+      "emailAddress": "allenlian@easemob.com",
+      "active": false
+    },
+    {
+      "name": "alexliu",
+      "key": "alexliu",
+      "displayName": "liujiale",
+      "emailAddress": "alexliu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "qiaochunmei",
+      "key": "qiaochunmei",
+      "displayName": "乔纯美",
+      "emailAddress": "aliceqiao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "allenyu",
+      "key": "allenyu",
+      "displayName": "于硕",
+      "emailAddress": "allenyu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yushuo",
+      "key": "yushuo",
+      "displayName": "于硕 [X]",
+      "emailAddress": "allenyu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "asteriskzuo",
+      "key": "asteriskzuo",
+      "displayName": "佐玉",
+      "emailAddress": "zuoyu@easemob.com",
+      "active": true
+    },
+    {
+      "name": "adminuser",
+      "key": "adminuser",
+      "displayName": "刘俊彦",
+      "emailAddress": "juser@easemob.com",
+      "active": false
+    },
+    {
+      "name": "andyliu",
+      "key": "andyliu",
+      "displayName": "刘豫军",
+      "emailAddress": "liuyujun@easemob.com",
+      "active": true
+    },
+    {
+      "name": "andy.zhou@easemob.com",
+      "key": "andy.zhou",
+      "displayName": "周嘉安 [X]",
+      "emailAddress": "andy.zhou@easemob.com",
+      "active": false
+    },
+    {
+      "name": "环信周嘉安",
+      "key": "环信周嘉安",
+      "displayName": "周嘉安 [X]",
+      "emailAddress": "andy.zhou@easemob.com",
+      "active": false
+    },
+    {
+      "name": "Angus",
+      "key": "angus",
+      "displayName": "周聪 [X]",
+      "emailAddress": "angus.zhou@easemob.com",
+      "active": false
+    },
+    {
+      "name": "agorasharing",
+      "key": "agorasharing",
+      "displayName": "声网共享",
+      "emailAddress": "agorasharing@easemob.com",
+      "active": true
+    },
+    {
+      "name": "sunhongjian",
+      "key": "sunhongjian",
+      "displayName": "孙红建",
+      "emailAddress": "ahrensun@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zuotaorui",
+      "key": "zuotaorui",
+      "displayName": "左涛瑞 [X]",
+      "emailAddress": "albert.zuo@easemob.com",
+      "active": false
+    },
+    {
+      "name": "axelyang",
+      "key": "axelyang",
+      "displayName": "常亚男 [X]",
+      "emailAddress": "axelyang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "quyanhang",
+      "key": "quyanhang",
+      "displayName": "曲艳行 [X]",
+      "emailAddress": "allan.qu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "ads",
+      "key": "ads",
+      "displayName": "朱东升  [X]",
+      "emailAddress": "daosen.zhu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lijian",
+      "key": "lijian",
+      "displayName": "李剑 [X]",
+      "emailAddress": "Allenlee@easemob.com",
+      "active": false
+    },
+    {
+      "name": "abbydu",
+      "key": "abbydu",
+      "displayName": "杜文娟",
+      "emailAddress": "abbydu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "Apr_2020",
+      "key": "apr_2020",
+      "displayName": "柳泽恩 [X]",
+      "emailAddress": "neal.liu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangsiyu",
+      "key": "wangsiyu",
+      "displayName": "王丝雨",
+      "emailAddress": "asawang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "arveywang",
+      "key": "arveywang",
+      "displayName": "王志伟",
+      "emailAddress": "arveywang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "amelia",
+      "key": "amelia",
+      "displayName": "王永诗 [X]",
+      "emailAddress": "amelia.wang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "Andy Wang",
+      "key": "andy wang",
+      "displayName": "王洪洋 [X]",
+      "emailAddress": "andywang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "allenwang",
+      "key": "allenwang",
+      "displayName": "王璨",
+      "emailAddress": "wangcan@easemob.com",
+      "active": true
+    },
+    {
+      "name": "amy.wang",
+      "key": "amy.wang",
+      "displayName": "王雅倩",
+      "emailAddress": "wangyaqian@easemob.com",
+      "active": true
+    },
+    {
+      "name": "avawang",
+      "key": "avawang",
+      "displayName": "王雅君",
+      "emailAddress": "avawang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "17610173958",
+      "key": "17610173958",
+      "displayName": "白晓飞 [X]",
+      "emailAddress": "arthur.bai@easemob.com",
+      "active": false
+    },
+    {
+      "name": "aaron",
+      "key": "aaron",
+      "displayName": "罗越 [X]",
+      "emailAddress": "aaron.luo@easemob.com",
+      "active": false
+    },
+    {
+      "name": "alangeng",
+      "key": "alangeng",
+      "displayName": "耿浩源",
+      "emailAddress": "alangeng@easemob.com",
+      "active": false
+    },
+    {
+      "name": "alanxu",
+      "key": "alanxu",
+      "displayName": "许云中",
+      "emailAddress": "alanxu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "Ariana",
+      "key": "ariana",
+      "displayName": "贾梦哲 [X]",
+      "emailAddress": "ariana.jia@easemob.com",
+      "active": false
+    },
+    {
+      "name": "chenxuegang",
+      "key": "chenxuegang",
+      "displayName": "陈雪刚 [X]",
+      "emailAddress": "alan.chen@easemob.com",
+      "active": false
+    },
+    {
+      "name": "amy.chen@easemob.com",
+      "key": "amy.chen@easemob.com",
+      "displayName": "陈颖颖 [X]",
+      "emailAddress": "amy.chen@easemob.com",
+      "active": false
+    },
+    {
+      "name": "alongjin",
+      "key": "alongjin",
+      "displayName": "靳成龙",
+      "emailAddress": "alongjin@easemob.com",
+      "active": false
+    },
+    {
+      "name": "huangtao",
+      "key": "huangtao",
+      "displayName": "黄涛",
+      "emailAddress": "ashinhuang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "bianjun",
+      "key": "bianjun",
+      "displayName": "bianjun",
+      "emailAddress": "297125421@qq.com",
+      "active": false
+    },
+    {
+      "name": "zhaogb",
+      "key": "zhaogb",
+      "displayName": "Bingo",
+      "emailAddress": "zhaoguibin@easemob.com",
+      "active": false
+    },
+    {
+      "name": "bingo",
+      "key": "bingo",
+      "displayName": "bingo [X]",
+      "emailAddress": "zhaoguibin@easemob.com",
+      "active": false
+    },
+    {
+      "name": "bonnie.yu",
+      "key": "bonnie.yu",
+      "displayName": "于磊婷",
+      "emailAddress": "yuleiting@easemob.com",
+      "active": true
+    },
+    {
+      "name": "banbanfeng",
+      "key": "banbanfeng",
+      "displayName": "冯瑞",
+      "emailAddress": "banbanfeng@easemob.com",
+      "active": false
+    },
+    {
+      "name": "bigdata",
+      "key": "bigdata",
+      "displayName": "大数据测试",
+      "emailAddress": "zhi.huang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "barryyao",
+      "key": "barryyao",
+      "displayName": "姚永欣",
+      "emailAddress": "barryyao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yaoyx",
+      "key": "yaoyx",
+      "displayName": "姚永欣 [X]",
+      "emailAddress": "barryyao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "bakersong",
+      "key": "baker.song@easemob.com",
+      "displayName": "宋晓伟 [X]",
+      "emailAddress": "baker.song@easemob.com",
+      "active": false
+    },
+    {
+      "name": "shuangxi",
+      "key": "shuangxi",
+      "displayName": "张双喜 [X]",
+      "emailAddress": "brucezhang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "qibaoyong",
+      "key": "qinbaoyong",
+      "displayName": "戚保勇",
+      "emailAddress": "braveqi@easemob.com",
+      "active": false
+    },
+    {
+      "name": "billyli",
+      "key": "billyli",
+      "displayName": "李文俊",
+      "emailAddress": "billyli@easemob.com",
+      "active": false
+    },
+    {
+      "name": "bessli",
+      "key": "bessli",
+      "displayName": "李畅",
+      "emailAddress": "bessli@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yangzhe",
+      "key": "yangzhe",
+      "displayName": "杨哲 [X]",
+      "emailAddress": "blithe.yang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "brucebai",
+      "key": "brucebai",
+      "displayName": "柏建冈",
+      "emailAddress": "brucebai@easemob.com",
+      "active": false
+    },
+    {
+      "name": "berylwang",
+      "key": "berylwang",
+      "displayName": "王鑫爽",
+      "emailAddress": "berylwang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "smy",
+      "key": "smy",
+      "displayName": "申梦宇 [X]",
+      "emailAddress": "bebe.shen@easemob.com",
+      "active": false
+    },
+    {
+      "name": "confuser",
+      "key": "confuser",
+      "displayName": "confluence连接用户",
+      "emailAddress": "confuser@example.com",
+      "active": true
+    },
+    {
+      "name": "cuikx",
+      "key": "cuikx",
+      "displayName": "cuikaixin",
+      "emailAddress": "cuikx@easemob.com",
+      "active": false
+    },
+    {
+      "name": "heq",
+      "key": "heq",
+      "displayName": "heqian",
+      "emailAddress": "cissyhe@easemob.com",
+      "active": false
+    },
+    {
+      "name": "Chong",
+      "key": "chong",
+      "displayName": "zhangchong",
+      "emailAddress": "chongzhang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "changmeng.yu@easemob.com",
+      "key": "changmeng.yu@easemob.com",
+      "displayName": "于昌蒙",
+      "emailAddress": "yuchangmeng@easemob.com",
+      "active": true
+    },
+    {
+      "name": "choujj",
+      "key": "choujj",
+      "displayName": "仇金娟",
+      "emailAddress": "choujj@easemob.com",
+      "active": false
+    },
+    {
+      "name": "congxy",
+      "key": "congxy",
+      "displayName": "从晓月",
+      "emailAddress": "congxy@easemob.com",
+      "active": false
+    },
+    {
+      "name": "tangyuntao",
+      "key": "tangyuntao",
+      "displayName": "唐云涛 [X]",
+      "emailAddress": "chris.tang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "cuijianxun",
+      "key": "cuijianxun",
+      "displayName": "崔建勋",
+      "emailAddress": "cuijianxun@easemob.com",
+      "active": false
+    },
+    {
+      "name": "cuizhi",
+      "key": "cuizhi",
+      "displayName": "崔志刚",
+      "emailAddress": "cuizhigang@easemob.com",
+      "active": true
+    },
+    {
+      "name": "崔明子",
+      "key": "崔明子",
+      "displayName": "崔明子",
+      "emailAddress": "cuimz@easemob.com",
+      "active": false
+    },
+    {
+      "name": "cuiyongqiang",
+      "key": "cuiyongqiang",
+      "displayName": "崔永强",
+      "emailAddress": "cuiyongqiang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "cuidi",
+      "key": "cuidi",
+      "displayName": "崔迪",
+      "emailAddress": "cuidi@easemob.com",
+      "active": false
+    },
+    {
+      "name": "changxuejun",
+      "key": "changxuejun",
+      "displayName": "常学军",
+      "emailAddress": "changxj@easemob.com",
+      "active": false
+    },
+    {
+      "name": "changcheng",
+      "key": "changcheng",
+      "displayName": "常诚",
+      "emailAddress": "chengchang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "chongzhang@easemob.com",
+      "key": "chongzhang@easemob.com",
+      "displayName": "张冲 [X]",
+      "emailAddress": "chongzhang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "xuke",
+      "key": "xuke",
+      "displayName": "徐珂",
+      "emailAddress": "corneliusxu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "xutengchao",
+      "key": "xutengchao",
+      "displayName": "徐腾超",
+      "emailAddress": "carryxu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "ziqin",
+      "key": "ziqin",
+      "displayName": "时士成 [X]",
+      "emailAddress": "congo.shi@easemob.com",
+      "active": false
+    },
+    {
+      "name": "caoyunyang",
+      "key": "caoyunyang",
+      "displayName": "曹云扬",
+      "emailAddress": "caoyy@easemob.com",
+      "active": false
+    },
+    {
+      "name": "caoyan",
+      "key": "caoyan",
+      "displayName": "曹岩",
+      "emailAddress": "caoyan@easemob.com",
+      "active": true
+    },
+    {
+      "name": "caolei",
+      "key": "caolei",
+      "displayName": "曹磊",
+      "emailAddress": "caolei@easemob.com",
+      "active": false
+    },
+    {
+      "name": "caolihui",
+      "key": "caolihui",
+      "displayName": "曹立辉",
+      "emailAddress": "neil@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lichunjin",
+      "key": "lichunjin",
+      "displayName": "李春进",
+      "emailAddress": "chunjin.li@easemob.com",
+      "active": false
+    },
+    {
+      "name": "callumli",
+      "key": "callumli",
+      "displayName": "李梦涛 [X]",
+      "emailAddress": "callum.li@easemob.com",
+      "active": false
+    },
+    {
+      "name": "chris920216",
+      "key": "chris920216",
+      "displayName": "林昌斌 [X]",
+      "emailAddress": "chris.lin@easemob.com",
+      "active": false
+    },
+    {
+      "name": "chaiyuting",
+      "key": "whisper.chai@easemob.com",
+      "displayName": "柴钰婷 [X]",
+      "emailAddress": "chaiyuting@easemob.com",
+      "active": false
+    },
+    {
+      "name": "chaiyuting1",
+      "key": "chaiyuting1",
+      "displayName": "柴钰婷 [X]",
+      "emailAddress": "chaiyuting12@easemob.com",
+      "active": false
+    },
+    {
+      "name": "carlwang",
+      "key": "carlwang",
+      "displayName": "王彤",
+      "emailAddress": "carlwang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangtong",
+      "key": "wangtong",
+      "displayName": "王彤 [X]",
+      "emailAddress": "carlwang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "candywang",
+      "key": "candywang",
+      "displayName": "王芳",
+      "emailAddress": "candywang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "candy",
+      "key": "candy",
+      "displayName": "王芳 [X]",
+      "emailAddress": "candywang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "15810568400",
+      "key": "15810568400",
+      "displayName": "王超超 [X]",
+      "emailAddress": "chaochao.wang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "chengxiuning",
+      "key": "chengxiuning",
+      "displayName": "程秀宁 [X]",
+      "emailAddress": "snowcheng@easemob.com",
+      "active": false
+    },
+    {
+      "name": "chenghui",
+      "key": "chenghui",
+      "displayName": "程辉",
+      "emailAddress": "chenghui@easemob.com",
+      "active": false
+    },
+    {
+      "name": "cxy",
+      "key": "cxy",
+      "displayName": "蔡相跃 [X]",
+      "emailAddress": "xiangyue.cai@easemob.com",
+      "active": false
+    },
+    {
+      "name": "DoubleD",
+      "key": "doubled",
+      "displayName": "许成谱",
+      "emailAddress": "chengpu.xu@easemob.com",
+      "active": true
+    },
+    {
+      "name": "heqian",
+      "key": "hexi",
+      "displayName": "贺茜",
+      "emailAddress": "cissyhe@easemob.com",
+      "active": false
+    },
+    {
+      "name": "cloudscape",
+      "key": "cloudscape",
+      "displayName": "赵清华 [X]",
+      "emailAddress": "cloudscape.zhao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "chixy",
+      "key": "chixy",
+      "displayName": "迟晓宇",
+      "emailAddress": "chixy@easemob.com",
+      "active": false
+    },
+    {
+      "name": "ivanchen",
+      "key": "ivanchen",
+      "displayName": "陈一凡",
+      "emailAddress": "chenyifan@easemob.com",
+      "active": true
+    },
+    {
+      "name": "cxb1181814177",
+      "key": "cxb1181814177",
+      "displayName": "陈信波 [X]",
+      "emailAddress": "toby.chen@easemob.com",
+      "active": false
+    },
+    {
+      "name": "chenjunhua@easemob.com",
+      "key": "chenjunhua@easemob.com",
+      "displayName": "陈均华",
+      "emailAddress": "chenjunhua@easemob.com",
+      "active": true
+    },
+    {
+      "name": "chenguangtao",
+      "key": "chenguangtao",
+      "displayName": "陈广涛 [X]",
+      "emailAddress": "guangtao.chen@easemob.com",
+      "active": false
+    },
+    {
+      "name": "chenzhipan",
+      "key": "chenzhipan",
+      "displayName": "陈志攀",
+      "emailAddress": "jasperchen@easemob.com",
+      "active": false
+    },
+    {
+      "name": "chenhuidong",
+      "key": "chenhuidong",
+      "displayName": "陈惠东",
+      "emailAddress": "deronchen@easemob.com",
+      "active": false
+    },
+    {
+      "name": "chenjing",
+      "key": "chenjing",
+      "displayName": "陈晶",
+      "emailAddress": "chenjing@easemob.com",
+      "active": false
+    },
+    {
+      "name": "vicky.chen",
+      "key": "vicky.chen",
+      "displayName": "陈晶晶 [X]",
+      "emailAddress": "chenjingjing@easemob.com",
+      "active": false
+    },
+    {
+      "name": "chenlw",
+      "key": "chenlw",
+      "displayName": "陈李玮",
+      "emailAddress": "chenlw@easemob.com",
+      "active": false
+    },
+    {
+      "name": "chenchaobing",
+      "key": "chenchaobing",
+      "displayName": "陈潮兵",
+      "emailAddress": "chenchaobing@easemob.com",
+      "active": false
+    },
+    {
+      "name": "chenchangjiang",
+      "key": "chenchangjiang",
+      "displayName": "陈长将",
+      "emailAddress": "chen_changjiang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "hancong",
+      "key": "hancong",
+      "displayName": "韩聪 [X]",
+      "emailAddress": "cong.han@easemob.com",
+      "active": false
+    },
+    {
+      "name": "chasehuang",
+      "key": "chasehuang",
+      "displayName": "黄帅",
+      "emailAddress": "chasehuang@easemob.com",
+      "active": true
+    },
+    {
+      "name": "sixwalnut",
+      "key": "sixwalnut",
+      "displayName": "黄超 [X]",
+      "emailAddress": "chao.huang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "jiangping",
+      "key": "jiangping",
+      "displayName": "david jiang",
+      "emailAddress": "jiangping@easemob.com",
+      "active": false
+    },
+    {
+      "name": "davidzhang",
+      "key": "davidzhang",
+      "displayName": "davidzhang",
+      "emailAddress": "davidzhang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dimeina",
+      "key": "dimeina",
+      "displayName": "dimeina [X]",
+      "emailAddress": "dimn@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dimn",
+      "key": "dimn",
+      "displayName": "dmn",
+      "emailAddress": "dimn@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dumiao",
+      "key": "dumiao",
+      "displayName": "dumiao",
+      "emailAddress": "dumiao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dawnding",
+      "key": "dawnding",
+      "displayName": "丁黎明",
+      "emailAddress": "dawnding@easemob.com",
+      "active": false
+    },
+    {
+      "name": "daiyacheng",
+      "key": "代亚成",
+      "displayName": "代亚成 [X]",
+      "emailAddress": "fidel.dai@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dairx",
+      "key": "dairx",
+      "displayName": "代儒响",
+      "emailAddress": "dairx@easemob.com",
+      "active": false
+    },
+    {
+      "name": "unqiang",
+      "key": "unqiang",
+      "displayName": "何晋强 [X]",
+      "emailAddress": "david.he@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dangwen",
+      "key": "dangwen",
+      "displayName": "党文 [X]",
+      "emailAddress": "dowin.dang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "Liu15139343965",
+      "key": "liu15139343965",
+      "displayName": "刘亚威 [X]",
+      "emailAddress": "David.liu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dx1ao4",
+      "key": "dx1ao4",
+      "displayName": "崔鑫 [X]",
+      "emailAddress": "dawney.cui@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dennis",
+      "key": "dennis",
+      "displayName": "李晓飞",
+      "emailAddress": "dennis@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dengbin.li@easemob.com",
+      "key": "dengbin.li@easemob.com",
+      "displayName": "李灯彬 [X]",
+      "emailAddress": "dengbin.li@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dujunhong",
+      "key": "dujunhong",
+      "displayName": "杜军红",
+      "emailAddress": "dujunhong@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dukun",
+      "key": "杜坤",
+      "displayName": "杜坤",
+      "emailAddress": "deandu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dyf",
+      "key": "dyf",
+      "displayName": "杜懿峰",
+      "emailAddress": "duyifeng@easemob.com",
+      "active": true
+    },
+    {
+      "name": "dujiepeng",
+      "key": "dujiepeng",
+      "displayName": "杜洁鹏",
+      "emailAddress": "dujiepeng@easemob.com",
+      "active": true
+    },
+    {
+      "name": "duc",
+      "key": "duc",
+      "displayName": "杜超",
+      "emailAddress": "duc@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dressrosahong",
+      "key": "dressrosahong",
+      "displayName": "洪宇",
+      "emailAddress": "dressrosahong@easemob.com",
+      "active": false
+    },
+    {
+      "name": "Darcy",
+      "key": "darcy",
+      "displayName": "王子安",
+      "emailAddress": "wangza@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangsm",
+      "key": "wangsm",
+      "displayName": "王帅明",
+      "emailAddress": "darkwang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "王霄华",
+      "key": "王霄华",
+      "displayName": "王霄华",
+      "emailAddress": "dukewang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "douzhongqiang",
+      "key": "douzhongqiang",
+      "displayName": "窦中强",
+      "emailAddress": "zdou@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dragonhu",
+      "key": "dragonhu",
+      "displayName": "胡宗阳 [X]",
+      "emailAddress": "dragonhu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dongyibo",
+      "key": "dongyibo",
+      "displayName": "董宜博 ",
+      "emailAddress": "yibo.dong@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dongwentao",
+      "key": "dongwentao",
+      "displayName": "董文涛",
+      "emailAddress": "dongwt@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dongjie",
+      "key": "dongjie",
+      "displayName": "董杰",
+      "emailAddress": "johndong@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dongml",
+      "key": "dongml",
+      "displayName": "董梦蕾 [X]",
+      "emailAddress": "menglei.dong@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dongtt",
+      "key": "dongtt",
+      "displayName": "董腾腾",
+      "emailAddress": "dongtt@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhaodan",
+      "key": "zhaodan",
+      "displayName": "赵丹 [X]",
+      "emailAddress": "dawn.zhao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dengchengwei",
+      "key": "dengchengwei",
+      "displayName": "邓成伟",
+      "emailAddress": "dcw1123@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dengchao",
+      "key": "dengchao",
+      "displayName": "邓超",
+      "emailAddress": "dengchao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "daikin",
+      "key": "daikin",
+      "displayName": "金红星 [X]",
+      "emailAddress": "daikin.jin@easemob.com",
+      "active": false
+    },
+    {
+      "name": "dazenhan",
+      "key": "dazenhan",
+      "displayName": "韩鹏涛",
+      "emailAddress": "dazenhan@easemob.com",
+      "active": false
+    },
+    {
+      "name": "gds",
+      "key": "gds",
+      "displayName": "高东升",
+      "emailAddress": "dongshenggao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "docs",
+      "key": "docs",
+      "displayName": "黄谦测试",
+      "emailAddress": "docs@easemob.com",
+      "active": false
+    },
+    {
+      "name": "Eric",
+      "key": "eric",
+      "displayName": "周顺 [X]",
+      "emailAddress": "eric.zhou@easemob.com",
+      "active": false
+    },
+    {
+      "name": "evanli",
+      "key": "evanli",
+      "displayName": "李嘉豪",
+      "emailAddress": "evanli@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yangzhichao",
+      "key": "yangzhichao",
+      "displayName": "杨智超 [X]",
+      "emailAddress": "emerson.yang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liangyupeng",
+      "key": "liangyupeng",
+      "displayName": "梁宇鹏",
+      "emailAddress": "eric@easemob.com",
+      "active": false
+    },
+    {
+      "name": "eric_tian",
+      "key": "eric_tian",
+      "displayName": "田良智",
+      "emailAddress": "tianlzh@easemob.com",
+      "active": false
+    },
+    {
+      "name": "easemob",
+      "key": "easemob",
+      "displayName": "赵媛媛",
+      "emailAddress": "yuan.zhao@easemob.com",
+      "active": true
+    },
+    {
+      "name": "erilk.deng@easemob.com",
+      "key": "erilk.demg@easemob.com",
+      "displayName": "邓梦超 [X]",
+      "emailAddress": "erilk.deng@easemob.com",
+      "active": false
+    },
+    {
+      "name": "enricowei",
+      "key": "enricowei",
+      "displayName": "魏泽源",
+      "emailAddress": "weizeyuan@easemob.com",
+      "active": true
+    },
+    {
+      "name": "fjding",
+      "key": "fjding",
+      "displayName": "丁福景 [X]",
+      "emailAddress": "fj.ding@easemob.com",
+      "active": false
+    },
+    {
+      "name": "fudx",
+      "key": "fudx",
+      "displayName": "付道新",
+      "emailAddress": "fudx@easemob.com",
+      "active": false
+    },
+    {
+      "name": "fudonghai",
+      "key": "fudonghai",
+      "displayName": "傅东海",
+      "emailAddress": "fudh@easemob.com",
+      "active": true
+    },
+    {
+      "name": "fengpei",
+      "key": "fengpei",
+      "displayName": "冯佩",
+      "emailAddress": "fengpei@easemob.com",
+      "active": false
+    },
+    {
+      "name": "fengguocheng",
+      "key": "fengguocheng",
+      "displayName": "冯国成",
+      "emailAddress": "pikefeng@easemob.com",
+      "active": false
+    },
+    {
+      "name": "fengzhao",
+      "key": "fengzhao",
+      "displayName": "冯钊 [X]",
+      "emailAddress": "zhao.feng@easemob.com",
+      "active": false
+    },
+    {
+      "name": "songrunxin",
+      "key": "songrunxin",
+      "displayName": "宋闰鑫 [X]",
+      "emailAddress": "fender.song@easemob.com",
+      "active": false
+    },
+    {
+      "name": "fangrui",
+      "key": "yangrui",
+      "displayName": "房瑞",
+      "emailAddress": "timfang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "frankwang@easemob.com",
+      "key": "frankwang@easemob.com",
+      "displayName": "王林",
+      "emailAddress": "wanglin@easemob.com",
+      "active": true
+    },
+    {
+      "name": "ford.zhu",
+      "key": "ford.zhu",
+      "displayName": "竺齐 [X]",
+      "emailAddress": "ford.zhu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "funing",
+      "key": "funing",
+      "displayName": "符宁",
+      "emailAddress": "simon.fu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "fanyuanmeng",
+      "key": "fanyuanmeng",
+      "displayName": "范元蒙",
+      "emailAddress": "fanym@easemob.com",
+      "active": false
+    },
+    {
+      "name": "fanzhijie",
+      "key": "fanzhijie",
+      "displayName": "范志杰 [X]",
+      "emailAddress": "zhijie.fan@easemob.com",
+      "active": false
+    },
+    {
+      "name": "fanxn",
+      "key": "fanxn",
+      "displayName": "范晓宁",
+      "emailAddress": "fanxn@easemob.com",
+      "active": false
+    },
+    {
+      "name": "fanjiangwei",
+      "key": "fanjiangwei",
+      "displayName": "范江伟",
+      "emailAddress": "fanjw@easemob.com",
+      "active": false
+    },
+    {
+      "name": "fanfan",
+      "key": "fanfan",
+      "displayName": "范金豪",
+      "emailAddress": "fanfan@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhaoxm",
+      "key": "zhaoxm",
+      "displayName": "赵笑漫",
+      "emailAddress": "fancyzhao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "feltonlei",
+      "key": "feltonlei",
+      "displayName": "雷宇飞 [X]",
+      "emailAddress": "felton.lei@easemob.com",
+      "active": false
+    },
+    {
+      "name": "Hanj",
+      "key": "hanj",
+      "displayName": "韩剑",
+      "emailAddress": "frankhan@easemob.com",
+      "active": false
+    },
+    {
+      "name": "gaoqiang",
+      "key": "gaoqiang",
+      "displayName": "gaoqiang",
+      "emailAddress": "garygao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "gaosd",
+      "key": "gaosd",
+      "displayName": "gaosudan",
+      "emailAddress": "gaosd@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangcs",
+      "key": "zhangcs",
+      "displayName": "zhangchangshuai",
+      "emailAddress": "gavinzhang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "Guoqing-Wu",
+      "key": "guoqing-wu",
+      "displayName": "吴国青",
+      "emailAddress": "wugq@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lisl",
+      "key": "lisl",
+      "displayName": "李石磊",
+      "emailAddress": "ginlin@easemob.com",
+      "active": false
+    },
+    {
+      "name": "guominyang",
+      "key": "guominyang",
+      "displayName": "杨国民",
+      "emailAddress": "guominyang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "Geri",
+      "key": "geri",
+      "displayName": "杨峥峥",
+      "emailAddress": "yangzz@easemob.com",
+      "active": false
+    },
+    {
+      "name": "tcc",
+      "key": "tcc",
+      "displayName": "田晨晨",
+      "emailAddress": "gladystian@easemob.com",
+      "active": false
+    },
+    {
+      "name": "guhuaiyuan",
+      "key": "guhuaiyuan",
+      "displayName": "谷怀远",
+      "emailAddress": "ghy@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhengguoyu",
+      "key": "zhengguoyu",
+      "displayName": "郑国宇 [X]",
+      "emailAddress": "guoyu.zheng@easemob.com",
+      "active": false
+    },
+    {
+      "name": "gjd",
+      "key": "gjd",
+      "displayName": "郭俊达 [X]",
+      "emailAddress": "junda.guo@easemob.com",
+      "active": false
+    },
+    {
+      "name": "guoxs",
+      "key": "guoxs",
+      "displayName": "郭小双",
+      "emailAddress": "guoxs@easemob.com",
+      "active": false
+    },
+    {
+      "name": "guoying",
+      "key": "guoying",
+      "displayName": "郭影",
+      "emailAddress": "guoying@easemob.com",
+      "active": false
+    },
+    {
+      "name": "guozhao",
+      "key": "guozhao",
+      "displayName": "郭朝",
+      "emailAddress": "guozhao@easemob.com",
+      "active": true
+    },
+    {
+      "name": "guomumin",
+      "key": "guomumin",
+      "displayName": "郭穆敏",
+      "emailAddress": "guomumin@easemob.com",
+      "active": true
+    },
+    {
+      "name": "gavinchen",
+      "key": " gavinchen",
+      "displayName": "陈广宁 [X]",
+      "emailAddress": "gavin.chen@easemob.com",
+      "active": false
+    },
+    {
+      "name": "guchuanyun",
+      "key": "guchuanyun",
+      "displayName": "顾传昀",
+      "emailAddress": "gucj@easemob.com",
+      "active": false
+    },
+    {
+      "name": "gujiabei",
+      "key": "gujiabei",
+      "displayName": "顾佳蓓",
+      "emailAddress": "gujiabei@shengwang.cn",
+      "active": true
+    },
+    {
+      "name": "gaoqz",
+      "key": "gaoqz",
+      "displayName": "高启芝",
+      "emailAddress": "gaoqz@easemob.com",
+      "active": false
+    },
+    {
+      "name": "gaoguangjun",
+      "key": "gaoguangjun",
+      "displayName": "高广军",
+      "emailAddress": "gaogj@easemob.com",
+      "active": false
+    },
+    {
+      "name": "gaoyuping",
+      "key": "gaoyuping",
+      "displayName": "高玉平",
+      "emailAddress": "gaoyuping@easemob.com",
+      "active": false
+    },
+    {
+      "name": "gaojingyi",
+      "key": "gaojingyi",
+      "displayName": "高竟溢",
+      "emailAddress": "gaojingyi@easemob.com",
+      "active": false
+    },
+    {
+      "name": "gaozhuqing",
+      "key": "gaozhuqing",
+      "displayName": "高竹青",
+      "emailAddress": "gaozhq@easemob.com",
+      "active": false
+    },
+    {
+      "name": "gaopeng",
+      "key": "gaopeng",
+      "displayName": "高鹏 [X]",
+      "emailAddress": "idea.gao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "hetao",
+      "key": "hetao",
+      "displayName": "102700",
+      "emailAddress": "hetao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "hanyn",
+      "key": "hanyn",
+      "displayName": "hanyaning",
+      "emailAddress": "hanyn@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liuc",
+      "key": "liuc",
+      "displayName": "liuchen",
+      "emailAddress": "horoliu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "hejiaxi",
+      "key": "hejiaxi",
+      "displayName": "何佳曦",
+      "emailAddress": "hejiaxi@easemob.com",
+      "active": false
+    },
+    {
+      "name": "hegj",
+      "key": "hegj",
+      "displayName": "何国姣",
+      "emailAddress": "hegj@easemob.com",
+      "active": false
+    },
+    {
+      "name": "heguojiao",
+      "key": "heguojiao",
+      "displayName": "何国姣 [X]",
+      "emailAddress": "hegj@easemob.com",
+      "active": false
+    },
+    {
+      "name": "houli",
+      "key": "houli",
+      "displayName": "侯力 [X]",
+      "emailAddress": "hou.li@easemob.com",
+      "active": false
+    },
+    {
+      "name": "houshengb",
+      "key": "houshengb",
+      "displayName": "侯胜斌",
+      "emailAddress": "houshengb@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liuwenhao",
+      "key": "liuwenhao",
+      "displayName": "刘文豪",
+      "emailAddress": "haoliu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wujunyang",
+      "key": "wujunyang",
+      "displayName": "吴俊阳",
+      "emailAddress": "huangqian@easemob.com",
+      "active": false
+    },
+    {
+      "name": "shanghaijun",
+      "key": "shanghaijun",
+      "displayName": "尚海军 [X]",
+      "emailAddress": "haijunshang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "henryzhang",
+      "key": "henryzhang",
+      "displayName": "张东",
+      "emailAddress": "henryzhang@easemob.com",
+      "active": true
+    },
+    {
+      "name": "zhanghq",
+      "key": "zhanghq",
+      "displayName": "张洪强 [X]",
+      "emailAddress": "hongqiang.zhang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "17637515819",
+      "key": "17637515819",
+      "displayName": "李元基 [X]",
+      "emailAddress": "hardy.li@easemob.com",
+      "active": false
+    },
+    {
+      "name": "hao.li@easemob.com",
+      "key": "hao.li@easemob.com",
+      "displayName": "李昊 [X]",
+      "emailAddress": "hao.li@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yanghl",
+      "key": "yanghl",
+      "displayName": "杨昊蓝 [X]",
+      "emailAddress": "haolan.yang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "hsinli",
+      "key": "hsinli",
+      "displayName": "栗新宽",
+      "emailAddress": "hsinli@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lixinkuan",
+      "key": "lixinkuan",
+      "displayName": "栗新宽 [X]",
+      "emailAddress": "hsinli@easemob.com",
+      "active": false
+    },
+    {
+      "name": "huashuo",
+      "key": "huashuo",
+      "displayName": "滑烁",
+      "emailAddress": "huashuo1218@126.com",
+      "active": false
+    },
+    {
+      "name": "hanna.man@easemob.com",
+      "key": "hanna.man@easemob.com",
+      "displayName": "满航 [X]",
+      "emailAddress": "hanna.man@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wanghaohao",
+      "key": "wanghaohao",
+      "displayName": "王浩浩 [X]",
+      "emailAddress": "haohao.wang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "haozki",
+      "key": "haozki",
+      "displayName": "耗斯基",
+      "emailAddress": "haozki@easemob.com",
+      "active": true
+    },
+    {
+      "name": "huzirun",
+      "key": "huzirun",
+      "displayName": "胡子润",
+      "emailAddress": "huzirun@easemob.com",
+      "active": true
+    },
+    {
+      "name": "halajohn",
+      "key": "halajohn",
+      "displayName": "胡岳伟",
+      "emailAddress": "huyuewei@shengwang.cn",
+      "active": true
+    },
+    {
+      "name": "hejun",
+      "key": "hejun",
+      "displayName": "贺军",
+      "emailAddress": "hejun@shengwang.cn",
+      "active": true
+    },
+    {
+      "name": "zhaohaiyang",
+      "key": "zhaohaiyang",
+      "displayName": "赵海洋 [X]",
+      "emailAddress": "haiyang.zhao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "hy",
+      "key": "hy",
+      "displayName": "这个账号重复了，不要给这个账号建JIRA",
+      "emailAddress": "this_is_a_duplication_of_haoyu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "haoxiuwen",
+      "key": "amy.hao@easemob.com",
+      "displayName": "郝秀文",
+      "emailAddress": "haoxiuwen@easemob.com",
+      "active": true
+    },
+    {
+      "name": "haoyu",
+      "key": "haoyu",
+      "displayName": "郝羽",
+      "emailAddress": "haoyu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "hanyx",
+      "key": "hanyx",
+      "displayName": "韩延肖",
+      "emailAddress": "hanyx@easemob.com",
+      "active": false
+    },
+    {
+      "name": "hanting",
+      "key": "hanting",
+      "displayName": "韩汀",
+      "emailAddress": "hanting@easemob.com",
+      "active": false
+    },
+    {
+      "name": "huangjia",
+      "key": "huangjia",
+      "displayName": "黄佳",
+      "emailAddress": "huangjia@easemob.com",
+      "active": false
+    },
+    {
+      "name": "huangshuai",
+      "key": "huangshuai",
+      "displayName": "黄帅",
+      "emailAddress": "huangshuai@easemob.com",
+      "active": true
+    },
+    {
+      "name": "huangchenglin",
+      "key": "huangchenglin",
+      "displayName": "黄成林",
+      "emailAddress": "lainhuang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "huangxiaoqing",
+      "key": "huangxiaoqing",
+      "displayName": "黄晓庆 [X]",
+      "emailAddress": "sochin.huang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "huangzhi",
+      "key": "huangzhi",
+      "displayName": "黄智",
+      "emailAddress": "zhi.huang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "huangzw",
+      "key": "huangzw",
+      "displayName": "黄祖伟",
+      "emailAddress": "xiaoweihuang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "huangxiang",
+      "key": "huangxiang",
+      "displayName": "黄翔",
+      "emailAddress": "huangxiang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "huangshihui",
+      "key": "huangshihui",
+      "displayName": "黄诗惠",
+      "emailAddress": "huangshihui@agora.io",
+      "active": true
+    },
+    {
+      "name": "huangqian",
+      "key": "huangqian",
+      "displayName": "黄谦",
+      "emailAddress": "huangqian@easemob.com",
+      "active": false
+    },
+    {
+      "name": "huangyunfeng",
+      "key": "huangyunfeng",
+      "displayName": "黄运锋",
+      "emailAddress": "huangyunfeng@agora.io",
+      "active": true
+    },
+    {
+      "name": "huangfeipeng",
+      "key": "leo.huang",
+      "displayName": "黄飞鹏",
+      "emailAddress": "huangfeipeng111@easemob.com",
+      "active": true
+    },
+    {
+      "name": "neohuang",
+      "key": "neohuang",
+      "displayName": "黄飞鹏",
+      "emailAddress": "huangfeipeng@easemob.com",
+      "active": true
+    },
+    {
+      "name": "16619972698",
+      "key": "16619972698",
+      "displayName": "jasonjin [X]",
+      "emailAddress": "jasonjin@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhouchenzhi",
+      "key": "zhouchenzhi",
+      "displayName": "JevinZhou",
+      "emailAddress": "zhoucz@easemob.com",
+      "active": false
+    },
+    {
+      "name": "stevenjiang",
+      "key": "stevenjiang",
+      "displayName": "jianghanxiao",
+      "emailAddress": "stevenjiang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "jiayanchao",
+      "key": "jiayanchao",
+      "displayName": "jiayanchao",
+      "emailAddress": "jiayc@easemob.com",
+      "active": false
+    },
+    {
+      "name": "jiraadmin",
+      "key": "jiraadmin",
+      "displayName": "jiraadmin",
+      "emailAddress": "jiraadmin@easemob.com",
+      "active": false
+    },
+    {
+      "name": "jinliang.liu",
+      "key": "jinliang.liu",
+      "displayName": "liujinliang",
+      "emailAddress": "jinliang.liu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangxu",
+      "key": "zhangxu",
+      "displayName": "zhangxu",
+      "emailAddress": "jasonzhang1@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhaoyy",
+      "key": "zhaoyy",
+      "displayName": "zhaoyuanyuan",
+      "emailAddress": "janetzhao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "jackerhe",
+      "key": "jackerhe",
+      "displayName": "何康林 [X]",
+      "emailAddress": "jackerhe@easemob.com",
+      "active": false
+    },
+    {
+      "name": "jonny-yu",
+      "key": "jonny-yu",
+      "displayName": "余友强 [X]",
+      "emailAddress": "jonny.yu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "jasminehou",
+      "key": "jasminehou",
+      "displayName": "侯婧欢",
+      "emailAddress": "jasminehou@easemob.com",
+      "active": false
+    },
+    {
+      "name": "joydang",
+      "key": "joydang",
+      "displayName": "党斌",
+      "emailAddress": "joydang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "13671158760",
+      "key": "13671158760",
+      "displayName": "刘金梁 [X]",
+      "emailAddress": "jinliang.liu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "tangxu",
+      "key": "tangxu",
+      "displayName": "唐旭",
+      "emailAddress": "jallenytang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "StevieJiang",
+      "key": "steviejiang",
+      "displayName": "姜晗效",
+      "emailAddress": "jianghanxiao@easemob.com",
+      "active": true
+    },
+    {
+      "name": "jiangzezheng",
+      "key": "jiangzezheng",
+      "displayName": "姜泽政 [X]",
+      "emailAddress": "zezheng.jiang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "jhj",
+      "key": "jhj",
+      "displayName": "姜球球",
+      "emailAddress": "jianghaojie@easemob.com",
+      "active": true
+    },
+    {
+      "name": "jamessun",
+      "key": "jamessun",
+      "displayName": "孙国帅",
+      "emailAddress": "jamessun@easemob.com",
+      "active": false
+    },
+    {
+      "name": "jeremy.zhang@easemob.com",
+      "key": "jeremy.zhang@easemob.com",
+      "displayName": "张俊 [X]",
+      "emailAddress": "jeremy.zhang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "jimzhang",
+      "key": "jimzhang",
+      "displayName": "张天宇",
+      "emailAddress": "jimzhang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangsong",
+      "key": "zhangsong",
+      "displayName": "张松",
+      "emailAddress": "jasonzhang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "jerry",
+      "key": "jerry",
+      "displayName": "张超",
+      "emailAddress": "zhangchao@easemob.com",
+      "active": true
+    },
+    {
+      "name": "Jennifer.zeng@easemob.com",
+      "key": "jennifer.zeng@easemob.com",
+      "displayName": "曾丽华 [X]",
+      "emailAddress": "Jennifer.zeng@easemob.com",
+      "active": false
+    },
+    {
+      "name": "jeffury",
+      "key": "jeffury",
+      "displayName": "朱相奎",
+      "emailAddress": "zhuxk@easemob.com",
+      "active": false
+    },
+    {
+      "name": "jichao.zhu@easemob.com",
+      "key": "jichao.zhu@easemob.com",
+      "displayName": "朱继超",
+      "emailAddress": "zhujichao@easemob.com",
+      "active": true
+    },
+    {
+      "name": "julong",
+      "key": "julong",
+      "displayName": "李巨龙",
+      "emailAddress": "lijl@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yangxiaotong",
+      "key": "yangxiaotong",
+      "displayName": "杨晓通",
+      "emailAddress": "jackyang1@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yanglx",
+      "key": "杨龙喜",
+      "displayName": "杨龙喜",
+      "emailAddress": "jackyang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "jiangdongxu",
+      "key": "jiangdongxu",
+      "displayName": "江东旭",
+      "emailAddress": "jiangdongxu@easemob.com",
+      "active": true
+    },
+    {
+      "name": "wangjianjia",
+      "key": "wangjianjia",
+      "displayName": "王建佳 [X]",
+      "emailAddress": "jianjia.wang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangxin",
+      "key": "wangxin",
+      "displayName": "王鑫",
+      "emailAddress": "jeff@easemob.com",
+      "active": false
+    },
+    {
+      "name": "jifang",
+      "key": "jifang",
+      "displayName": "纪方",
+      "emailAddress": "jifang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "jich",
+      "key": "jich",
+      "displayName": "纪昌汉",
+      "emailAddress": "jich@easemob.com",
+      "active": false
+    },
+    {
+      "name": "jiangyiming",
+      "key": "jiangyiming",
+      "displayName": "蒋一鸣",
+      "emailAddress": "jiangym@easemob.com",
+      "active": false
+    },
+    {
+      "name": "jiangyueting",
+      "key": "jiangyueting",
+      "displayName": "蒋月婷",
+      "emailAddress": "jiangyueting@easemob.com",
+      "active": false
+    },
+    {
+      "name": "Ming2019",
+      "key": "ming2019",
+      "displayName": "许佳琦 [X]",
+      "emailAddress": "jiaqi.xu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "jianing",
+      "key": "jianing",
+      "displayName": "贾宁",
+      "emailAddress": "jianing@shengwang.cn",
+      "active": true
+    },
+    {
+      "name": "jiataotao",
+      "key": "jiataotao",
+      "displayName": "贾涛涛 [X]",
+      "emailAddress": "taotao.jia@easemob.com",
+      "active": false
+    },
+    {
+      "name": "jiaqin",
+      "key": "jiaqin",
+      "displayName": "贾琴",
+      "emailAddress": "jiaqin@easemob.com",
+      "active": false
+    },
+    {
+      "name": "jinsh",
+      "key": "jinsh",
+      "displayName": "靳三红",
+      "emailAddress": "jasonjin@easemob.com",
+      "active": false
+    },
+    {
+      "name": "10086",
+      "key": "10086",
+      "displayName": "靳三红 [X]",
+      "emailAddress": "jasonjin@easemob.com",
+      "active": false
+    },
+    {
+      "name": "johnson",
+      "key": "johnson",
+      "displayName": "马晓宇",
+      "emailAddress": "jma@easemob.com",
+      "active": false
+    },
+    {
+      "name": "weijigang",
+      "key": "weijigang",
+      "displayName": "魏继刚 [X]",
+      "emailAddress": "jigang.weii@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liukai0305",
+      "key": "liukai0305",
+      "displayName": "刘凯 [X]",
+      "emailAddress": "kai.liu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "kongly",
+      "key": "kongly",
+      "displayName": "孔令营",
+      "emailAddress": "kongly@easemob.com",
+      "active": false
+    },
+    {
+      "name": "kongjialin",
+      "key": "kongjialin",
+      "displayName": "孔佳林",
+      "emailAddress": "kongjialin@easemob.com",
+      "active": true
+    },
+    {
+      "name": "sunkai",
+      "key": "sunkai",
+      "displayName": "孙凯 [X]",
+      "emailAddress": "kevin.sun@easemob.com",
+      "active": false
+    },
+    {
+      "name": "keykou",
+      "key": "keykou",
+      "displayName": "寇宇",
+      "emailAddress": "keykou@easemob.com",
+      "active": false
+    },
+    {
+      "name": "18518098976",
+      "key": "18518098976",
+      "displayName": "寇宇 [X]",
+      "emailAddress": "keykou@easemob.com",
+      "active": false
+    },
+    {
+      "name": "kallywang",
+      "key": "kallywang",
+      "displayName": "王秀丽",
+      "emailAddress": "kallywang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "kenuiuc",
+      "key": "kenuiuc",
+      "displayName": "王科 [X]",
+      "emailAddress": "ken.wang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "kevinjin",
+      "key": "kevinjin",
+      "displayName": "金康",
+      "emailAddress": "kevinjin@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liran",
+      "key": "liran",
+      "displayName": "liran",
+      "emailAddress": "liran@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lishouhui",
+      "key": "lishouhui",
+      "displayName": "lishouhui",
+      "emailAddress": "lish@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liuzm@easemob.com",
+      "key": "liuzm@easemob.com",
+      "displayName": "liuzm@easemob.com [X]",
+      "emailAddress": "liuzm@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liuweilong@agora.io",
+      "key": "liuweilong@agora.io",
+      "displayName": "刘为龙",
+      "emailAddress": "liuweilong@agora.io",
+      "active": true
+    },
+    {
+      "name": "Shannon_llj",
+      "key": "shannon_llj",
+      "displayName": "刘丽君",
+      "emailAddress": "liulj@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liuyun",
+      "key": "liuyun",
+      "displayName": "刘云",
+      "emailAddress": "liuyun@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liuyuanting",
+      "key": "liuyuanting",
+      "displayName": "刘元廷",
+      "emailAddress": "liuyt@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liull",
+      "key": "liull",
+      "displayName": "刘兰兰",
+      "emailAddress": "liull@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liulantao",
+      "key": "liulantao",
+      "displayName": "刘兰涛",
+      "emailAddress": "liulantao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "NeilLiu",
+      "key": "neilliu",
+      "displayName": "刘吉南",
+      "emailAddress": "liujinan@easemob.com",
+      "active": true
+    },
+    {
+      "name": "liutianyou",
+      "key": "liutianyou",
+      "displayName": "刘天佑",
+      "emailAddress": "liutianyou@shengwang.cn",
+      "active": true
+    },
+    {
+      "name": "liushaozhuang",
+      "key": "liushaozhuang",
+      "displayName": "刘少壮",
+      "emailAddress": "stliu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liufeng",
+      "key": "liufeng",
+      "displayName": "刘峰",
+      "emailAddress": "liufeng@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liufan",
+      "key": "liufan",
+      "displayName": "刘帆",
+      "emailAddress": "liufan@easemob.com",
+      "active": true
+    },
+    {
+      "name": "liuqing",
+      "key": "liuqing",
+      "displayName": "刘擎",
+      "emailAddress": "qingliu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liuzheng",
+      "key": "liuzheng",
+      "displayName": "刘政",
+      "emailAddress": "liuzheng@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liuxiaowei@agora.io",
+      "key": "liuxiaowei@agora.io",
+      "displayName": "刘晓伟",
+      "emailAddress": "liuxiaowei@easemob.com",
+      "active": true
+    },
+    {
+      "name": "liuhs",
+      "key": "liuhs",
+      "displayName": "刘海生",
+      "emailAddress": "liuhs@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liutao",
+      "key": "liutao",
+      "displayName": "刘涛",
+      "emailAddress": "tonyliu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liulu",
+      "key": "liulu",
+      "displayName": "刘璐",
+      "emailAddress": "lululiu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lzan13",
+      "key": "lzan13",
+      "displayName": "刘立正",
+      "emailAddress": "lzan13@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liuhuinu",
+      "key": "liuhuinu",
+      "displayName": "刘绘奴",
+      "emailAddress": "liuhuinu@shengwang.cn",
+      "active": true
+    },
+    {
+      "name": "liuteng",
+      "key": "liuteng",
+      "displayName": "刘腾",
+      "emailAddress": "liuteng@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liupeng",
+      "key": "liupeng",
+      "displayName": "刘鹏",
+      "emailAddress": "liupeng@easemob.com",
+      "active": true
+    },
+    {
+      "name": "licong@easemob.com",
+      "key": "licong@easemob.com",
+      "displayName": "利聪",
+      "emailAddress": "licong@easemob.com",
+      "active": true
+    },
+    {
+      "name": "lvlinlin",
+      "key": "lvlinlin",
+      "displayName": "吕林林 [X]",
+      "emailAddress": "rainbow.lv@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zliao",
+      "key": "zliao",
+      "displayName": "廖卓远",
+      "emailAddress": "liaozhy@easemob.com",
+      "active": false
+    },
+    {
+      "name": "xugang",
+      "key": "xugang",
+      "displayName": "徐刚",
+      "emailAddress": "leoxu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "sheepstarli",
+      "key": "sheepstarli",
+      "displayName": "我不是licx",
+      "emailAddress": "licx@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lishiwei",
+      "key": "阿花君",
+      "displayName": "李世伟",
+      "emailAddress": "lishiwei@easemob.com",
+      "active": true
+    },
+    {
+      "name": "liyx",
+      "key": "liyx",
+      "displayName": "李云霞",
+      "emailAddress": "liyx@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liyl",
+      "key": "liyl",
+      "displayName": "李亚雷",
+      "emailAddress": "liyl@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liwei",
+      "key": "liwei",
+      "displayName": "李伟",
+      "emailAddress": "liwei@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lijiaqi@agora.io",
+      "key": "lijiaqi@agora.io",
+      "displayName": "李佳琪 [X]",
+      "emailAddress": "lijiaqi@shengwang.cn",
+      "active": false
+    },
+    {
+      "name": "libs",
+      "key": "libs",
+      "displayName": "李保书",
+      "emailAddress": "libs@easemob.com",
+      "active": false
+    },
+    {
+      "name": "likai",
+      "key": "likai",
+      "displayName": "李凯",
+      "emailAddress": "likai@easemob.ccom",
+      "active": false
+    },
+    {
+      "name": "lijunlian",
+      "key": "lijunlian",
+      "displayName": "李君莲",
+      "emailAddress": "lijunlian@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lijiahao",
+      "key": "lijiahao",
+      "displayName": "李嘉豪 [X]",
+      "emailAddress": "lijiahao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liting",
+      "key": "liting",
+      "displayName": "李婷",
+      "emailAddress": "liting@shengwang.cn",
+      "active": true
+    },
+    {
+      "name": "lizilong",
+      "key": "lizilong",
+      "displayName": "李子龙",
+      "emailAddress": "zilong.li@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lixuebo",
+      "key": "lixuebo",
+      "displayName": "李学博",
+      "emailAddress": "xuebo.li@easemob.com",
+      "active": false
+    },
+    {
+      "name": "victorli",
+      "key": "victorli",
+      "displayName": "李小明",
+      "emailAddress": "lixiaoming@easemob.com",
+      "active": true
+    },
+    {
+      "name": "liweiwei",
+      "key": "liweiwei",
+      "displayName": "李巍",
+      "emailAddress": "vicky@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lizg",
+      "key": "lizg",
+      "displayName": "李志国",
+      "emailAddress": "lizg@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lizhiguo",
+      "key": "lizhiguo",
+      "displayName": "李志国 [X]",
+      "emailAddress": "lizg@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lizb",
+      "key": "lizb",
+      "displayName": "李忠斌",
+      "emailAddress": "lizb@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lisy",
+      "key": "lisy",
+      "displayName": "李思远",
+      "emailAddress": "lisy@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lifanghong",
+      "key": "lifanghong",
+      "displayName": "李方红",
+      "emailAddress": "lifh@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lichunwei",
+      "key": "lichunwei",
+      "displayName": "李春伟",
+      "emailAddress": "lichunwei@easemob.com",
+      "active": true
+    },
+    {
+      "name": "lixiaofeng",
+      "key": "lixiaofeng",
+      "displayName": "李晓凤",
+      "emailAddress": "xiaofeng@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lichenxing",
+      "key": "lichenxing",
+      "displayName": "李晨星",
+      "emailAddress": "licx@easemob.com",
+      "active": false
+    },
+    {
+      "name": "litaoan",
+      "key": "litaoan",
+      "displayName": "李桃安 [X]",
+      "emailAddress": "taoan.li@easemob.com",
+      "active": false
+    },
+    {
+      "name": "linan",
+      "key": "linan",
+      "displayName": "李楠 ",
+      "emailAddress": "linan@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liyongxin",
+      "key": "liyongxin",
+      "displayName": "李永新 [X]",
+      "emailAddress": "lyx.li@easemob.com",
+      "active": false
+    },
+    {
+      "name": "李渊",
+      "key": "李渊",
+      "displayName": "李渊",
+      "emailAddress": "lokelee@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liyuzhao",
+      "key": "liyuzhao",
+      "displayName": "李玉召",
+      "emailAddress": "liyuzhao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "liwangyu",
+      "key": "liwangyu",
+      "displayName": "李王玉 [X]",
+      "emailAddress": "wangyu.li@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lili",
+      "key": "lili",
+      "displayName": "李理",
+      "emailAddress": "lili@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lijindong",
+      "key": "lijindong",
+      "displayName": "李瑾东",
+      "emailAddress": "walkerlee@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yitong",
+      "key": "yitong",
+      "displayName": "李益同",
+      "emailAddress": "liyitong@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lijipeng",
+      "key": "lijipeng",
+      "displayName": "李继鹏",
+      "emailAddress": "Leoli@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lijin",
+      "key": "lijin",
+      "displayName": "李金",
+      "emailAddress": "lijin@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lirui",
+      "key": "lirui",
+      "displayName": "李锐",
+      "emailAddress": "Leerolli@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lifei9241",
+      "key": "lifei9241",
+      "displayName": "李飞",
+      "emailAddress": "lif@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lihongru",
+      "key": "lihongru",
+      "displayName": "李鸿儒",
+      "emailAddress": "lihr@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yanglq",
+      "key": "yanglq",
+      "displayName": "杨力权 [X]",
+      "emailAddress": "lq.yang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "leonyang",
+      "key": "leonyang",
+      "displayName": "杨超宇",
+      "emailAddress": "leonyang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "linyu",
+      "key": "linyu",
+      "displayName": "林宇",
+      "emailAddress": "linyu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "linzhihao@easemob.com",
+      "key": "linzhihao@easemob.com",
+      "displayName": "林志豪",
+      "emailAddress": "linzhihao@easemob.com",
+      "active": true
+    },
+    {
+      "name": "luanhongli",
+      "key": "luanhongli",
+      "displayName": "栾红利",
+      "emailAddress": "luanhongli@easemob.com",
+      "active": true
+    },
+    {
+      "name": "liangyj",
+      "key": "liangyj",
+      "displayName": "梁彦杰",
+      "emailAddress": "liangyj@easemob.com",
+      "active": false
+    },
+    {
+      "name": "ldaptest",
+      "key": "ldaptest",
+      "displayName": "测试",
+      "emailAddress": "sre@easemob.com",
+      "active": true
+    },
+    {
+      "name": "leroijiao",
+      "key": "leroijiao",
+      "displayName": "焦洛洛",
+      "emailAddress": "leroijiao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangmingcheng",
+      "key": "wangmingcheng",
+      "displayName": "王明成",
+      "emailAddress": "lanrywang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "litmatchUser1",
+      "key": "litmatchuser1",
+      "displayName": "监控通知用户",
+      "emailAddress": "litmatchUser1@easemob.com",
+      "active": true
+    },
+    {
+      "name": "luokai@agora.io",
+      "key": "luokai@agora.io",
+      "displayName": "罗凯",
+      "emailAddress": "luokai@agora.io",
+      "active": true
+    },
+    {
+      "name": "lewislin",
+      "key": "lewislin",
+      "displayName": "蔺绍宏",
+      "emailAddress": "lewislin@easemob.com",
+      "active": false
+    },
+    {
+      "name": "xuxin",
+      "key": "xuxin",
+      "displayName": "许鑫",
+      "emailAddress": "lukexu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "lianweiguang",
+      "key": "lianweiguang",
+      "displayName": "连伟光",
+      "emailAddress": "vshinelian@easemob.com",
+      "active": false
+    },
+    {
+      "name": "litmatchUser2",
+      "key": "litmatchuser2",
+      "displayName": "通知监控用户",
+      "emailAddress": "litmatchUser2@easemob.com",
+      "active": true
+    },
+    {
+      "name": "luleiyu",
+      "key": "luleiyu",
+      "displayName": "逯雷雨 [X]",
+      "emailAddress": "lly.lu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "luka",
+      "key": "luka",
+      "displayName": "陈飞 [X]",
+      "emailAddress": "luka.chen@easemob.com",
+      "active": false
+    },
+    {
+      "name": "weileilei",
+      "key": "weileilei",
+      "displayName": "魏磊磊",
+      "emailAddress": "leileiwei@easemob.com",
+      "active": false
+    },
+    {
+      "name": "Lancehuang",
+      "key": "lancehuang",
+      "displayName": "黄中亮",
+      "emailAddress": "lance@agora.io",
+      "active": true
+    },
+    {
+      "name": "lizhiping",
+      "key": "lizhiping",
+      "displayName": "黎志平",
+      "emailAddress": "lizhiping@easemob.com",
+      "active": false
+    },
+    {
+      "name": "mazl",
+      "key": "mazl",
+      "displayName": "ma_zhilong",
+      "emailAddress": "malonema@easemob.com",
+      "active": false
+    },
+    {
+      "name": "mengliu",
+      "key": "mengliu",
+      "displayName": "mengliu",
+      "emailAddress": "mengliu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangyan",
+      "key": "zhangyan",
+      "displayName": "zhangyan",
+      "emailAddress": "michael@easemob.com",
+      "active": false
+    },
+    {
+      "name": "mingyu.fu",
+      "key": "mingyu.fu",
+      "displayName": "付明玉 [X]",
+      "emailAddress": "mingyu.fu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "mick.yu",
+      "key": "mick.yu",
+      "displayName": "余强 [X]",
+      "emailAddress": "yuqiang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "maniac",
+      "key": "maniac",
+      "displayName": "刘镇锋 [X]",
+      "emailAddress": "maniac.liu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "mengjx@easemob.com",
+      "key": "mengjx@easemob.com",
+      "displayName": "孟建秀",
+      "emailAddress": "mengjianxiu@easemob.com",
+      "active": true
+    },
+    {
+      "name": "menghs",
+      "key": "menghs",
+      "displayName": "孟怀胜",
+      "emailAddress": "menghs@easemob.com",
+      "active": false
+    },
+    {
+      "name": "menggaowei",
+      "key": "menggaowei",
+      "displayName": "孟高维",
+      "emailAddress": "menggaowei@shengwang.cn",
+      "active": true
+    },
+    {
+      "name": "muchunsheng",
+      "key": "nuchunsheng",
+      "displayName": "牟春生",
+      "emailAddress": "mucs@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangyipin",
+      "key": "wangyipin",
+      "displayName": "王一品",
+      "emailAddress": "mileswang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "moya",
+      "key": "moya",
+      "displayName": "莫亚",
+      "emailAddress": "moya@easemob.com",
+      "active": false
+    },
+    {
+      "name": "micaseyan",
+      "key": "micaseyan",
+      "displayName": "阎昶安",
+      "emailAddress": "micaseyan@easemob.com",
+      "active": false
+    },
+    {
+      "name": "maji",
+      "key": "maji",
+      "displayName": "马冀",
+      "emailAddress": "maji@easemob.com",
+      "active": false
+    },
+    {
+      "name": "mayiwan",
+      "key": "mayiwan",
+      "displayName": "马忆莞",
+      "emailAddress": "mayiwan@easemob.com",
+      "active": true
+    },
+    {
+      "name": "mazhihua",
+      "key": "mazhihua",
+      "displayName": "马志华",
+      "emailAddress": "Mazh@easemob.com",
+      "active": false
+    },
+    {
+      "name": "mazhiyan",
+      "key": "mazhiyan",
+      "displayName": "马智彦",
+      "emailAddress": "somama@easemob.com",
+      "active": false
+    },
+    {
+      "name": "mayuting@shengwang.cn",
+      "key": "mayuting@shengwang.cn",
+      "displayName": "马玉婷",
+      "emailAddress": "mayuting@shengwang.cn",
+      "active": true
+    },
+    {
+      "name": "mayc",
+      "key": "mayc",
+      "displayName": "马玉潮",
+      "emailAddress": "mayc@easemob.com",
+      "active": false
+    },
+    {
+      "name": "mapengfei",
+      "key": "mapengfei",
+      "displayName": "马鹏飞",
+      "emailAddress": "pengfeima@easemob.com",
+      "active": false
+    },
+    {
+      "name": "nanxuejiao",
+      "key": "nanxuejiao",
+      "displayName": "南雪姣",
+      "emailAddress": "nanxj@easemob.com",
+      "active": false
+    },
+    {
+      "name": "nannanjiang",
+      "key": "nannanjiang",
+      "displayName": "姜兰兰",
+      "emailAddress": "nannanjiang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "niukaijun",
+      "key": "niukaijun",
+      "displayName": "牛凯军",
+      "emailAddress": "niukj@easemob.com",
+      "active": false
+    },
+    {
+      "name": "niuwentao",
+      "key": "niuwentao",
+      "displayName": "牛文涛 [X]",
+      "emailAddress": "wentao.niu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangjj",
+      "key": "wangjj",
+      "displayName": "王佳佳",
+      "emailAddress": "nydiawang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "nealwang",
+      "key": "nealwang",
+      "displayName": "王立宏",
+      "emailAddress": "nealwang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "owen",
+      "key": "owen",
+      "displayName": "温兴超",
+      "emailAddress": "owenwen@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yupeng",
+      "key": "yupeng",
+      "displayName": "于鹏 [X]",
+      "emailAddress": "peng.yu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "pengqing.sun",
+      "key": "pengqing.sun",
+      "displayName": "孙鹏清 [X]",
+      "emailAddress": "sunpengqing@easemob.com",
+      "active": false
+    },
+    {
+      "name": "Patrick",
+      "key": "patrick",
+      "displayName": "帕特里克",
+      "emailAddress": "Patrick.Ferriter@agora.io",
+      "active": true
+    },
+    {
+      "name": "pangyong",
+      "key": "pangyong",
+      "displayName": "庞勇",
+      "emailAddress": "pangyong@easemob.com",
+      "active": false
+    },
+    {
+      "name": "pengpeng",
+      "key": "pengpeng",
+      "displayName": "彭冬娇",
+      "emailAddress": "pengdj@easemob.com",
+      "active": false
+    },
+    {
+      "name": "pengxiaohuan",
+      "key": "pengxiaohuan",
+      "displayName": "彭小欢",
+      "emailAddress": "pengxiaohuan@shengwang.cn",
+      "active": true
+    },
+    {
+      "name": "percypeng",
+      "key": "percypeng",
+      "displayName": "彭晓辉",
+      "emailAddress": "percypeng@easemob.com",
+      "active": false
+    },
+    {
+      "name": "pengzuyuan",
+      "key": "pengzuyuan",
+      "displayName": "彭祖元",
+      "emailAddress": "tornadonb@easemob.com",
+      "active": false
+    },
+    {
+      "name": "pang.li@easemob.com",
+      "key": "pang.li@easemob.com",
+      "displayName": "李文新 [X]",
+      "emailAddress": "pang.li@easemob.com",
+      "active": false
+    },
+    {
+      "name": "parker.yang@easemob.com",
+      "key": "parker.yang@easemob.com",
+      "displayName": "杨奥涵 [X]",
+      "emailAddress": "parker.yang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "panbo",
+      "key": "panbo",
+      "displayName": "潘博",
+      "emailAddress": "seanpan@easemob.com",
+      "active": false
+    },
+    {
+      "name": "panda.pan@easemob.com",
+      "key": "panda.pan@easemob.com",
+      "displayName": "潘少鹏 [X]",
+      "emailAddress": "panda.pan@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yanyanqin",
+      "key": "yanyanqin",
+      "displayName": "秦浩岩",
+      "emailAddress": "qinhy@easemob.com",
+      "active": false
+    },
+    {
+      "name": "qintt",
+      "key": "qintt",
+      "displayName": "秦田田",
+      "emailAddress": "qintt@easemob.com",
+      "active": false
+    },
+    {
+      "name": "suqx",
+      "key": "suqx",
+      "displayName": "苏庆夏 [X]",
+      "emailAddress": "qx.su@easemob.com",
+      "active": false
+    },
+    {
+      "name": "QiuYanZhao",
+      "key": "qiuyanzhao",
+      "displayName": "邱彦召 [X]",
+      "emailAddress": "yanzhao.qiu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "qianyujiao",
+      "key": "qianyujiao",
+      "displayName": "钱玉姣",
+      "emailAddress": "qianyj@easemob.com",
+      "active": false
+    },
+    {
+      "name": "qihong",
+      "key": "qihong",
+      "displayName": "齐洪",
+      "emailAddress": "qihong@easemob.com",
+      "active": false
+    },
+    {
+      "name": " Reader",
+      "key": " reader",
+      "displayName": "Reader",
+      "active": true
+    },
+    {
+      "name": "release",
+      "key": "release",
+      "displayName": "release",
+      "emailAddress": "sre@easemob.com",
+      "active": true
+    },
+    {
+      "name": "rachelwu",
+      "key": "rachelwu",
+      "displayName": "wuyanqiu",
+      "emailAddress": "rachelwu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "roninzhang",
+      "key": "roninzhang",
+      "displayName": "张雪峰",
+      "emailAddress": "roninzhang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "rickiewang",
+      "key": "rickiewang",
+      "displayName": "王孚嘉 [X]",
+      "emailAddress": "rickie.wang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangliuqi",
+      "key": "wangliuqi",
+      "displayName": "王留奇",
+      "emailAddress": "raywang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "rorywang",
+      "key": "rorywang",
+      "displayName": "王立航",
+      "emailAddress": "rorywang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "raoshangrong",
+      "key": "raoshangrong",
+      "displayName": "饶上荣",
+      "emailAddress": "raosr@easemob.com",
+      "active": false
+    },
+    {
+      "name": "RyanMa",
+      "key": "ryanma",
+      "displayName": "马瑞安 [X]",
+      "emailAddress": "ryan.ma@easemob.com",
+      "active": false
+    },
+    {
+      "name": "Samzhang",
+      "key": "samzhang",
+      "displayName": "Sam",
+      "emailAddress": "zhangnan3@easemob.com",
+      "active": false
+    },
+    {
+      "name": "songll",
+      "key": "songll",
+      "displayName": "Songlinlin",
+      "emailAddress": "songll@easemob.com",
+      "active": false
+    },
+    {
+      "name": "srerobot",
+      "key": "srerobot",
+      "displayName": "sre [X]",
+      "emailAddress": "sre@easemob.com",
+      "active": false
+    },
+    {
+      "name": "steven",
+      "key": "steven",
+      "displayName": "steven",
+      "emailAddress": "steven@easemob.com",
+      "active": false
+    },
+    {
+      "name": "skyren",
+      "key": "skyren",
+      "displayName": "任庆坤",
+      "emailAddress": "skyren@easemob.com",
+      "active": false
+    },
+    {
+      "name": "shanjingheng",
+      "key": "shanjingheng",
+      "displayName": "单靖恒",
+      "emailAddress": "shanjh@easemob.com",
+      "active": false
+    },
+    {
+      "name": "swiftshi",
+      "key": "swiftshi",
+      "displayName": "史来来",
+      "emailAddress": "swiftshi@easemob.com",
+      "active": false
+    },
+    {
+      "name": "sanyo",
+      "key": "sanyo",
+      "displayName": "叶圣安",
+      "emailAddress": "yeshengan@easemob.com",
+      "active": true
+    },
+    {
+      "name": "shinezhao",
+      "key": "shinezhao",
+      "displayName": "司云龙",
+      "emailAddress": "shinezhao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "sihongyu",
+      "key": "sihongyu",
+      "displayName": "司红宇",
+      "emailAddress": "sihongyu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "sunwei",
+      "key": "sunwei",
+      "displayName": "孙伟",
+      "emailAddress": "sunwei@easemob.com",
+      "active": true
+    },
+    {
+      "name": "sunweitang",
+      "key": "sunweitang",
+      "displayName": "孙伟堂 [X]",
+      "emailAddress": "sunweitang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "sxj",
+      "key": "sxj",
+      "displayName": "孙学军 [X]",
+      "emailAddress": "simon.sun@easemob.com",
+      "active": false
+    },
+    {
+      "name": "sy",
+      "key": "sy",
+      "displayName": "孙炎",
+      "emailAddress": "sunyan@easemob.com",
+      "active": true
+    },
+    {
+      "name": "xiaobai",
+      "key": "xiaobai",
+      "displayName": "孙炎",
+      "emailAddress": "sunyan@easemob.com",
+      "active": true
+    },
+    {
+      "name": "songjia@shengwang.cn",
+      "key": "songjia@shengwang.cn",
+      "displayName": "宋",
+      "emailAddress": "songjia@shengwang.cn",
+      "active": true
+    },
+    {
+      "name": "Yolanda",
+      "key": "yolanda",
+      "displayName": "宋颖",
+      "emailAddress": "songying02@agora.io",
+      "active": true
+    },
+    {
+      "name": "sdk-ai-bot",
+      "key": "sdk-ai-bot",
+      "displayName": "客户端机器人",
+      "emailAddress": "sdk-tools@easemob.com",
+      "active": true
+    },
+    {
+      "name": "shangbin",
+      "key": "shangbin",
+      "displayName": "尚彬",
+      "emailAddress": "shangbin@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangjiapeng",
+      "key": "zhangjiapeng",
+      "displayName": "张佳鹏",
+      "emailAddress": "skyzhang@easemob.com",
+      "active": true
+    },
+    {
+      "name": "skyfour",
+      "key": "skyfour",
+      "displayName": "张佳鹏 [X]",
+      "emailAddress": "zhangjiapeng@easemob.com",
+      "active": false
+    },
+    {
+      "name": "sonny.zhang",
+      "key": "sonny.zhang",
+      "displayName": "张帅 [X]",
+      "emailAddress": "sonny.zhang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangsenhua",
+      "key": "zhangsenhua",
+      "displayName": "张森华",
+      "emailAddress": "scottzhang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "snsunlee",
+      "key": "snsunlee",
+      "displayName": "李欣尚",
+      "emailAddress": "snsunlee@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yangsenlin",
+      "key": "yangsenlin",
+      "displayName": "杨森林",
+      "emailAddress": "senlinyang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "shenchong",
+      "key": "shenchong",
+      "displayName": "沈冲",
+      "emailAddress": "shenchong@easemob.com",
+      "active": false
+    },
+    {
+      "name": "simonshen",
+      "key": "simonshen",
+      "displayName": "沈猛",
+      "emailAddress": "simonshen@easemob.com",
+      "active": false
+    },
+    {
+      "name": "stwang",
+      "key": "stwang",
+      "displayName": "王少腾",
+      "emailAddress": "wangshaoteng@easemob.com",
+      "active": true
+    },
+    {
+      "name": "wangying",
+      "key": "wangying",
+      "displayName": "王莹 [X]",
+      "emailAddress": "sarah.wang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "shengxi",
+      "key": "shengxi",
+      "displayName": "生曦",
+      "emailAddress": "she@easemob.com",
+      "active": false
+    },
+    {
+      "name": "shenliang",
+      "key": "shenliang",
+      "displayName": "申亮",
+      "emailAddress": "shenliang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "shengyunpeng",
+      "key": "shengyunpeng",
+      "displayName": "盛云鹏",
+      "emailAddress": "shengyp@easemob.com",
+      "active": false
+    },
+    {
+      "name": "石义玲",
+      "key": "石义玲",
+      "displayName": "石义玲",
+      "emailAddress": "shiyiling_1987@163.com",
+      "active": false
+    },
+    {
+      "name": "snowcheng",
+      "key": "snowcheng",
+      "displayName": "程秀宁",
+      "emailAddress": "snowcheng@easemob.com",
+      "active": false
+    },
+    {
+      "name": "suojx",
+      "key": "suojx",
+      "displayName": "索竞曦",
+      "emailAddress": "suojx@easemob.com",
+      "active": false
+    },
+    {
+      "name": "sujianchen",
+      "key": "sujianchen",
+      "displayName": "苏剑臣",
+      "emailAddress": "sujc@easemob.com",
+      "active": false
+    },
+    {
+      "name": "suxingyu",
+      "key": "suxingyu",
+      "displayName": "苏星宇",
+      "emailAddress": "suxy@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhaoxingxing",
+      "key": "zhaoxingxing",
+      "displayName": "赵星星 [X]",
+      "emailAddress": "star.zhao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "shaoyaqiang@easemob.com",
+      "key": "shaoyq@easemob.com",
+      "displayName": "邵亚强",
+      "emailAddress": "shaoyaqiang@easemob.com",
+      "active": true
+    },
+    {
+      "name": "shaoyq",
+      "key": "shaoyq",
+      "displayName": "邵亚强",
+      "emailAddress": "shaoyq@easemob.com",
+      "active": true
+    },
+    {
+      "name": "summer",
+      "key": "summer",
+      "displayName": "阎梦倩 [X]",
+      "emailAddress": "summeryan@easemob.com",
+      "active": false
+    },
+    {
+      "name": "sevenma",
+      "key": "sevenma",
+      "displayName": "马振杰",
+      "emailAddress": "sevenma@easemob.com",
+      "active": false
+    },
+    {
+      "name": "simonqi",
+      "key": "simonqi",
+      "displayName": "齐海涛",
+      "emailAddress": "simonqi@easemob.com",
+      "active": false
+    },
+    {
+      "name": "test",
+      "key": "test",
+      "displayName": "test-for-yizhang",
+      "emailAddress": "test@easemob.com",
+      "active": true
+    },
+    {
+      "name": "test_Jevin",
+      "key": "test_jevin",
+      "displayName": "testJevin",
+      "emailAddress": "zhouchenzhi@hotmail.com",
+      "active": false
+    },
+    {
+      "name": "toni",
+      "key": "toni",
+      "displayName": "仝燕 [X]",
+      "emailAddress": "toni.tong@easemob.com",
+      "active": false
+    },
+    {
+      "name": "Tiany",
+      "key": "tiany",
+      "displayName": "刘天一 [X]",
+      "emailAddress": "tiany.liu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "tony",
+      "key": "tony",
+      "displayName": "刘应波 [X]",
+      "emailAddress": "tony.liu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "Toria0708",
+      "key": "toria0708",
+      "displayName": "史梁 [X]",
+      "emailAddress": "toria.shi@easemob.com",
+      "active": false
+    },
+    {
+      "name": "tangqiubo",
+      "key": "tangqiubo",
+      "displayName": "唐秋波",
+      "emailAddress": "tangqiubo@agora.io",
+      "active": true
+    },
+    {
+      "name": "tangrongbo",
+      "key": "tangrongbo",
+      "displayName": "唐荣博",
+      "emailAddress": "tangrongbo@easemob.com",
+      "active": false
+    },
+    {
+      "name": "tangjing",
+      "key": "tangjing",
+      "displayName": "唐靖",
+      "emailAddress": "tangjing@easemob.com",
+      "active": false
+    },
+    {
+      "name": "tinychang",
+      "key": "tinychang",
+      "displayName": "常豪鑫",
+      "emailAddress": "tinychang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "ted.zl",
+      "key": "ted.zl",
+      "displayName": "张磊",
+      "emailAddress": "ted.zhang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "taoxic",
+      "key": "taoxic",
+      "displayName": "徐涛",
+      "emailAddress": "xutao@easemob.com",
+      "active": true
+    },
+    {
+      "name": "taoxicxu",
+      "key": "taoxicxu",
+      "displayName": "徐涛",
+      "emailAddress": "taoxicxu@easemob.com",
+      "active": true
+    },
+    {
+      "name": "timo",
+      "key": "timo",
+      "displayName": "戚俊琦",
+      "emailAddress": "timo@easemob.com",
+      "active": false
+    },
+    {
+      "name": "test1",
+      "key": "test1",
+      "displayName": "测试用户",
+      "emailAddress": "wcy123@easemob.com",
+      "active": false
+    },
+    {
+      "name": "tengyd",
+      "key": "tengyd",
+      "displayName": "滕一达",
+      "emailAddress": "tengyd@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangbin",
+      "key": "wangbin",
+      "displayName": "王彬 [X]",
+      "emailAddress": "thresh.wang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangtuo",
+      "key": "wangtuo",
+      "displayName": "王拓",
+      "emailAddress": "tuowang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "tianming",
+      "key": "tianming",
+      "displayName": "田明",
+      "emailAddress": "tianming@easemob.com",
+      "active": false
+    },
+    {
+      "name": "tianhui",
+      "key": "tianhui",
+      "displayName": "田辉",
+      "emailAddress": "tianhui@easemob.com",
+      "active": false
+    },
+    {
+      "name": "tikiqu",
+      "key": "tikiqu",
+      "displayName": "瞿伟康 [X]",
+      "emailAddress": "tikiqu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "turbo",
+      "key": "turbo",
+      "displayName": "罗成 [X]",
+      "emailAddress": "turbo.luo@easemob.com",
+      "active": false
+    },
+    {
+      "name": "twistedai",
+      "key": "twistedai",
+      "displayName": "艾英杰",
+      "emailAddress": "twistedai@easemob.com",
+      "active": false
+    },
+    {
+      "name": "xietingmei",
+      "key": "xietingmei",
+      "displayName": "解廷妹",
+      "emailAddress": "tinaxie@easemob.com",
+      "active": false
+    },
+    {
+      "name": "taojing",
+      "key": "taojing",
+      "displayName": "陶静",
+      "emailAddress": "taojing@easemob.com",
+      "active": false
+    },
+    {
+      "name": "vimin@easemob.com",
+      "key": "vimin@easemob.com",
+      "displayName": "史伟民 [X]",
+      "emailAddress": "vimin@easemob.com",
+      "active": false
+    },
+    {
+      "name": "xuxw",
+      "key": "xuxw",
+      "displayName": "徐晓威 [X]",
+      "emailAddress": "vickyxu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "vector",
+      "key": "vector",
+      "displayName": "魏坤霖",
+      "emailAddress": "vectorwei@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wucunyuan",
+      "key": "wucunyuan",
+      "displayName": "吴存元 [X]",
+      "emailAddress": "wucy@easemob.com",
+      "active": false
+    },
+    {
+      "name": "吴敏",
+      "key": "吴敏",
+      "displayName": "吴敏",
+      "emailAddress": "willawu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wumin",
+      "key": "ID13559",
+      "displayName": "吴敏 [X]",
+      "emailAddress": "willawu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wumin#1",
+      "key": "wumin",
+      "displayName": "吴敏 [X]",
+      "emailAddress": "willawu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wuyp",
+      "key": "wuyp",
+      "displayName": "吴玉萍",
+      "emailAddress": "wuyp@easemob.com",
+      "active": false
+    },
+    {
+      "name": "10001",
+      "key": "10001",
+      "displayName": "吴玉萍 [X]",
+      "emailAddress": "wuyp@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wulizhuo",
+      "key": "wulizhuo",
+      "displayName": "吴立卓",
+      "emailAddress": "wulizhuo@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wumaochang",
+      "key": "wumaochang",
+      "displayName": "吴茂昌",
+      "emailAddress": "wumaochang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "18611691242",
+      "key": "18611691242",
+      "displayName": "吴迪 [X]",
+      "emailAddress": "wudi@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wuzhenyu",
+      "key": "wuzhenyu",
+      "displayName": "吴震宇",
+      "emailAddress": "wuzhy@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangw",
+      "key": "zhangw",
+      "displayName": "张伟 [X]",
+      "emailAddress": "wei.zhang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wenke",
+      "key": "wenke",
+      "displayName": "文科",
+      "emailAddress": "wenke@easemob.com",
+      "active": false
+    },
+    {
+      "name": "winston.li",
+      "key": "winston.li",
+      "displayName": "栗勇军 [X]",
+      "emailAddress": "winston.li@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wx.wen@easemob.com",
+      "key": "wx.wen@easemob.com",
+      "displayName": "温鑫 [X]",
+      "emailAddress": "wx.wen@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangli",
+      "key": "wangli",
+      "displayName": "王丽",
+      "emailAddress": "wangli@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangyazhi",
+      "key": "wangyazhi",
+      "displayName": "王亚芝",
+      "emailAddress": "wangyazhi@easemob.com",
+      "active": true
+    },
+    {
+      "name": "wangbj",
+      "key": "wangbj",
+      "displayName": "王保军",
+      "emailAddress": "wangbj@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangbing",
+      "key": "wangbing",
+      "displayName": "王冰",
+      "emailAddress": "wangbing@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangzhe",
+      "key": "wangzhe",
+      "displayName": "王哲 [X]",
+      "emailAddress": "zhe.wang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangkun",
+      "key": "wangkun",
+      "displayName": "王坤",
+      "emailAddress": "wk@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangzicheng",
+      "key": "wangzicheng",
+      "displayName": "王子诚",
+      "emailAddress": "wangzicheng@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wanganqi",
+      "key": "wanganqi",
+      "displayName": "王安琦",
+      "emailAddress": "wanganqi@easemob.com",
+      "active": true
+    },
+    {
+      "name": "wangsq",
+      "key": "wangsq",
+      "displayName": "王少卿",
+      "emailAddress": "wangsq@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangfeng",
+      "key": "wangfeng",
+      "displayName": "王峰",
+      "emailAddress": "wangfeng@easemob.com",
+      "active": true
+    },
+    {
+      "name": "wangjw",
+      "key": "wangjw",
+      "displayName": "王建伟",
+      "emailAddress": "wangjw@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangbo",
+      "key": "wangbo",
+      "displayName": "王搏 [X]",
+      "emailAddress": "Wangbo@agora.io",
+      "active": false
+    },
+    {
+      "name": "18230130944",
+      "key": "18230130944",
+      "displayName": "王文亮 [X]",
+      "emailAddress": "wwl.wang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangyanjie",
+      "key": "wangyanjie",
+      "displayName": "王燕杰",
+      "emailAddress": "wangyj@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangmeng",
+      "key": "wangmeng",
+      "displayName": "王猛",
+      "emailAddress": "wangmeng@easemob.com",
+      "active": true
+    },
+    {
+      "name": "wangyuling",
+      "key": "wangyuling",
+      "displayName": "王玉岭 [X]",
+      "emailAddress": "yuling.wang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wanglei",
+      "key": "wanglei",
+      "displayName": "王磊",
+      "emailAddress": "wanglei@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangchunye",
+      "key": "wangchunye",
+      "displayName": "王纯业",
+      "emailAddress": "wcy123@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangyz",
+      "key": "wangyz",
+      "displayName": "王育璋",
+      "emailAddress": "wangyz@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangls",
+      "key": "wangls",
+      "displayName": "王连松",
+      "emailAddress": "wangls@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangdi",
+      "key": "wangdi",
+      "displayName": "王迪",
+      "emailAddress": "wangdi@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangduo",
+      "key": "wangduo",
+      "displayName": "王铎",
+      "emailAddress": "wangduo@easemob.com",
+      "active": false
+    },
+    {
+      "name": "walterwang",
+      "key": "walterwang",
+      "displayName": "王银杰",
+      "emailAddress": "walterwang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "wangpc",
+      "key": "wangpc",
+      "displayName": "王鹏超",
+      "emailAddress": "wangpc@easemob.com",
+      "active": false
+    },
+    {
+      "name": "xuewenpeng",
+      "key": "xuewenpeng",
+      "displayName": "薛文鹏 [X]",
+      "emailAddress": "wenpeng.xue@easemob.com",
+      "active": false
+    },
+    {
+      "name": "weijia",
+      "key": "weijia",
+      "displayName": "魏佳",
+      "emailAddress": "weijia@easemob.com",
+      "active": false
+    },
+    {
+      "name": "weizeyuan",
+      "key": "weizeyuan",
+      "displayName": "魏泽源",
+      "emailAddress": "weizeyuan@easemob.com",
+      "active": true
+    },
+    {
+      "name": "wesleywei",
+      "key": "wesleywei",
+      "displayName": "魏福威",
+      "emailAddress": "wesleywei@easemob.com",
+      "active": false
+    },
+    {
+      "name": "weishiwen",
+      "key": "weishiwen",
+      "displayName": "魏诗雯",
+      "emailAddress": "weishiwen@easemob.com",
+      "active": true
+    },
+    {
+      "name": "xinyu.liu",
+      "key": "xinyu.liu",
+      "displayName": "xinyu.liu",
+      "emailAddress": "xinyu.liu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "xming",
+      "key": "xming",
+      "displayName": "xming",
+      "emailAddress": "xming@qq.com",
+      "active": false
+    },
+    {
+      "name": "15510108605",
+      "key": "15510108605",
+      "displayName": "仲献平 [X]",
+      "emailAddress": "xianping.zhong@easemob.com",
+      "active": false
+    },
+    {
+      "name": "xiashan@agora.io",
+      "key": "xiashan@agora.io",
+      "displayName": "夏山",
+      "emailAddress": "xiashan@agora.io",
+      "active": true
+    },
+    {
+      "name": "xuxl",
+      "key": "xuxl",
+      "displayName": "徐小龙",
+      "emailAddress": "xuxl@easemob.com",
+      "active": false
+    },
+    {
+      "name": "xuyixuan",
+      "key": "xuyixuan",
+      "displayName": "徐易轩",
+      "emailAddress": "xuyx@easemob.com",
+      "active": false
+    },
+    {
+      "name": "xuzhengli",
+      "key": "xuzhengli",
+      "displayName": "徐正礼",
+      "emailAddress": "xzli_dlmu@163.com",
+      "active": false
+    },
+    {
+      "name": "xiongwei",
+      "key": "xiongwei",
+      "displayName": "熊伟",
+      "emailAddress": "xiongwei@easemob.com",
+      "active": false
+    },
+    {
+      "name": "xuefei",
+      "key": "xuefei",
+      "displayName": "薛飞",
+      "emailAddress": "xuefei@easemob.com",
+      "active": true
+    },
+    {
+      "name": "xieyajie",
+      "key": "xieyajie",
+      "displayName": "谢雅杰",
+      "emailAddress": "xieyajie@easemob.com",
+      "active": false
+    },
+    {
+      "name": "xingshaomin",
+      "key": "xingshaomin",
+      "displayName": "邢少敏",
+      "emailAddress": "xingshaomin@easemob.com",
+      "active": false
+    },
+    {
+      "name": "xueyan",
+      "key": "xueyan",
+      "displayName": "闫雪",
+      "emailAddress": "xueyan@easemob.com",
+      "active": false
+    },
+    {
+      "name": "15188906032",
+      "key": "15188906032",
+      "displayName": "韩笑微 [X]",
+      "emailAddress": "xiaowei.han@easemob.com",
+      "active": false
+    },
+    {
+      "name": "13343099931",
+      "key": "13343099931",
+      "displayName": "黄鑫 [X]",
+      "emailAddress": "xin.huang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yangyuan",
+      "key": "yangyuan",
+      "displayName": "yuanyang",
+      "emailAddress": "yangyuan@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yijie.ding@easemob.com",
+      "key": "yijie.ding@easemob.com",
+      "displayName": "丁艺杰 [X]",
+      "emailAddress": "yijie.ding@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yuwentao",
+      "key": "yuwentao",
+      "displayName": "于文涛",
+      "emailAddress": "yuwentao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "1710996652",
+      "key": "1710996652",
+      "displayName": "何艳芳 [X]",
+      "emailAddress": "yanfang.he@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yulx",
+      "key": "yulx",
+      "displayName": "余凌霄",
+      "emailAddress": "yulx@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yugt",
+      "key": "yugt",
+      "displayName": "余钢涛",
+      "emailAddress": "yugt@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yadongliu",
+      "key": "yadongliu",
+      "displayName": "刘亚东",
+      "emailAddress": "yadongliu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yaoyisheng",
+      "key": "yaoyisheng",
+      "displayName": "姚一晟",
+      "emailAddress": "yaoyisheng@agora.io",
+      "active": true
+    },
+    {
+      "name": "yaotong",
+      "key": "yaotong",
+      "displayName": "姚彤",
+      "emailAddress": "yaotong@easemob.com",
+      "active": true
+    },
+    {
+      "name": "yinyl",
+      "key": "yinyl",
+      "displayName": "尹亚兰",
+      "emailAddress": "yinyl@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangyunqian",
+      "key": "zhangyunqian",
+      "displayName": "张云乾",
+      "emailAddress": "yqzhang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangyt",
+      "key": "zhangyt",
+      "displayName": "张元涛 [X]",
+      "emailAddress": "yuantao.zhang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yiletian",
+      "key": "yiletian",
+      "displayName": "易乐天",
+      "emailAddress": "yilt@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yangkaiwen",
+      "key": "yangkaiwen",
+      "displayName": "杨凯文 [X]",
+      "emailAddress": "yangkaiwen@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yangjian",
+      "key": "yangjian",
+      "displayName": "杨剑 [X]",
+      "emailAddress": "yangjian@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yangzilong",
+      "key": "yangzilong",
+      "displayName": "杨子龙",
+      "emailAddress": "yangzilong@easemob.com",
+      "active": true
+    },
+    {
+      "name": "yangbs",
+      "key": "yangbs",
+      "displayName": "杨宝栓",
+      "emailAddress": "yangbsh@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yangshangshan",
+      "key": "yangshangshan",
+      "displayName": "杨尚山",
+      "emailAddress": "yangss@easemob.com",
+      "active": false
+    },
+    {
+      "name": "Yonzeng",
+      "key": "yonzeng",
+      "displayName": "杨志恒 [X]",
+      "emailAddress": "yonzeng.yang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yangmingzhi",
+      "key": "yangmingzhi",
+      "displayName": "杨明志 [X]",
+      "emailAddress": "yangmingzhi@easemob.com",
+      "active": false
+    },
+    {
+      "name": "YXD",
+      "key": "yxd",
+      "displayName": "杨晓东",
+      "emailAddress": "yangxiaodong@easemob.com",
+      "active": true
+    },
+    {
+      "name": "yangyx",
+      "key": "yangyx",
+      "displayName": "杨永秀 [X]",
+      "emailAddress": "yongsoo.yang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "永胜",
+      "key": "永胜",
+      "displayName": "杨永胜",
+      "emailAddress": "yangys@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yangys",
+      "key": "yangys",
+      "displayName": "杨永胜 [X]",
+      "emailAddress": "yangys@easemob.com",
+      "active": false
+    },
+    {
+      "name": "790970583",
+      "key": "790970583",
+      "displayName": "袁永飞 [X]",
+      "emailAddress": "yongfei.yuan@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yuanbo",
+      "key": "yuanbo",
+      "displayName": "袁波",
+      "emailAddress": "yuanbo@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yuanchaojie",
+      "key": "chaojie.yuan@easemob.com",
+      "displayName": "袁超杰 [X]",
+      "emailAddress": "yuanchaojie@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yubing",
+      "key": "yubing",
+      "displayName": "语冰 [X]",
+      "emailAddress": "yubing.qi@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yansong",
+      "key": "yansong",
+      "displayName": "闫松",
+      "emailAddress": "yansong@easemob.com",
+      "active": false
+    },
+    {
+      "name": "yanlei",
+      "key": "yanlei",
+      "displayName": "闫磊",
+      "emailAddress": "yanlei@easemob.com",
+      "active": false
+    },
+    {
+      "name": "youni",
+      "key": "youni",
+      "displayName": "隋云怡",
+      "emailAddress": "youni@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhongzf",
+      "key": "zhongzf",
+      "displayName": "zhongzefang",
+      "emailAddress": "zhongzf@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhouql",
+      "key": "zhouql",
+      "displayName": "zhouqiaoling",
+      "emailAddress": "zhouql@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhoumin",
+      "key": "zhoumin",
+      "displayName": "周敏",
+      "emailAddress": "zhoumin@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhouzhengde",
+      "key": "zhouzhengde",
+      "displayName": "周正德",
+      "emailAddress": "zhouzd@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhouhu",
+      "key": "zhouhu",
+      "displayName": "周琥",
+      "emailAddress": "zhouhu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangdong",
+      "key": "zhangdong",
+      "displayName": "张东",
+      "emailAddress": "zhangdong@easemob.com",
+      "active": true
+    },
+    {
+      "name": "zhangwei",
+      "key": "zhangwei",
+      "displayName": "张伟",
+      "emailAddress": "zhangwei@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangqianqian",
+      "key": "zhangqianqian",
+      "displayName": "张倩倩",
+      "emailAddress": "zhangqq@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhanggd",
+      "key": "zhanggd",
+      "displayName": "张光弟",
+      "emailAddress": "zhanggd@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhanglicong",
+      "key": "belinda.zhang@easemob.com",
+      "displayName": "张利聪",
+      "emailAddress": "zhanglicong@easemob.com",
+      "active": true
+    },
+    {
+      "name": "zhangjin",
+      "key": "zhangjin",
+      "displayName": "张劲",
+      "emailAddress": "zhangjin@easemob.om",
+      "active": false
+    },
+    {
+      "name": "zhangnan",
+      "key": "zhangnan",
+      "displayName": "张南",
+      "emailAddress": "zhangn@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangguowei",
+      "key": "zhangguowei",
+      "displayName": "张国伟",
+      "emailAddress": "zhanggw@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangxiaxu",
+      "key": "zhangxiaxu",
+      "displayName": "张夏旭",
+      "emailAddress": "zhangxiaxu@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangzitao",
+      "key": "zhangzitao",
+      "displayName": "张子涛",
+      "emailAddress": "zeshawnezhang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhanghongda",
+      "key": "zhanggongda",
+      "displayName": "张宏达",
+      "emailAddress": "zhanghd@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangqiang",
+      "key": "zhangqiang",
+      "displayName": "张强强",
+      "emailAddress": "zhangqiang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangsijia",
+      "key": "zhangsijia",
+      "displayName": "张思佳",
+      "emailAddress": "zhangsj@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangxiaogang",
+      "key": "zhangxiaogang",
+      "displayName": "张晓刚 [X]",
+      "emailAddress": "zhangxiaogang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhang.jie@easemob.com",
+      "key": "zhang.jie@easemob.com",
+      "displayName": "张杰 [X]",
+      "emailAddress": "zhang.jie@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangyongkang",
+      "key": "zhangyongkang",
+      "displayName": "张永康",
+      "emailAddress": "zhangyongkang@easemob.com",
+      "active": true
+    },
+    {
+      "name": "zhangyb",
+      "key": "zhangyb",
+      "displayName": "张永彬",
+      "emailAddress": "zhangyb@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangzx",
+      "key": "zhangzx",
+      "displayName": "张照西",
+      "emailAddress": "zhangzx@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangqi",
+      "key": "zhangqi",
+      "displayName": "张琦",
+      "emailAddress": "zhangqi@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangxuan",
+      "key": "zhangxuan",
+      "displayName": "张瑄",
+      "emailAddress": "zhangxuan@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangshuo",
+      "key": "zhangshuo",
+      "displayName": "张硕 [X]",
+      "emailAddress": "zhangshuo@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhanglei",
+      "key": "zhanglei",
+      "displayName": "张磊",
+      "emailAddress": "zhangl@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zlfted",
+      "key": "zlfted",
+      "displayName": "张磊",
+      "emailAddress": "zlfted@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangyi",
+      "key": "zhangyi",
+      "displayName": "张翼",
+      "emailAddress": "zhangyi@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangchao",
+      "key": "zhangchao",
+      "displayName": "张超",
+      "emailAddress": "zhangchao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangzheng",
+      "key": "zhangzheng",
+      "displayName": "张铮",
+      "emailAddress": "zhengzhengzhang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhangkuo",
+      "key": "zhangkuo",
+      "displayName": "张阔",
+      "emailAddress": "zhangkuo@easemob.com",
+      "active": true
+    },
+    {
+      "name": "15114940278",
+      "key": "15114940278",
+      "displayName": "张雨薇 [X]",
+      "emailAddress": "zhangyuwei@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhan.shi@easemob.com",
+      "key": "zhan.shi@easemob.com",
+      "displayName": "施展 [X]",
+      "emailAddress": "zhan.shi@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhuyipu",
+      "key": "zhuyipu",
+      "displayName": "朱一璞",
+      "emailAddress": "zhuyipu@shengwang.cn",
+      "active": true
+    },
+    {
+      "name": "zhuyl",
+      "key": "zhuyl",
+      "displayName": "朱云亮",
+      "emailAddress": "zhuyl@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhukai",
+      "key": "zhukai",
+      "displayName": "朱凯",
+      "emailAddress": "zhukai@easemob.com",
+      "active": true
+    },
+    {
+      "name": "zhuhy",
+      "key": "zhuhy",
+      "displayName": "朱红艳",
+      "emailAddress": "zhuhy@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhaoxy",
+      "key": "zhaoxy",
+      "displayName": "杨雪莹",
+      "emailAddress": "zhaoxy@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhaoliang",
+      "key": "zhaoliang",
+      "displayName": "赵亮",
+      "emailAddress": "zhaoliang@easemob.com",
+      "active": true
+    },
+    {
+      "name": "zzh1227",
+      "key": "zzh1227",
+      "displayName": "赵增慧",
+      "emailAddress": "zhaozenghui@shengwang.cn",
+      "active": true
+    },
+    {
+      "name": "zhaoyuanyuan@easemob.com",
+      "key": "zhaoyuanyuan@easemob.com",
+      "displayName": "赵媛媛",
+      "emailAddress": "zhaoyuanyuan@easemob.com",
+      "active": true
+    },
+    {
+      "name": "zhaohc",
+      "key": "zhaohc",
+      "displayName": "赵宏超",
+      "emailAddress": "zhaohc@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhaoqiang",
+      "key": "zhaoqiang",
+      "displayName": "赵强",
+      "emailAddress": "zhaoqiang@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zp.zhao@easemob.com",
+      "key": "zp.zhao@easemob.com",
+      "displayName": "赵志鹏 [X]",
+      "emailAddress": "zp.zhao@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhaobin",
+      "key": "zhaobin",
+      "displayName": "赵斌",
+      "emailAddress": "zhaobin@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhaoyan",
+      "key": "zhaoyan",
+      "displayName": "赵艳",
+      "emailAddress": "zhaoyan@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhaoyufeng",
+      "key": "zhaoyufeng",
+      "displayName": "赵豫峰",
+      "emailAddress": "zhaoyf@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhaopeng",
+      "key": "zhaopeng",
+      "displayName": "赵鹏",
+      "emailAddress": "zhaopeng@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zoujh1",
+      "key": "zoujh1",
+      "displayName": "邹佳华",
+      "emailAddress": "zoujh1@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zouyong",
+      "key": "zouyong",
+      "displayName": "邹勇",
+      "emailAddress": "zouyong@easemob.com",
+      "active": true
+    },
+    {
+      "name": "zousheng",
+      "key": "zousheng",
+      "displayName": "邹晟",
+      "emailAddress": "zousheng@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zoujinhai",
+      "key": "zoujinhai",
+      "displayName": "邹金海",
+      "emailAddress": "zoujh@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhengchangsong",
+      "key": "zhengchangsong",
+      "displayName": "郑昌松",
+      "emailAddress": "zhengcs@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhengch",
+      "key": "zhengch",
+      "displayName": "郑晨杭",
+      "emailAddress": "zhengch@easemob.com",
+      "active": false
+    },
+    {
+      "name": "zhennan.yan",
+      "key": "zhennan.yan",
+      "displayName": "闫振南 [X]",
+      "emailAddress": "zhennan.yan@easemob.com",
+      "active": false
+    }
+  ]
+}

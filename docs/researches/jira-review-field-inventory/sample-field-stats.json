@@ -1,0 +1,1906 @@
+{
+  "sampledAt": "2026-07-17T09:23:13.766Z",
+  "project": "HIM",
+  "jql": "project = \"HIM\" ORDER BY updated DESC",
+  "requested": 30,
+  "totalMatching": 21456,
+  "sampled": 30,
+  "issueKeys": [
+    "HIM-22668",
+    "HIM-22674",
+    "HIM-22670",
+    "HIM-22603",
+    "HIM-22686",
+    "HIM-22692",
+    "HIM-22518",
+    "HIM-15259",
+    "HIM-22679",
+    "HIM-22602",
+    "HIM-16561",
+    "HIM-22691",
+    "HIM-21964",
+    "HIM-22437",
+    "HIM-22444",
+    "HIM-22467",
+    "HIM-22616",
+    "HIM-20828",
+    "HIM-22669",
+    "HIM-22685",
+    "HIM-22690",
+    "HIM-22675",
+    "HIM-22689",
+    "HIM-4493",
+    "HIM-22688",
+    "HIM-19994",
+    "HIM-22613",
+    "HIM-22687",
+    "HIM-22500",
+    "HIM-22671"
+  ],
+  "narrativeAnalysis": {
+    "customfield_11900": {
+      "present": 23,
+      "exactTemplate": 12,
+      "hasContent": 11,
+      "strippedChars": {
+        "min": 0,
+        "p50": 0,
+        "p90": 537,
+        "max": 755
+      },
+      "modeCount": 12,
+      "modePreview": "【需求描述（重点）】\r\n建议包含以下内容：\r\n1、客户APP名称\r\n2、客户业务场景\r\n3、客户需求场景介绍\r\n4、涉及终端：如IOS、Android、Web、鸿蒙OS等等\r\n5、客户原始反馈信息\r\n【友商信息】\r\n客户是否之前使用的友商产品，友商产品是否有类似的解决方案，如有可附上截图或者链接\r\n【预期效果】\r\n客户预期效果，建议明确需求范围\r\n【期望解决时间】\r\n客户希望解决时间\r\n【其他补充】\r\n其他补充说明\r\n",
+      "perIssueType": {
+        "Bug": {
+          "present": 5,
+          "exactTemplate": 5,
+          "hasContent": 0
+        },
+        "Sub-task": {
+          "present": 4,
+          "exactTemplate": 3,
+          "hasContent": 1
+        },
+        "Task": {
+          "present": 5,
+          "exactTemplate": 0,
+          "hasContent": 5
+        },
+        "Improvement": {
+          "present": 2,
+          "exactTemplate": 0,
+          "hasContent": 2
+        },
+        "Test": {
+          "present": 4,
+          "exactTemplate": 4,
+          "hasContent": 0
+        },
+        "New Feature": {
+          "present": 3,
+          "exactTemplate": 0,
+          "hasContent": 3
+        }
+      }
+    },
+    "customfield_11901": {
+      "present": 26,
+      "exactTemplate": 22,
+      "hasContent": 4,
+      "strippedChars": {
+        "min": 0,
+        "p50": 0,
+        "p90": 87,
+        "max": 221
+      },
+      "modeCount": 22,
+      "modePreview": "【客户信息收集】\r\nAppKey：\r\nCluster：\r\nSDK信息：\r\n客户APP名称：\r\n涉及终端：如IOS、Android、Web、鸿蒙OS等等\r\n环境信息：核心中间件版本，如涉及，请填写\r\n【问题描述（重点）】\r\n建议包含以下内容：\r\n1、客户的业务场景\r\n2、问题出现的场景（条件）和具体现象\r\n3、是否存在替代方案，如存在，为什么不满足\r\n4、客户原始反馈信息\r\n【预计结果】\r\n客户预期结果，建议明确范围。\r\n【日志或者补充说明】\r\n包含日志记录、图片说明、代码片段、返回值等等\r\n【期望解决时间】\r\n客户希望解决的时间\r\n",
+      "perIssueType": {
+        "Bug": {
+          "present": 4,
+          "exactTemplate": 0,
+          "hasContent": 4
+        },
+        "Sub-task": {
+          "present": 8,
+          "exactTemplate": 8,
+          "hasContent": 0
+        },
+        "Task": {
+          "present": 5,
+          "exactTemplate": 5,
+          "hasContent": 0
+        },
+        "Improvement": {
+          "present": 2,
+          "exactTemplate": 2,
+          "hasContent": 0
+        },
+        "Test": {
+          "present": 4,
+          "exactTemplate": 4,
+          "hasContent": 0
+        },
+        "New Feature": {
+          "present": 3,
+          "exactTemplate": 3,
+          "hasContent": 0
+        }
+      }
+    },
+    "customfield_11906": {
+      "present": 26,
+      "exactTemplate": 23,
+      "hasContent": 3,
+      "strippedChars": {
+        "min": 0,
+        "p50": 0,
+        "p90": 287,
+        "max": 521
+      },
+      "modeCount": 23,
+      "modePreview": "1. 做了什么事情。比如：\r\n\r\n     a. 添加了某些api；\r\n\r\n     b. 做了某些新功能；\r\n\r\n     c. 添加了某些限制；\r\n\r\n     d. 做了哪些修复；\r\n\r\n     e. 其他；\r\n\r\n2. 前置条件：\r\n\r\n     a. 测试环境；\r\n    \r\n     b. 基础数据；\r\n\r\n     c. 数据量；\r\n\r\n     d. 需要开通功能；\r\n\r\n     e. 被测功能是否在imm中可配置，具体配置项在imm中什么位置。\r\n\r\n     f. 其他\r\n\r\n3. 测试范围:\r\n\r\n     a. 限流，是否可配，如何配置；\r\n\r\n     b. 涉及到的api(比如修改了底层的逻辑，其他api也使用了相同的代码)；\r\n\r\n     c. 请求的api 参数范围(比如分页中每页上限多少)；\r\n\r\n     d. 正确返回结果预期(比如分页未结束时的json结构，分页结束时的json结构，预期值)；\r\n\r\n     e. 错误返回结果预期(比如限流，参数错误，未开通等)；\r\n\r\n     f. 请求参数的字段范围限制(如设置推送昵称的api，昵称长度。用户属性总大小等)；\r\n\r\n     g. 其他\r\n\r\n4. 针对bug的修复，需要额外提供：\r\n\r\n     a. 描述清楚bug是什么；\r\n\r\n     b. 如何复现bug；\r\n\r\n     c. 是如何修复的；\r\n\r\n     d. 修复后预期结果；\r\n\r\n     e. 其他\r\n",
+      "perIssueType": {
+        "Bug": {
+          "present": 5,
+          "exactTemplate": 5,
+          "hasContent": 0
+        },
+        "Sub-task": {
+          "present": 8,
+          "exactTemplate": 8,
+          "hasContent": 0
+        },
+        "Task": {
+          "present": 5,
+          "exactTemplate": 5,
+          "hasContent": 0
+        },
+        "Improvement": {
+          "present": 2,
+          "exactTemplate": 2,
+          "hasContent": 0
+        },
+        "Test": {
+          "present": 3,
+          "exactTemplate": 0,
+          "hasContent": 3
+        },
+        "New Feature": {
+          "present": 3,
+          "exactTemplate": 3,
+          "hasContent": 0
+        }
+      }
+    },
+    "customfield_11908": {
+      "present": 25,
+      "exactTemplate": 25,
+      "hasContent": 0,
+      "strippedChars": {
+        "min": 0,
+        "p50": 0,
+        "p90": 0,
+        "max": 0
+      },
+      "modeCount": 25,
+      "modePreview": "【问题描述】 建议包含以下内容：\r\n1、客户APP名称 (可选) \r\n2、客户业务场景 \r\n3、具体问题描述 \r\n4、涉及终端：如IOS、Android、Web、鸿蒙等等 \r\n5. 文档链接 \r\n【期望解决时间】 \r\n希望解决时间 \r\n【其他补充】 \r\n其他补充说明",
+      "perIssueType": {
+        "Bug": {
+          "present": 5,
+          "exactTemplate": 5,
+          "hasContent": 0
+        },
+        "Sub-task": {
+          "present": 8,
+          "exactTemplate": 8,
+          "hasContent": 0
+        },
+        "Task": {
+          "present": 5,
+          "exactTemplate": 5,
+          "hasContent": 0
+        },
+        "Improvement": {
+          "present": 1,
+          "exactTemplate": 1,
+          "hasContent": 0
+        },
+        "Test": {
+          "present": 4,
+          "exactTemplate": 4,
+          "hasContent": 0
+        },
+        "New Feature": {
+          "present": 2,
+          "exactTemplate": 2,
+          "hasContent": 0
+        }
+      }
+    },
+    "description": {
+      "present": 15,
+      "exactTemplate": 1,
+      "hasContent": 14,
+      "strippedChars": {
+        "min": 0,
+        "p50": 546,
+        "p90": 3245,
+        "max": 4611
+      },
+      "modeCount": 1,
+      "modePreview": "(withheld: mode count < 3, may be user content)",
+      "perIssueType": {
+        "Sub-task": {
+          "present": 8,
+          "exactTemplate": 1,
+          "hasContent": 7
+        },
+        "Test": {
+          "present": 4,
+          "exactTemplate": 0,
+          "hasContent": 4
+        },
+        "Task": {
+          "present": 1,
+          "exactTemplate": 0,
+          "hasContent": 1
+        },
+        "Bug": {
+          "present": 2,
+          "exactTemplate": 0,
+          "hasContent": 2
+        }
+      }
+    }
+  },
+  "perIssueType": {
+    "Bug": {
+      "count": 6,
+      "narrativePresent": {
+        "customfield_11900": 5,
+        "customfield_11901": 4,
+        "customfield_11906": 5,
+        "customfield_11908": 5,
+        "description": 2
+      }
+    },
+    "Sub-task": {
+      "count": 8,
+      "narrativePresent": {
+        "description": 8,
+        "customfield_11900": 4,
+        "customfield_11901": 8,
+        "customfield_11906": 8,
+        "customfield_11908": 8
+      }
+    },
+    "Task": {
+      "count": 6,
+      "narrativePresent": {
+        "customfield_11900": 5,
+        "customfield_11901": 5,
+        "customfield_11906": 5,
+        "customfield_11908": 5,
+        "description": 1
+      }
+    },
+    "Improvement": {
+      "count": 2,
+      "narrativePresent": {
+        "customfield_11900": 2,
+        "customfield_11901": 2,
+        "customfield_11906": 2,
+        "customfield_11908": 1
+      }
+    },
+    "Test": {
+      "count": 4,
+      "narrativePresent": {
+        "description": 4,
+        "customfield_11900": 4,
+        "customfield_11901": 4,
+        "customfield_11906": 3,
+        "customfield_11908": 4
+      }
+    },
+    "New Feature": {
+      "count": 3,
+      "narrativePresent": {
+        "customfield_11900": 3,
+        "customfield_11901": 3,
+        "customfield_11906": 3,
+        "customfield_11908": 2
+      }
+    },
+    "Epic": {
+      "count": 1,
+      "narrativePresent": {}
+    }
+  },
+  "distributions": {
+    "issuetype": {
+      "Bug": 6,
+      "Sub-task": 8,
+      "Task": 6,
+      "Improvement": 2,
+      "Test": 4,
+      "New Feature": 3,
+      "Epic": 1
+    },
+    "priority": {
+      "Minor": 11,
+      "Major": 16,
+      "Critical": 3
+    },
+    "status": {
+      "To Do": 12,
+      "部署完成": 1,
+      "Complete": 8,
+      "In Progress": 4,
+      "沙箱测试": 3,
+      "Readed": 2
+    },
+    "resolution": {
+      "(unresolved)": 21,
+      "Fixed": 1,
+      "Done": 7,
+      "CLOSE": 1
+    }
+  },
+  "attachments": {
+    "issuesWith": 8,
+    "total": 14,
+    "mimeTypes": {
+      "text/plain": 3,
+      "application/zip": 1,
+      "text/markdown": 1,
+      "image/png": 7,
+      "text/html": 2
+    }
+  },
+  "comments": {
+    "issuesWith": 16,
+    "totalComments": 35,
+    "max": 5
+  },
+  "fields": [
+    {
+      "id": "aggregateprogress",
+      "name": "Σ Progress",
+      "custom": false,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "object": 30
+      }
+    },
+    {
+      "id": "assignee",
+      "name": "Assignee",
+      "custom": false,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "named": 30
+      }
+    },
+    {
+      "id": "created",
+      "name": "Created",
+      "custom": false,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "string": 30
+      },
+      "stringLength": {
+        "min": 28,
+        "p50": 28,
+        "p90": 28,
+        "max": 28
+      }
+    },
+    {
+      "id": "creator",
+      "name": "Creator",
+      "custom": false,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "named": 30
+      }
+    },
+    {
+      "id": "customfield_10309",
+      "name": "Rank",
+      "custom": true,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "string": 30
+      },
+      "stringLength": {
+        "min": 9,
+        "p50": 9,
+        "p90": 9,
+        "max": 9
+      }
+    },
+    {
+      "id": "customfield_10507",
+      "name": "开通范围",
+      "custom": true,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "option": 30
+      }
+    },
+    {
+      "id": "customfield_10600",
+      "name": "Rank",
+      "custom": true,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "string": 30
+      },
+      "stringLength": {
+        "min": 19,
+        "p50": 19,
+        "p90": 19,
+        "max": 19
+      }
+    },
+    {
+      "id": "customfield_10603",
+      "name": "Start date",
+      "custom": true,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "string": 30
+      },
+      "stringLength": {
+        "min": 10,
+        "p50": 10,
+        "p90": 10,
+        "max": 10
+      }
+    },
+    {
+      "id": "customfield_10604",
+      "name": "End date",
+      "custom": true,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "string": 30
+      },
+      "stringLength": {
+        "min": 10,
+        "p50": 10,
+        "p90": 10,
+        "max": 10
+      }
+    },
+    {
+      "id": "customfield_10804",
+      "name": "Release Start Date",
+      "custom": true,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "string": 30
+      },
+      "stringLength": {
+        "min": 10,
+        "p50": 10,
+        "p90": 10,
+        "max": 10
+      }
+    },
+    {
+      "id": "customfield_10805",
+      "name": "Release End Date",
+      "custom": true,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "string": 30
+      },
+      "stringLength": {
+        "min": 10,
+        "p50": 10,
+        "p90": 10,
+        "max": 10
+      }
+    },
+    {
+      "id": "customfield_11105",
+      "name": "Group ID",
+      "custom": true,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "string": 30
+      },
+      "stringLength": {
+        "min": 2,
+        "p50": 2,
+        "p90": 2,
+        "max": 2
+      }
+    },
+    {
+      "id": "customfield_11106",
+      "name": "Artifact ID",
+      "custom": true,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "string": 30
+      },
+      "stringLength": {
+        "min": 2,
+        "p50": 2,
+        "p90": 2,
+        "max": 2
+      }
+    },
+    {
+      "id": "customfield_11111",
+      "name": "Dependence",
+      "custom": true,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "string": 30
+      },
+      "stringLength": {
+        "min": 4,
+        "p50": 4,
+        "p90": 4,
+        "max": 4
+      }
+    },
+    {
+      "id": "issuetype",
+      "name": "Issue Type",
+      "custom": false,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "named": 30
+      }
+    },
+    {
+      "id": "priority",
+      "name": "Priority",
+      "custom": false,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "named": 30
+      }
+    },
+    {
+      "id": "progress",
+      "name": "Progress",
+      "custom": false,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "object": 30
+      }
+    },
+    {
+      "id": "project",
+      "name": "Project",
+      "custom": false,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "named": 30
+      }
+    },
+    {
+      "id": "reporter",
+      "name": "Reporter",
+      "custom": false,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "named": 30
+      }
+    },
+    {
+      "id": "status",
+      "name": "Status",
+      "custom": false,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "named": 30
+      }
+    },
+    {
+      "id": "summary",
+      "name": "Summary",
+      "custom": false,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 2,
+      "kinds": {
+        "string": 30
+      },
+      "stringLength": {
+        "min": 13,
+        "p50": 35,
+        "p90": 62,
+        "max": 93
+      }
+    },
+    {
+      "id": "timetracking",
+      "name": "Time Tracking",
+      "custom": false,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "object": 30
+      }
+    },
+    {
+      "id": "updated",
+      "name": "Updated",
+      "custom": false,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "string": 30
+      },
+      "stringLength": {
+        "min": 28,
+        "p50": 28,
+        "p90": 28,
+        "max": 28
+      }
+    },
+    {
+      "id": "votes",
+      "name": "Votes",
+      "custom": false,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "object": 30
+      }
+    },
+    {
+      "id": "watches",
+      "name": "Watchers",
+      "custom": false,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "object": 30
+      }
+    },
+    {
+      "id": "worklog",
+      "name": "Log Work",
+      "custom": false,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "object": 30
+      }
+    },
+    {
+      "id": "workratio",
+      "name": "Work Ratio",
+      "custom": false,
+      "present": 30,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "number": 30
+      }
+    },
+    {
+      "id": "components",
+      "name": "Component/s",
+      "custom": false,
+      "present": 29,
+      "empty": 1,
+      "templateOnly": 0,
+      "kinds": {
+        "array": 30
+      }
+    },
+    {
+      "id": "aggregatetimeestimate",
+      "name": "Σ Remaining Estimate",
+      "custom": false,
+      "present": 28,
+      "empty": 2,
+      "templateOnly": 0,
+      "kinds": {
+        "number": 28,
+        "empty": 2
+      }
+    },
+    {
+      "id": "aggregatetimeoriginalestimate",
+      "name": "Σ Original Estimate",
+      "custom": false,
+      "present": 28,
+      "empty": 2,
+      "templateOnly": 0,
+      "kinds": {
+        "number": 28,
+        "empty": 2
+      }
+    },
+    {
+      "id": "duedate",
+      "name": "Due Date",
+      "custom": false,
+      "present": 28,
+      "empty": 2,
+      "templateOnly": 0,
+      "kinds": {
+        "string": 28,
+        "empty": 2
+      },
+      "stringLength": {
+        "min": 10,
+        "p50": 10,
+        "p90": 10,
+        "max": 10
+      }
+    },
+    {
+      "id": "timeestimate",
+      "name": "Remaining Estimate",
+      "custom": false,
+      "present": 28,
+      "empty": 2,
+      "templateOnly": 0,
+      "kinds": {
+        "number": 28,
+        "empty": 2
+      }
+    },
+    {
+      "id": "timeoriginalestimate",
+      "name": "Original Estimate",
+      "custom": false,
+      "present": 28,
+      "empty": 2,
+      "templateOnly": 0,
+      "kinds": {
+        "number": 28,
+        "empty": 2
+      }
+    },
+    {
+      "id": "customfield_11901",
+      "name": "HIM缺陷内容",
+      "custom": true,
+      "present": 26,
+      "empty": 4,
+      "templateOnly": 0,
+      "kinds": {
+        "string": 26,
+        "empty": 4
+      },
+      "stringLength": {
+        "min": 35,
+        "p50": 269,
+        "p90": 269,
+        "max": 286
+      },
+      "headingSkeleton": [
+        {
+          "line": "【客户信息收集】",
+          "count": 25
+        },
+        {
+          "line": "AppKey：",
+          "count": 24
+        },
+        {
+          "line": "Cluster：",
+          "count": 24
+        },
+        {
+          "line": "【问题描述（重点）】",
+          "count": 24
+        },
+        {
+          "line": "SDK信息：",
+          "count": 23
+        },
+        {
+          "line": "客户APP名称：",
+          "count": 23
+        },
+        {
+          "line": "【预计结果】",
+          "count": 23
+        },
+        {
+          "line": "【日志或者补充说明】",
+          "count": 23
+        },
+        {
+          "line": "【期望解决时间】",
+          "count": 23
+        },
+        {
+          "line": "建议包含以下内容：",
+          "count": 22
+        },
+        {
+          "line": "配置信息如下：",
+          "count": 1
+        },
+        {
+          "line": "路径为：",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "customfield_11906",
+      "name": "测试内容及范围",
+      "custom": true,
+      "present": 26,
+      "empty": 4,
+      "templateOnly": 0,
+      "kinds": {
+        "string": 26,
+        "empty": 4
+      },
+      "stringLength": {
+        "min": 297,
+        "p50": 648,
+        "p90": 648,
+        "max": 648
+      }
+    },
+    {
+      "id": "customfield_11908",
+      "name": "文档问题描述",
+      "custom": true,
+      "present": 25,
+      "empty": 5,
+      "templateOnly": 0,
+      "kinds": {
+        "string": 25,
+        "empty": 5
+      },
+      "stringLength": {
+        "min": 133,
+        "p50": 133,
+        "p90": 133,
+        "max": 133
+      }
+    },
+    {
+      "id": "customfield_11900",
+      "name": "HIM需求内容",
+      "custom": true,
+      "present": 23,
+      "empty": 7,
+      "templateOnly": 0,
+      "kinds": {
+        "string": 23,
+        "empty": 7
+      },
+      "stringLength": {
+        "min": 56,
+        "p50": 211,
+        "p90": 597,
+        "max": 1049
+      }
+    },
+    {
+      "id": "comment",
+      "name": "Comment",
+      "custom": false,
+      "present": 16,
+      "empty": 14,
+      "templateOnly": 0,
+      "kinds": {
+        "comments": 30
+      }
+    },
+    {
+      "id": "issuelinks",
+      "name": "Linked Issues",
+      "custom": false,
+      "present": 16,
+      "empty": 14,
+      "templateOnly": 0,
+      "kinds": {
+        "array": 30
+      }
+    },
+    {
+      "id": "description",
+      "name": "Description",
+      "custom": false,
+      "present": 15,
+      "empty": 15,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 15,
+        "string": 15
+      },
+      "stringLength": {
+        "min": 59,
+        "p50": 697,
+        "p90": 3569,
+        "max": 4873
+      }
+    },
+    {
+      "id": "aggregatetimespent",
+      "name": "Σ Time Spent",
+      "custom": false,
+      "present": 9,
+      "empty": 21,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 21,
+        "number": 9
+      }
+    },
+    {
+      "id": "customfield_10306",
+      "name": "Epic Link",
+      "custom": true,
+      "present": 9,
+      "empty": 21,
+      "templateOnly": 0,
+      "kinds": {
+        "string": 9,
+        "empty": 21
+      },
+      "stringLength": {
+        "min": 8,
+        "p50": 8,
+        "p90": 8,
+        "max": 8
+      }
+    },
+    {
+      "id": "resolution",
+      "name": "Resolution",
+      "custom": false,
+      "present": 9,
+      "empty": 21,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 21,
+        "named": 9
+      }
+    },
+    {
+      "id": "resolutiondate",
+      "name": "Resolved",
+      "custom": false,
+      "present": 9,
+      "empty": 21,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 21,
+        "string": 9
+      },
+      "stringLength": {
+        "min": 28,
+        "p50": 28,
+        "p90": 28,
+        "max": 28
+      }
+    },
+    {
+      "id": "attachment",
+      "name": "Attachment",
+      "custom": false,
+      "present": 8,
+      "empty": 22,
+      "templateOnly": 0,
+      "kinds": {
+        "attachments": 8,
+        "array": 22
+      }
+    },
+    {
+      "id": "parent",
+      "name": "parent",
+      "custom": false,
+      "present": 8,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "object": 8
+      }
+    },
+    {
+      "id": "timespent",
+      "name": "Time Spent",
+      "custom": false,
+      "present": 8,
+      "empty": 22,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 22,
+        "number": 8
+      }
+    },
+    {
+      "id": "fixVersions",
+      "name": "Fix Version/s",
+      "custom": false,
+      "present": 7,
+      "empty": 23,
+      "templateOnly": 0,
+      "kinds": {
+        "array": 30
+      }
+    },
+    {
+      "id": "labels",
+      "name": "Labels",
+      "custom": false,
+      "present": 4,
+      "empty": 26,
+      "templateOnly": 0,
+      "kinds": {
+        "array": 30
+      }
+    },
+    {
+      "id": "lastViewed",
+      "name": "Last Viewed",
+      "custom": false,
+      "present": 3,
+      "empty": 27,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 27,
+        "string": 3
+      },
+      "stringLength": {
+        "min": 28,
+        "p50": 28,
+        "p90": 28,
+        "max": 28
+      }
+    },
+    {
+      "id": "subtasks",
+      "name": "Sub-Tasks",
+      "custom": false,
+      "present": 2,
+      "empty": 28,
+      "templateOnly": 0,
+      "kinds": {
+        "array": 30
+      }
+    },
+    {
+      "id": "customfield_10100",
+      "name": "抄送",
+      "custom": true,
+      "present": 1,
+      "empty": 29,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 29,
+        "array": 1
+      }
+    },
+    {
+      "id": "customfield_10305",
+      "name": "Epic Name",
+      "custom": true,
+      "present": 1,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "string": 1
+      },
+      "stringLength": {
+        "min": 17,
+        "p50": 17,
+        "p90": 17,
+        "max": 17
+      }
+    },
+    {
+      "id": "customfield_10307",
+      "name": "Epic Status",
+      "custom": true,
+      "present": 1,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "option": 1
+      }
+    },
+    {
+      "id": "customfield_10308",
+      "name": "Epic Colour",
+      "custom": true,
+      "present": 1,
+      "empty": 0,
+      "templateOnly": 0,
+      "kinds": {
+        "string": 1
+      },
+      "stringLength": {
+        "min": 11,
+        "p50": 11,
+        "p90": 11,
+        "max": 11
+      }
+    },
+    {
+      "id": "customfield_10200",
+      "name": "工单名称",
+      "custom": true,
+      "present": 0,
+      "empty": 26,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 26
+      }
+    },
+    {
+      "id": "customfield_10201",
+      "name": "工单级别",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10202",
+      "name": "产品线",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10208",
+      "name": "对应研发任务",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10210",
+      "name": "需求来源",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10211",
+      "name": "客户名称",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10212",
+      "name": "需求提报人",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10213",
+      "name": "需求价值",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10214",
+      "name": "需求提交日期",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10300",
+      "name": "Flagged",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10301",
+      "name": "Epic/Theme",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10302",
+      "name": "Story Points",
+      "custom": true,
+      "present": 0,
+      "empty": 1,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 1
+      }
+    },
+    {
+      "id": "customfield_10303",
+      "name": "Business Value",
+      "custom": true,
+      "present": 0,
+      "empty": 4,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 4
+      }
+    },
+    {
+      "id": "customfield_10304",
+      "name": "Sprint",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10501",
+      "name": "拒绝原因",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10502",
+      "name": "原始需求",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10503",
+      "name": "需求分类",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10504",
+      "name": "需求整理",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10505",
+      "name": "产品设计",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10506",
+      "name": "UE/UI设计",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10602",
+      "name": "Progress",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10605",
+      "name": "Baseline start date",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10606",
+      "name": "Baseline end date",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10700",
+      "name": "Affect Time",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10701",
+      "name": "Tester",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10800",
+      "name": "Risk probability",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10801",
+      "name": "Risk consequence",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_10900",
+      "name": "产品",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11000",
+      "name": "Ops",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11103",
+      "name": "Version",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11112",
+      "name": "SQL",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11114",
+      "name": "Review",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11115",
+      "name": "Perf",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11200",
+      "name": "Migration",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11201",
+      "name": "OpsTime",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11203",
+      "name": "API",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11204",
+      "name": "Project",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11300",
+      "name": "责任人",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11301",
+      "name": "研发优先级",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11400",
+      "name": "GitBranch",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11401",
+      "name": "GitSha",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11402",
+      "name": "Github PR URL",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11403",
+      "name": "Reviewer",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11404",
+      "name": "Document URL",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11405",
+      "name": "Release URL",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11406",
+      "name": "DeployedOn",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11500",
+      "name": "阶段",
+      "custom": true,
+      "present": 0,
+      "empty": 6,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 6
+      }
+    },
+    {
+      "id": "customfield_11501",
+      "name": "问题提交人",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11502",
+      "name": "问题的原始记录来源说明",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11503",
+      "name": "问题原因",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11504",
+      "name": "修改方案",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11505",
+      "name": "修改文件清单",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11600",
+      "name": "Account",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11601",
+      "name": "Team",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11602",
+      "name": "Iteration",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11603",
+      "name": "issueFunction",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11604",
+      "name": "assignee",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11700",
+      "name": "kefu-version",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11802",
+      "name": "task-object",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11803",
+      "name": "measurement",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11902",
+      "name": "问题归因",
+      "custom": true,
+      "present": 0,
+      "empty": 6,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 6
+      }
+    },
+    {
+      "id": "customfield_11903",
+      "name": "修复方式",
+      "custom": true,
+      "present": 0,
+      "empty": 6,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 6
+      }
+    },
+    {
+      "id": "customfield_11910",
+      "name": "客户端/服务端",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "customfield_11911",
+      "name": "文档错误类型",
+      "custom": true,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "environment",
+      "name": "Environment",
+      "custom": false,
+      "present": 0,
+      "empty": 30,
+      "templateOnly": 0,
+      "kinds": {
+        "empty": 30
+      }
+    },
+    {
+      "id": "versions",
+      "name": "Affects Version/s",
+      "custom": false,
+      "present": 0,
+      "empty": 4,
+      "templateOnly": 0,
+      "kinds": {
+        "array": 4
+      }
+    }
+  ]
+}

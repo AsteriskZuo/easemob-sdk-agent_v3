@@ -1,0 +1,18 @@
+.git
+.codex
+.agents
+.easemob-agent
+node_modules
+dist
+dist-test
+coverage
+*.log
+.DS_Store
+
+# 真实部署配置和密钥不进入 Docker build context。
+config*.local.json
+config*.production.json
+secrets
+*.pem
+*.key
+*.crt

@@ -1,0 +1,262 @@
+{
+  "issueKey": "HIM-22543",
+  "fetchedAt": "2026-07-17T09:36:56.992Z",
+  "baselineSampled": 15,
+  "context": {
+    "issuetype": "Bug",
+    "status": "Readed",
+    "priority": "Major",
+    "resolution": null,
+    "components": [
+      "SDK",
+      "UIKit"
+    ],
+    "labels": [],
+    "fixVersions": [
+      "班车26828"
+    ],
+    "reporter": "杨子龙",
+    "creator": "杨子龙",
+    "assignee": "佐玉",
+    "created": "2026-07-08T14:13:12.000+0800",
+    "updated": "2026-07-17T11:33:32.000+0800",
+    "customfield_10306": "HIM-4495"
+  },
+  "summary": "【G0044447小幸运&声网 对接群】Flutter上传附件类消息displayname问题",
+  "narratives": {
+    "description": {
+      "state": "empty"
+    },
+    "customfield_11900": {
+      "state": "filled",
+      "templateBaseline": {
+        "hits": 7,
+        "of": 12
+      },
+      "exactTemplate": true,
+      "strippedChars": 0,
+      "strippedText": "",
+      "sections": [
+        {
+          "title": "【需求描述（重点）】",
+          "labels": [],
+          "freeContent": "",
+          "contentChars": 0,
+          "filled": false
+        },
+        {
+          "title": "【友商信息】",
+          "labels": [],
+          "freeContent": "",
+          "contentChars": 0,
+          "filled": false
+        },
+        {
+          "title": "【预期效果】",
+          "labels": [],
+          "freeContent": "",
+          "contentChars": 0,
+          "filled": false
+        },
+        {
+          "title": "【期望解决时间】",
+          "labels": [],
+          "freeContent": "",
+          "contentChars": 0,
+          "filled": false
+        },
+        {
+          "title": "【其他补充】",
+          "labels": [],
+          "freeContent": "",
+          "contentChars": 0,
+          "filled": false
+        }
+      ],
+      "unmatchedLines": [],
+      "raw": "【需求描述（重点）】\r\n建议包含以下内容：\r\n1、客户APP名称\r\n2、客户业务场景\r\n3、客户需求场景介绍\r\n4、涉及终端：如IOS、Android、Web、鸿蒙OS等等\r\n5、客户原始反馈信息\r\n【友商信息】\r\n客户是否之前使用的友商产品，友商产品是否有类似的解决方案，如有可附上截图或者链接\r\n【预期效果】\r\n客户预期效果，建议明确需求范围\r\n【期望解决时间】\r\n客户希望解决时间\r\n【其他补充】\r\n其他补充说明\r\n"
+    },
+    "customfield_11901": {
+      "state": "filled",
+      "templateBaseline": {
+        "hits": 11,
+        "of": 13
+      },
+      "exactTemplate": false,
+      "strippedChars": 436,
+      "strippedText": "AppKey：1120250407193694#xiaoxingyun\nCluster：ngi\nSDK信息：flutter sdk 4.19.1版本\niOS、Android\n发送附件类消息，例如图片、语音消息\nFlutter创建图片、语音类消息目前displayname为非必传参数，会导致以下问题：\n- 图片类消息不设置displayname，超过2M大小，iOS端报文件太大错误\n- 语音类消息设置displayname，但是没有.mp3等后缀，iOS端下载后无法播放\n- 语音类消息设置displayname不规范，安卓端报401，File movement error，例如displayname：/data/user/0/com.litou.littleluck/app_flutter/17834064890207189526778.mp3\n目前已建议用户规范displayname，需要看一下是在flutter侧或者sdk侧处理一下。如修改参数必要性以及displayname规范性解析问题",
+      "sections": [
+        {
+          "title": "【客户信息收集】",
+          "labels": [
+            {
+              "prefix": "AppKey",
+              "value": "1120250407193694#xiaoxingyun"
+            },
+            {
+              "prefix": "Cluster",
+              "value": "ngi"
+            },
+            {
+              "prefix": "SDK信息",
+              "value": "flutter sdk 4.19.1版本"
+            }
+          ],
+          "freeContent": "iOS、Android",
+          "contentChars": 62,
+          "filled": true
+        },
+        {
+          "title": "【问题描述（重点）】",
+          "labels": [],
+          "freeContent": "发送附件类消息，例如图片、语音消息\nFlutter创建图片、语音类消息目前displayname为非必传参数，会导致以下问题：\n- 图片类消息不设置displayname，超过2M大小，iOS端报文件太大错误\n- 语音类消息设置displayname，但是没有.mp3等后缀，iOS端下载后无法播放\n- 语音类消息设置displayname不规范，安卓端报401，File movement error，例如displayname：/data/user/0/com.litou.littleluck/app_flutter/17834064890207189526778.mp3\n目前已建议用户规范displayname，需要看一下是在flutter侧或者sdk侧处理一下。如修改参数必要性以及displayname规范性解析问题",
+          "contentChars": 360,
+          "filled": true
+        },
+        {
+          "title": "【预计结果】",
+          "labels": [],
+          "freeContent": "",
+          "contentChars": 0,
+          "filled": false
+        },
+        {
+          "title": "【日志或者补充说明】",
+          "labels": [],
+          "freeContent": "",
+          "contentChars": 0,
+          "filled": false
+        },
+        {
+          "title": "【期望解决时间】",
+          "labels": [],
+          "freeContent": "",
+          "contentChars": 0,
+          "filled": false
+        }
+      ],
+      "unmatchedLines": [],
+      "raw": "【客户信息收集】\r\nAppKey：1120250407193694#xiaoxingyun\r\nCluster：ngi\r\nSDK信息：flutter sdk 4.19.1版本\r\n涉及终端：如IOS、Android、Web、鸿蒙OS等等\r\niOS、Android\r\n环境信息：核心中间件版本，如涉及，请填写\r\n【问题描述（重点）】\r\n建议包含以下内容：\r\n1、客户的业务场景\r\n发送附件类消息，例如图片、语音消息\r\n2、问题出现的场景（条件）和具体现象\r\nFlutter创建图片、语音类消息目前displayname为非必传参数，会导致以下问题：\r\n- 图片类消息不设置displayname，超过2M大小，iOS端报文件太大错误\r\n- 语音类消息设置displayname，但是没有.mp3等后缀，iOS端下载后无法播放\r\n- 语音类消息设置displayname不规范，安卓端报401，File movement error，例如displayname：/data/user/0/com.litou.littleluck/app_flutter/17834064890207189526778.mp3\r\n3、是否存在替代方案，如存在，为什么不满足\r\n目前已建议用户规范displayname，需要看一下是在flutter侧或者sdk侧处理一下。如修改参数必要性以及displayname规范性解析问题"
+    },
+    "customfield_11906": {
+      "state": "filled",
+      "templateBaseline": {
+        "hits": 10,
+        "of": 13
+      },
+      "exactTemplate": true,
+      "strippedChars": 0,
+      "strippedText": "",
+      "sections": [],
+      "unmatchedLines": [],
+      "raw": "1. 做了什么事情。比如：\r\n\r\n     a. 添加了某些api；\r\n\r\n     b. 做了某些新功能；\r\n\r\n     c. 添加了某些限制；\r\n\r\n     d. 做了哪些修复；\r\n\r\n     e. 其他；\r\n\r\n2. 前置条件：\r\n\r\n     a. 测试环境；\r\n    \r\n     b. 基础数据；\r\n\r\n     c. 数据量；\r\n\r\n     d. 需要开通功能；\r\n\r\n     e. 被测功能是否在imm中可配置，具体配置项在imm中什么位置。\r\n\r\n     f. 其他\r\n\r\n3. 测试范围:\r\n\r\n     a. 限流，是否可配，如何配置；\r\n\r\n     b. 涉及到的api(比如修改了底层的逻辑，其他api也使用了相同的代码)；\r\n\r\n     c. 请求的api 参数范围(比如分页中每页上限多少)；\r\n\r\n     d. 正确返回结果预期(比如分页未结束时的json结构，分页结束时的json结构，预期值)；\r\n\r\n     e. 错误返回结果预期(比如限流，参数错误，未开通等)；\r\n\r\n     f. 请求参数的字段范围限制(如设置推送昵称的api，昵称长度。用户属性总大小等)；\r\n\r\n     g. 其他\r\n\r\n4. 针对bug的修复，需要额外提供：\r\n\r\n     a. 描述清楚bug是什么；\r\n\r\n     b. 如何复现bug；\r\n\r\n     c. 是如何修复的；\r\n\r\n     d. 修复后预期结果；\r\n\r\n     e. 其他\r\n"
+    },
+    "customfield_11908": {
+      "state": "filled",
+      "templateBaseline": {
+        "hits": 13,
+        "of": 13
+      },
+      "exactTemplate": true,
+      "strippedChars": 0,
+      "strippedText": "",
+      "sections": [
+        {
+          "title": "【期望解决时间】",
+          "labels": [],
+          "freeContent": "",
+          "contentChars": 0,
+          "filled": false
+        },
+        {
+          "title": "【其他补充】",
+          "labels": [],
+          "freeContent": "",
+          "contentChars": 0,
+          "filled": false
+        }
+      ],
+      "unmatchedLines": [],
+      "raw": "【问题描述】 建议包含以下内容：\r\n1、客户APP名称 (可选) \r\n2、客户业务场景 \r\n3、具体问题描述 \r\n4、涉及终端：如IOS、Android、Web、鸿蒙等等 \r\n5. 文档链接 \r\n【期望解决时间】 \r\n希望解决时间 \r\n【其他补充】 \r\n其他补充说明"
+    }
+  },
+  "attachments": [
+    {
+      "filename": "androiderror.txt",
+      "mimeType": "text/plain",
+      "size": 2064,
+      "created": "2026-07-08T14:13:12.000+0800",
+      "author": "杨子龙"
+    },
+    {
+      "filename": "ebs.txt",
+      "mimeType": "text/plain",
+      "size": 6511,
+      "created": "2026-07-15T10:24:03.000+0800",
+      "author": "杨子龙"
+    },
+    {
+      "filename": "ioserror.png",
+      "mimeType": "image/png",
+      "size": 58658,
+      "created": "2026-07-08T14:13:12.000+0800",
+      "author": "杨子龙"
+    },
+    {
+      "filename": "ngi.txt",
+      "mimeType": "text/plain",
+      "size": 6610,
+      "created": "2026-07-15T10:24:03.000+0800",
+      "author": "杨子龙"
+    },
+    {
+      "filename": "原图.jpg",
+      "mimeType": "image/jpeg",
+      "size": 2648670,
+      "created": "2026-07-08T14:13:12.000+0800",
+      "author": "杨子龙"
+    }
+  ],
+  "comments": [
+    {
+      "author": "赵亮",
+      "created": "2026-07-08T14:24:37.000+0800",
+      "body": "经讨论，计划在flutter 5.0版本中将displayname 修改为比填参数。"
+    },
+    {
+      "author": "佐玉",
+      "created": "2026-07-13T10:06:05.000+0800",
+      "body": "ios继超和 android许成谱 确认：5.0版本的displayname是可选的。 flutter作为跨平台，不建议修改属性的可选性。"
+    },
+    {
+      "author": "佐玉",
+      "created": "2026-07-13T10:07:44.000+0800",
+      "body": "不建议sdk做很多防御性编程，如果是 例如：`/data/user/0/com.litou.littleluck/app_flutter/17834064890207189526778.mp3` 不规范，用户修改一下就可以了。"
+    },
+    {
+      "author": "杨子龙",
+      "created": "2026-07-15T10:24:11.000+0800",
+      "body": "需要看一下iOS的相关问题，目前只有ngi集群有问题，需要确认一下是否由后端处理，我测试的ngi：easemob-demo#ngim，ebs：easemob-demo#support，相关日志已经补充"
+    },
+    {
+      "author": "佐玉",
+      "created": "2026-07-15T11:51:31.000+0800",
+      "body": "补充的是有问题的日志吧。能否在补充一下没有问题的日志。"
+    },
+    {
+      "author": "佐玉",
+      "created": "2026-07-15T11:51:59.000+0800",
+      "body": "如果怀疑是ngi的问题，应该可以对比两个日志。应该能够找到有价值的线索。"
+    },
+    {
+      "author": "杨子龙",
+      "created": "2026-07-15T11:59:39.000+0800",
+      "body": "ebs命名的是没有问题的日志，ngi命名的是有问题的日志"
+    },
+    {
+      "author": "佐玉",
+      "created": "2026-07-17T11:33:32.000+0800",
+      "body": "问题1 ： 不传 displayname，两个服务器表现不一致。在有问题的服务器 ，不传 displayname 导致 上传文件当成了普通 post，服务器对普通post限制 2mb。所以报错 413，附件太大。\r\n问题2： 不带后缀，无法播放，应该是播放工具不支持没有后缀\r\n问题3： android native问题，后续升级应该就可以了。"
+    }
+  ]
+}

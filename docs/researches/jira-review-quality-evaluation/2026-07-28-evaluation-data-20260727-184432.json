@@ -1,0 +1,1880 @@
+{
+  "evaluatedAt": "2026-07-28",
+  "sourceLogRoot": "logs/data-2026-07-27 18 44 32",
+  "averageScore": 93.8,
+  "labelDistribution": {
+    "good": 49,
+    "acceptable_with_issues": 2,
+    "bad": 2,
+    "needs_human_review": 0
+  },
+  "records": [
+    {
+      "issueKey": "HIM-15259",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-15259.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "工单类型为 Task，非 Bug，跳过审查。"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-16561",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-16561.log",
+      "originalReview": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "消息操作",
+        "reason": "",
+        "summary": "Web端channel_ack回调缺少ack_message_id字段，问题描述清晰，提供了Web端与原生端回调结构体对比，公共底座和场景必须项均满足。"
+      },
+      "evaluatorJudgement": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "消息操作",
+        "reason": "web端channel_ack回调缺少ack_message_id字段，description含web/原生回调结构体对比（含version 4.4.1/os webim），AppKey已提供，预期可无歧义推断，信息充分。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 23,
+        "actionability": 14,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 97
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "场景归为消息操作（已读回执）合理，保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-17470",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-17470.log",
+      "originalReview": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "消息操作",
+        "reason": "公共底座5项均满足：问题描述（searchMsgFromDB返回数据异常）、实际结果（数据不对+SQLite数据库损坏错误）、预期结果（可从现象无歧义推断：应返回正确数据）、复现路径（进入聊天页面调用searchMsgFromDB）、SDK身份（环信SDK，客户为原初未来，定制版本）。场景必须项（消息操作）：操作+现象+预期差异均已具备。AppKey未显式提供，但客户身份明确且为定制版本，不阻塞处理。建议项（消息ID、具体时间戳）缺失但不影响审查通过。",
+        "summary": "searchMsgFromDB返回数据异常，根因为本地SQLite数据库损坏（no such table: profile/message），信息充分可处理。"
+      },
+      "evaluatorJudgement": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "消息操作",
+        "reason": "searchMsgFromDB返回数据异常，现象+调用路径+附件日志齐全，SDK版本字段为脱敏占位按已提供处理，预期可推断。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 14,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 96
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "AppKey未提供但消息操作场景不强制，reason已说明，处理得当。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-19994",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-19994.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Improvement），不在审查范围",
+        "summary": "工单类型为 Improvement，非 Bug，跳过审查。"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-20064",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-20064.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Improvement），不在审查范围",
+        "summary": "工单类型为 Improvement，非 Bug 工单，不在审查范围"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-20780",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-20780.log",
+      "originalReview": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "回调",
+        "reason": "",
+        "summary": "Bug 分类正确，属于回调场景；问题描述、实际结果、预期结果、环境信息（iOS SDK 1.3.2-beta1）均已提供，附件含日志和截图，信息足以处理。"
+      },
+      "evaluatorJudgement": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "回调",
+        "reason": "iOS从本地加载消息无回调，版本/现象/初步分析/日志附件齐全，pass正确。但scenario用“回调”存疑：标准中回调场景指服务端发送前/后回调，本单为SDK API回调不触发，更接近消息操作或fallback；若严格按回调场景口径AppKey为必须项则会改判，scenario选择直接影响结论。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 18,
+        "actionability": 12,
+        "scopeDiscipline": 15,
+        "outputContract": 4,
+        "total": 84
+      },
+      "label": "acceptable_with_issues",
+      "problems": [
+        "scenario归类存疑：SDK API回调与服务端回调场景混用，且影响AppKey是否必须的判断"
+      ],
+      "improvementAdvice": "建议标准中明确“回调”场景是否涵盖SDK API回调；本单按消息操作/fallback审查更稳。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-21273",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-21273.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（New Feature），不在审查范围",
+        "summary": "工单类型为 New Feature，不属于 Bug 审查范围"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-21295",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-21295.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（New Feature），不在审查范围",
+        "summary": "工单类型为 New Feature，不属于 Bug 审查范围，跳过。"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-21318",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-21318.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "该工单类型为 Task，标题为「2026Q1：Flutter开发者体验走查」，属于内部走查任务，非缺陷工单，不在审查范围。"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-21595",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-21595.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "工单类型为 Task，非 Bug，跳过审查。"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-21756",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-21756.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "工单类型为 Task，非 Bug，跳过审查。"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-21953",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-21953.log",
+      "originalReview": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "崩溃/卡死",
+        "reason": "",
+        "summary": "iOS SDK崩溃工单，提供了崩溃日志附件(.ips)、触发API及参数条件、SDK版本(4.17.1.3)和偶现复现描述，信息充分可处理。"
+      },
+      "evaluatorJudgement": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "崩溃/卡死",
+        "reason": "崩溃堆栈附件(.ips)+触发API及参数条件+SDK版本齐全，满足崩溃场景必须项。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 24,
+        "actionability": 14,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 98
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-21963",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-21963.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "工单类型为 Task，非 Bug 工单，不在工单审查范围内"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22020",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22020.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "工单类型为 Task（SDK 补齐错误码），非 Bug，不在审查范围。"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22152",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22152.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Improvement），不在审查范围",
+        "summary": "工单类型为 Improvement，非 Bug，不在审查范围内"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22249",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22249.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "工单类型为 Task，非 Bug 工单，不在审查范围"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22369",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22369.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "工单类型为 Task，非 Bug，不在审查范围。"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22440",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22440.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "工单 HIM-22440 类型为 Task，非 Bug 工单，不在审查范围。"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22442",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22442.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "该工单类型为 Task，是 Android IM SDK 4.24.1 的发布任务单，不属于缺陷工单审查范围。"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22443",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22443.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "该工单类型为 Task，是 iOS IM SDK 4.24.1 的发版任务，不属于 Bug 审查范围。"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22446",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22446.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "工单类型为 Task，非 Bug，不在审查范围"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22455",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22455.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "工单类型为 Task，非 Bug，跳过审查。"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22543",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22543.log",
+      "originalReview": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "附件/媒体",
+        "reason": "",
+        "summary": "Flutter附件消息displayname问题，三个子现象均围绕同一根因（displayname参数处理），场景、现象、报错、AppKey/集群/SDK版本等关键信息齐全，评论中补充了日志对比和根因分析，信息充分。"
+      },
+      "evaluatorJudgement": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "附件/媒体",
+        "reason": "AppKey/集群/SDK版本/三类现象+报错附件+评论根因对比齐全，多现象同属displayname同一问题上下文，不属问题聚合。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 24,
+        "actionability": 14,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 98
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22578",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22578.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "工单类型为 Task，非缺陷工单，跳过审查。"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22613",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22613.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Sub-task），不在审查范围",
+        "summary": "HIM-22613 为 Sub-task 类型的发版任务，非 Bug 工单，跳过审查。"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22663",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22663.log",
+      "originalReview": {
+        "decision": "fail",
+        "classification": "Bug",
+        "scenario": "消息收发",
+        "reason": "公共底座缺失：1) appId/AppKey 未提供；2) deviceInfo 不足，仅有 react-native + Android 方向，缺少具体机型、Android 版本、React Native 版本。消息收发场景缺失：3) 会话类型（单聊/群/聊天室）未说明；4) actual 不足，仅描述「发送失败」，无错误码、错误信息、回调结果或日志摘要。附件/媒体辅助场景缺失：5) 所选图片的文件类型和大小未提供。发送步骤未说明调用的具体接口。最新评论「47」「48」未补充任何有效信息，此前两轮审查指出的缺失项均未得到回应。",
+        "summary": "工单描述了 React Native demo 中发送原图失败的 Bug，分类正确，但缺少 AppKey、设备环境详情、错误码/日志、会话类型、图片文件信息等关键信息，不具备可复现和可处理条件。"
+      },
+      "evaluatorJudgement": {
+        "decision": "fail",
+        "classification": "Bug",
+        "scenario": "消息收发",
+        "reason": "RN demo发送图片失败：AppKey、具体错误表现、预期、会话类型、图片类型/大小均缺失，fail正确；reason逐项列出缺失并指出两轮评论未补充有效信息，可执行性强。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 24,
+        "actionability": 14,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 98
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22667",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22667.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "工单类型为 Task，非 Bug 工单，不在审查范围"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22668",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22668.log",
+      "originalReview": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "性能/资源",
+        "reason": "",
+        "summary": "Bug 工单信息充分：问题描述（fetchUserInfoByUserId 获取用户信息后未缓存到内存）、实际结果（found 0 records）、预期结果（应缓存到内存）、环境（sgp 集群、SDK 4.23.0）均已提供；评论补充了根因（下行缺少 lastModified 字段，需 REST 平台版）和集群限制说明，附件日志已上传。"
+      },
+      "evaluatorJudgement": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "fallback",
+        "reason": "fetchUserInfoByUserId未缓存到内存：现象+日志+版本+集群+AppKey齐全，pass正确。scenario“性能/资源”不贴切（该场景指卡顿/内存/CPU类），用户信息缓存问题归fallback更稳。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 21,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 6,
+        "total": 90
+      },
+      "label": "good",
+      "problems": [
+        "scenario“性能/资源”不贴切"
+      ],
+      "improvementAdvice": "scenario不影响主结论，建议归fallback。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22706",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22706.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "工单类型为 Task（需求任务），非 Bug 工单，不在审查范围内"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22741",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22741.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "HIM-22741 是 Task 类型，内容为文档站 V5 版本架构支持，非缺陷工单，不在 Bug 审查范围内。"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22762",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22762.log",
+      "originalReview": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "附件/媒体",
+        "reason": "",
+        "summary": "附件下载状态持久化Bug，summary清晰描述现象与复现路径，评论含完整根因分析与PR，附件含日志和截图，信息充分可处理。"
+      },
+      "evaluatorJudgement": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "附件/媒体",
+        "reason": "下载状态持久化BUG：现象+复现路径+消息id+日志/截图附件+评论完整根因链，信息充分。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 23,
+        "actionability": 14,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 97
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22764",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22764.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "HIM-22764 为 Task 类型，属于 Console 端语音转文字功能页面的需求任务，非缺陷工单，不在审查范围。"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22773",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22773.log",
+      "originalReview": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "联系人/群组/聊天室/子区",
+        "reason": "",
+        "summary": "QA测试单，WebSDK5.0调用updateGroupInfo修改群头像时未将avatar参数写入请求体，问题描述、操作步骤、AppKey均已提供，评论确认根因并修复关闭，信息充分。"
+      },
+      "evaluatorJudgement": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "联系人/群组/聊天室/子区",
+        "reason": "QA单修改群头像报错：AppKey、操作步骤、实际（avatar未写入请求体）与预期差异齐全，pass可接受；但严格按场景6必须项，群组对象ID缺失且原模型未提及，与HIM-22779中把对象ID作为fail依据的口径不一致。"
+      },
+      "scores": {
+        "decisionCorrectness": 28,
+        "reasonAccuracy": 19,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 9,
+        "total": 84
+      },
+      "label": "acceptable_with_issues",
+      "problems": [
+        "场景6对象ID缺失未提及，与HIM-22779口径不一致（本单对象ID不阻塞复现，故不推翻pass）"
+      ],
+      "improvementAdvice": "QA单同类必须项应统一口径：要么统一说明为何不阻塞，要么统一列为缺失。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22779",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22779.log",
+      "originalReview": {
+        "decision": "fail",
+        "classification": "Bug",
+        "scenario": "联系人/群组/聊天室/子区",
+        "reason": "场景必须项缺失：1) 缺少 AppKey 或测试环境/集群信息（QA 测试单需提供测试环境或集群）；2) 缺少聊天室对象 ID（chatRoomId）。当前所有有效信息仅在 summary 中，himBugContent、himRequirementContent、testScope 均为默认模板未填写，无评论和附件补充。",
+        "summary": "WebSDK5.0 聊天室定向消息报错，问题现象清晰，但缺少测试环境/集群和聊天室 ID，无法定位和复现。"
+      },
+      "evaluatorJudgement": {
+        "decision": "fail",
+        "classification": "Bug",
+        "scenario": "联系人/群组/聊天室/子区",
+        "reason": "仅summary有有效信息，缺测试环境/集群与chatRoomId，fail正确，reason准确列出缺失项。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 23,
+        "actionability": 14,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 97
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22780",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22780.log",
+      "originalReview": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "消息收发",
+        "reason": "",
+        "summary": "QA测试单，聊天室发送合并消息下行收到错误type:text，问题现象清晰、预期可从现象推断，场景必须项满足。建议补充测试环境/集群信息。"
+      },
+      "evaluatorJudgement": {
+        "decision": "fail",
+        "classification": "Bug",
+        "scenario": "消息收发",
+        "reason": "仅有summary+两行现象（发送端combine success/下行type:text），无AppKey或测试环境/集群、无发生时间；消息收发场景的AppKey（QA单为测试环境/集群）与现象+时间为必须项，原模型把环境降级为“建议补充”，违反必须项与建议项分离原则，且与HIM-22779的fail口径矛盾。"
+      },
+      "scores": {
+        "decisionCorrectness": 15,
+        "reasonAccuracy": 12,
+        "actionability": 12,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 64
+      },
+      "label": "bad",
+      "problems": [
+        "主结论存疑偏错：场景必须项（测试环境/集群、发生时间）缺失被降级为建议项",
+        "与HIM-22779同类QA单口径不一致"
+      ],
+      "improvementAdvice": "QA消息收发单缺环境/时间应判fail或至少统一口径，建议人工复核确认。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22786",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22786.log",
+      "originalReview": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "联系人/群组/聊天室/子区",
+        "reason": "公共底座满足：问题描述（添加好友对端未收到通知）、实际结果（对端未收到onContactInvited）、预期结果（对端应收到onContactInvited，可从现象无歧义推断）、复现路径（添加好友操作）均已具备；QA 工单以标题中的 websdk5.0 作为环境/平台标识，可接受。场景必须项：操作+现象已明确。建议补充：1) 具体测试环境/集群信息；2) 涉及的对象ID（被添加方账号）以便精确定位；3) 是否必现/复现率。",
+        "summary": "WebSDK5.0 添加好友场景，请求端 addContact 成功但对端未收到 onContactInvited，信息足以开始排查。"
+      },
+      "evaluatorJudgement": {
+        "decision": "fail",
+        "classification": "Bug",
+        "scenario": "联系人/群组/聊天室/子区",
+        "reason": "仅“添加好友对方没收到通知”，无AppKey或测试环境/集群、无被添加方对象ID；场景6的AppKey与对象ID为必须项，原模型将二者列为建议项并pass，违反必须项与建议项分离原则，与HIM-22779口径矛盾。"
+      },
+      "scores": {
+        "decisionCorrectness": 15,
+        "reasonAccuracy": 14,
+        "actionability": 12,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 66
+      },
+      "label": "bad",
+      "problems": [
+        "主结论存疑偏错：AppKey/环境与对象ID被降级为建议项",
+        "与HIM-22779同类QA单口径不一致"
+      ],
+      "improvementAdvice": "建议人工复核；若确认QA口径，应判fail并列出环境与对象ID。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22788",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22788.log",
+      "originalReview": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "消息操作",
+        "reason": "",
+        "summary": "Bug 信息充分：描述了 iOS demo 单聊撤回消息后重进会话页面提示重复显示的问题，提供了版本(4.24.1)、必现标记、完整复现步骤（web端发2条消息→撤回→退出再进入）、实际现象（显示6条撤回提示），预期效果可无歧义推断（应仅显示与实际撤回次数对应的提示）。"
+      },
+      "evaluatorJudgement": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "消息操作",
+        "reason": "撤回提示重复：版本+必现标记+完整复现步骤+实际现象齐全，预期可推断。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 23,
+        "actionability": 14,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 97
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22789",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22789.log",
+      "originalReview": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "控制台/计费",
+        "reason": "",
+        "summary": "Bug 信息充分：问题描述、实际结果、预期结果、环境信息均具备，场景归入控制台/计费，评论补充了根因说明，附件截图已提供。"
+      },
+      "evaluatorJudgement": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "控制台/计费",
+        "reason": "私有化console外部域名/接口失败：问题+期望+截图+评论根因齐全，环境身份明确（私有化K8S部署）。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 23,
+        "actionability": 14,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 97
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22795",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22795.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Improvement），不在审查范围",
+        "summary": "工单类型为 Improvement，非 Bug 工单，不在审查范围"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22811",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22811.log",
+      "originalReview": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "控制台/计费",
+        "reason": "",
+        "summary": "Bug信息充分：问题描述、实际结果、预期结果、功能入口、环境（imm地址+AppKey）均已提供，评论补充了根因说明，足以开始处理。"
+      },
+      "evaluatorJudgement": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "控制台/计费",
+        "reason": "imm实名状态误判：AppKey+imm地址+功能入口+预期+评论根因齐全。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 23,
+        "actionability": 14,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 97
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22813",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22813.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Improvement），不在审查范围",
+        "summary": ""
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22814",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22814.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "工单类型为 Task，非 Bug 工单，不在审查范围"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22815",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22815.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "工单类型为 Task，非 Bug 工单，不在审查范围"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22816",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22816.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "HIM-22816 为 Task 类型（Flutter SDK 版本平版），非 Bug 工单，不在审查范围。"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22817",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22817.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "HIM-22817 是 Task 类型的 SDK 版本平版任务，非 Bug 工单，不在审查范围。"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22818",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22818.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "工单类型为 Task，非 Bug 工单，不在审查范围"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22819",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22819.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Sub-task），不在审查范围",
+        "summary": "工单 HIM-22819 类型为 Sub-task，非 Bug 工单，不在审查范围"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22820",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22820.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Sub-task），不在审查范围",
+        "summary": "工单类型为 Sub-task，非 Bug，跳过审查。"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22826",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22826.log",
+      "originalReview": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "文档/demo",
+        "reason": "",
+        "summary": "工单信息充分：问题描述清晰（isAutoLogin() 在 5.0 jar 中仍作为 public API 暴露，与 api_changes 文档不一致），复现步骤、实际结果、预期结果、SDK 版本及路径均已提供，处理人可据此开始工作。评论中处理人已说明该接口为特意保留，属于处置结论而非信息缺失。"
+      },
+      "evaluatorJudgement": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "文档/demo",
+        "reason": "isAutoLogin在5.0 jar仍公开与api_changes文档不一致：现象+版本/路径+复现步骤+预期齐全，pass正确；scenario文档/demo勉强可用（与变更文档不一致），fallback亦可。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 21,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 8,
+        "total": 92
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22828",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22828.log",
+      "originalReview": {
+        "decision": "fail",
+        "classification": "Bug",
+        "scenario": "消息收发",
+        "reason": "公共底座缺失：1) 无实际结果的详细描述（summary仅提到「多了params字段」，但未说明具体表现、数据结构、请求/响应示例）；2) 无明确的预期结果（「多了」是相对于什么？应有哪些字段？）；3) 无复现步骤或复现路径；4) 无环境/SDK版本信息（虽为QA测试单，仍需说明测试环境和websdk版本）。场景必须项（消息收发）缺失：会话类型细节、消息类型细节、发生时间。建议补充：具体请求/响应的JSON示例、复现步骤、websdk版本、测试环境信息。",
+        "summary": "WebSDK聊天室cmd消息多出params字段的问题，但工单缺少实际结果详述、预期结果、复现步骤和环境信息，无法开始处理。"
+      },
+      "evaluatorJudgement": {
+        "decision": "fail",
+        "classification": "Bug",
+        "scenario": "消息收发",
+        "reason": "仅summary一句话，无任何正文/环境/复现/预期信息，fail正确，reason逐项列出缺失且可执行。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 23,
+        "actionability": 14,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 97
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22859",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22859.log",
+      "originalReview": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "联系人/群组/聊天室/子区",
+        "reason": "",
+        "summary": "聊天室禁言列表接口报405错误，Bug 分类正确；提供了 AppKey、环境（ngi）、复现 curl 命令，问题描述/实际结果/预期结果/环境身份/复现步骤均满足公共底座及场景 6（联系人/群组/聊天室/子区）必须项要求。"
+      },
+      "evaluatorJudgement": {
+        "decision": "pass",
+        "classification": "Bug",
+        "scenario": "联系人/群组/聊天室/子区",
+        "reason": "聊天室禁言列表405：AppKey+环境(ngi)+复现curl齐全，对象ID应含于curl URL（脱敏），pass正确。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 23,
+        "actionability": 14,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 97
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22861",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22861.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "工单类型为 Task，非缺陷工单，跳过审查。"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    },
+    {
+      "issueKey": "HIM-22862",
+      "source": "jira_polling",
+      "logFile": "logs/data-2026-07-27 18 44 32/logs/jira_polling__issue__HIM-22862.log",
+      "originalReview": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "非 Bug 工单（Task），不在审查范围",
+        "summary": "工单类型为 Task，不属于 Bug 审查范围"
+      },
+      "evaluatorJudgement": {
+        "decision": "skip",
+        "classification": "",
+        "scenario": "",
+        "reason": "issueType=None 非 Bug，按标准 skip 正确，reason 符合输出契约。"
+      },
+      "scores": {
+        "decisionCorrectness": 35,
+        "reasonAccuracy": 22,
+        "actionability": 13,
+        "scopeDiscipline": 15,
+        "outputContract": 10,
+        "total": 95
+      },
+      "label": "good",
+      "problems": [],
+      "improvementAdvice": "保持。",
+      "usage": {
+        "inputTokens": null,
+        "cachedInputTokens": null,
+        "outputTokens": null,
+        "reasoningOutputTokens": null
+      }
+    }
+  ]
+}

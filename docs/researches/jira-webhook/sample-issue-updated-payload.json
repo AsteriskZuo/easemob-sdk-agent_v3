@@ -1,0 +1,64 @@
+{
+  "id": 2,
+  "timestamp": 1525698237764,
+  "webhookEvent": "jira:issue_updated",
+  "issue_event_type_name": "issue_updated",
+  "user": {
+    "self": "https://jira.example.com/rest/api/2/user?username=operator",
+    "name": "operator",
+    "key": "operator",
+    "emailAddress": "operator@example.com",
+    "displayName": "Operator",
+    "active": true
+  },
+  "issue": {
+    "id": "10001",
+    "self": "https://jira.example.com/rest/api/2/issue/10001",
+    "key": "ABC-1",
+    "fields": {
+      "summary": "New summary",
+      "description": "Example issue description",
+      "created": "2026-07-11T10:00:00.000+0800",
+      "updated": "2026-07-11T10:05:00.000+0800",
+      "project": {
+        "id": "10000",
+        "key": "ABC",
+        "name": "Example Project"
+      },
+      "issuetype": {
+        "id": "1",
+        "name": "Bug"
+      },
+      "status": {
+        "id": "1",
+        "name": "Open"
+      },
+      "priority": {
+        "id": "3",
+        "name": "Medium"
+      }
+    }
+  },
+  "changelog": {
+    "id": "10124",
+    "items": [
+      {
+        "field": "summary",
+        "fieldtype": "jira",
+        "from": null,
+        "fromString": "Old summary",
+        "to": null,
+        "toString": "New summary"
+      },
+      {
+        "field": "priority",
+        "fieldtype": "jira",
+        "from": "4",
+        "fromString": "Low",
+        "to": "3",
+        "toString": "Medium"
+      }
+    ]
+  }
+}
+

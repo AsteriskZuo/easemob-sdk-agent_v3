@@ -1,0 +1,28 @@
+{
+  "app": {
+    "env": "production",
+    "logLevel": "info",
+    "dataDir": "/var/lib/easemob-sdk-agent"
+  },
+  "jira": {
+    "baseUrl": "https://jira.example.com",
+    "polling": {
+      "enabled": true,
+      "intervalSeconds": 60,
+      "assignee": "jira-user"
+    }
+  },
+  "wecom": {
+    "botIndex": 0
+  },
+  "codex": {
+    "home": "/home/node/.codex",
+    "defaultSandbox": "read-only",
+    "workspaceRoot": "/workspaces"
+  },
+  "secrets": {
+    "jiraPasswordFile": "/run/secrets/jira_password",
+    "wecomBotSecretFile": "/run/secrets/wecom_bot_secret",
+    "codexAuthJsonFile": "/run/secrets/codex_auth_json"
+  }
+}

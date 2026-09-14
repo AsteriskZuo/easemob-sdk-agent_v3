@@ -1,0 +1,36 @@
+services:
+  easemob-sdk-agent:
+    build:
+      context: ../../..
+      dockerfile: docs/research/docker/Dockerfile.runtime.example
+      args:
+        NODE_IMAGE: node:24-bookworm-slim
+    image: easemob-sdk-agent:research
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      APP_CONFIG_FILE: /etc/easemob-sdk-agent/config.json
+      APP_DATA_DIR: /var/lib/easemob-sdk-agent
+      CODEX_HOME: /home/node/.codex
+    volumes:
+      - ./config.example.json:/etc/easemob-sdk-agent/config.json:ro
+      - easemob_agent_data:/var/lib/easemob-sdk-agent
+      - codex_home:/home/node/.codex
+      - task_workspaces:/workspaces
+    secrets:
+      - jira_password
+      - wecom_bot_secret
+      - codex_auth_json
+
+secrets:
+  jira_password:
+    file: ./secrets/jira_password.txt
+  wecom_bot_secret:
+    file: ./secrets/wecom_bot_secret.txt
+  codex_auth_json:
+    file: ./secrets/codex_auth.json
+
+volumes:
+  easemob_agent_data:
+  codex_home:
+  task_workspaces:
