@@ -112,7 +112,7 @@ interface ConfigStore {
 
 | 配置种类 | 归属 | 例子 |
 |---------|------|------|
-| 结构化、影响匹配/链构造/权限归属的字段 | **BusinessRegistry**（循环契约 §3，统一读写口） | `source`、`event_type`、`order`、`depends_on`、`disposition`、`gate`、`creator_id` |
+| 结构化、影响匹配/链构造/权限归属的字段 | **BusinessRegistry**（循环契约 §3，统一读写口） | `source`、`event_type`、`disposition`、`creator_id`、`business_name` |
 | 数值/开关型运行参数 | **ConfigStore**（本稿） | 超时、hop 阈值、闸门值 |
 
 判定口诀：**进匹配视图 BusinessMatch 的归注册表，可调的数归设置**。

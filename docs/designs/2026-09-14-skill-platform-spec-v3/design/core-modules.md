@@ -15,7 +15,7 @@
 
 ```
 easemob-agent（模块化单体）
-├── 入口模块群                       # 每事件源一个独立小模块，只消费队列/会话/日志
+├── 入口模块群                       # 每事件源一个独立小模块，只消费队列/日志
 │   ├── 企业微信入口 EntryAdapter(wecom)
 │   ├── Jira 入口    EntryAdapter(jira)
 │   ├── GitHub 入口  EntryAdapter(github)
@@ -30,7 +30,7 @@ easemob-agent（模块化单体）
 ├── Skill 包仓（动态加载）
 │   └── Skill 注册表 SkillRegistry    # public / private，hash 兼任 id
 ├── 平台公共模块
-│   ├── 会话模块     SessionStore     # 两类映射 + 四操作的平台侧部分
+│   ├── 通道模块     ChannelStore     # 串行键↔agent 会话映射 + 四操作的平台侧部分
 │   ├── 环境配置     EnvProvider      # 通用/专用 key-value，业务级优先
 │   ├── 设置模块     ConfigStore      # 全局/业务设置，含权限校验
 │   └── 日志模块     Logger           # 三层日志，脱敏内建
@@ -56,7 +56,7 @@ easemob-agent（模块化单体）
 | 6 | 业务组装器 ContextLoader | 内核 | 匹配通过后才组装重数据为 BusinessContext | `ContextLoader`（§4.1） | 调度循环 |
 | 7 | 生命周期 Lifecycle | 内核 | 单次执行、跑完即销毁、统一打标埋点 | `Lifecycle`（循环契约 §5） | 调度循环、控制台（业务标记投影） |
 | 8 | Agent 适配槽 AgentSlot | 内核 | 统一调用 agent-cli 的唯一通道，适配器要薄 | `AgentSlot`（§4.2） | 生命周期 |
-| 9 | 会话模块 SessionStore | 公共 | 两类映射 + 四操作中的平台侧部分 | `SessionStore`（§4.3） | 入口群、业务组装器 |
+| 9 | 通道模块 ChannelStore | 公共 | 串行键↔agent 会话映射 + 四操作中的平台侧部分 | `ChannelStore`（§4.3） | 业务组装器 |
 | 10 | Skill 注册表 SkillRegistry | Skill 仓 | 登记/列表/取用 skill 包，hash 兼任 id | `SkillRegistry`（§4.4） | 控制台、业务组装器 |
 | 11 | 环境配置 EnvProvider | 公共 | 按业务合并通用/专用 key-value，运行时注入 | `EnvProvider`（§4.5） | 业务组装器、控制台 |
 | 12 | 设置模块 ConfigStore | 公共 | 全局/业务设置统一读写（含权限校验） | `ConfigStore`（设置契约） | 控制台、内核各模块（只读） |
@@ -71,9 +71,9 @@ easemob-agent（模块化单体）
 ## 2. 依赖纪律（允许的方向）
 
 ```
-入口群 ──▶ TaskQueue / SessionStore / Logger
+入口群 ──▶ TaskQueue / Logger   # 会话标识直接从事件提取（channel-model §4），入口不再需要会话存储
 调度循环 ──▶ TaskQueue / BusinessRegistry / ContextLoader / Lifecycle / PlatformConfig / Logger
-ContextLoader ──▶ BusinessRegistry / SkillRegistry / EnvProvider / SessionStore
+ContextLoader ──▶ BusinessRegistry / SkillRegistry / EnvProvider / ChannelStore
 Lifecycle ──▶ AgentSlot / Logger
 Console ──▶ 全部公开接口（只经接口，不碰内部存储；与内部模块共用同一套读写口）
 全部模块 ──▶ infra（Database / IdGen / Clock）——基础设施不反向依赖
@@ -90,11 +90,11 @@ Console ──▶ 全部公开接口（只经接口，不碰内部存储；与�
 
 | 契约 | 定义处 |
 |------|--------|
-| Event / EventSource / ChannelKey | 循环契约 §1（语义权威：`design/event-contract.md`） |
+| Event / EventSource / ChannelKey | 循环契约 §1（语义权威：`design/event-contract.md`、`design/glossary.md`） |
 | Task / TaskQueue | 循环契约 §2 |
-| BusinessRegistry / BusinessMatch / Dependency / ProcessingChain | 循环契约 §3 |
-| BusinessContext 及其成员（PromptObject、SkillObject、AgentCliObject、ModelObject、EnvConfig、SessionRef） | 循环契约 §4 |
-| Lifecycle / ExecutionResult / ResultDisposition / Gate / ChainContext | 循环契约 §5 |
+| BusinessRegistry / BusinessMatch / ProcessingChain | 循环契约 §3 |
+| BusinessContext 及其成员（PromptObject、SkillObject、AgentCliObject、ModelObject、EnvConfig、ChannelRef） | 循环契约 §4 |
+| Lifecycle / ExecutionResult / ResultDisposition | 循环契约 §5 |
 | Channel / ChannelPool / Semaphore / PlatformConfig | 循环契约 §6 |
 | ConfigStore / ConfigScope / ConfigKeyDef / User（最小形状） | 设置契约 §3–5 |
 
@@ -108,9 +108,9 @@ Console ──▶ 全部公开接口（只经接口，不碰内部存储；与�
 
 ```ts
 /** 按业务 id 组装可执行上下文：注册表取组合体声明 → Skill 仓取 skill →
- *  EnvProvider 取环境配置 → SessionStore 取会话引用 → PlatformConfig 取超时 */
+ *  EnvProvider 取环境配置 → ChannelStore 取通道映射引用 → PlatformConfig 取超时 */
 interface ContextLoader {
-  load(business_id: string, session_id: string): BusinessContext;
+  load(business_id: string, channel_key: ChannelKey): BusinessContext;
 }
 ```
 
@@ -130,7 +130,7 @@ interface AgentInvocation {
   prompt: string;            // 提示词总纲
   skills: SkillObject[];     // schema 按需注入
   env: EnvConfig;            // 运行时注入，secrets 不落盘不进日志
-  session: SessionRef;       // 平台侧注入 session 映射，用户斜杠命令原样透传（平台不翻译）
+  channel: ChannelRef;       // 平台侧注入通道映射引用（串行键 ↔ agent 会话），用户斜杠命令原样透传（平台不翻译）
   workspace: string;         // 任务级隔离目录 runs/{run_id}/
   timeout_minutes: number;   // 业务配置优先，缺省取全局 task_timeout_minutes（60）
 }
@@ -143,27 +143,24 @@ interface AgentResult {
 
 **超时优先级规则**（`design/lifecycle.md` §4）：业务配置 > 平台通用配置。超时是该规则的第一条适用项，后续同类配置同规则。
 
-### 4.3 会话模块 SessionStore
+### 4.3 通道模块 ChannelStore
 
-两种会话一张映射表（`design/session-model.md` §1）；session_id 的**唯一定义点**在 `design/session-model.md` §2，本模块只消费不定义。
+三种「会话」辨析与通道模型见 `design/glossary.md`、`design/channel-model.md`；session_id = 源生会话标识，入口按来源规则直接提取（channel-model §4），**平台不生成、入口侧无需会话存储**。
 
 ```ts
-interface SessionStore {
-  /** 入口侧：按外部键取或建会话（涵盖四操作中的创建/恢复）；
-   *  创建时生成 session_id 并建立 外部键↔session_id 映射 */
-  getOrCreate(source: EventSource, external_key: string): SessionRef;
+interface ChannelStore {
+  /** 串行键 ↔ agent-cli 会话 id 映射：同通道（相同会话+相同业务）上下文连续的唯一依据 */
+  bindAgentSession(channel_key: string, agent_session_id: string): void;
+  getAgentSession(channel_key: string): string | undefined;
 
-  /** 执行侧：写入/读取 session_id ↔ agent-cli 会话 id 映射 */
-  bindAgentSession(session_id: string, agent_session_id: string): void;
-  getAgentSession(session_id: string): string | undefined;
-
-  /** 四操作之清空：解除映射；下次触发即新会话（新 session_id，历史按时间追溯） */
-  clear(session_id: string): void;
+  /** 四操作之清空：解除映射；下次触发即重绑新 agent 会话（通道标识不变，历史按时间追溯） */
+  clear(channel_key: string): void;
 }
 ```
 
+- **创建/恢复**不占接口：执行侧 `getAgentSession` 命中即恢复；未命中由首次执行建立并 `bindAgentSession`；
 - **压缩**不占接口：由用户消息（如企微斜杠命令）原样透传给 agent-cli 执行，平台不翻译、不主动调用；
-- 外部键规则按来源定义在 `design/session-model.md` §4（wecom=群/用户 id，github=仓库名+PR 号，jira=工单 key；internal 继承上游；cron/manual 业务级兜底）。
+- 各来源会话标识规则定义在 `design/channel-model.md` §4（wecom=群/用户 id，jira=工单 key，github 按事件种类细分，internal 继承上游源生标识，cron/manual 业务级兜底）。
 
 ### 4.4 Skill 注册表 SkillRegistry
 
@@ -221,7 +218,7 @@ interface EnvProvider {
 ```ts
 type LogLevel = 'error' | 'warn' | 'info' | 'debug';
 
-/** 关联键即路由依据：带 channel_key 进会话日志，其余按模块归模块日志，总日志由关键节点自动镜像 */
+/** 关联键即路由依据：带 channel_key 进通道日志，其余按模块归模块日志，总日志由关键节点自动镜像 */
 interface LogContext {
   module: string;            // 必带：scheduler / queue / lifecycle / console …
   event_id?: string;
@@ -285,7 +282,6 @@ interface EntryAdapter {
 
 interface EntryDeps {
   queue: TaskQueue;
-  sessions: SessionStore;   // getOrCreate：外部键 ↔ session_id
   idGen: IdGen;
   clock: Clock;
   log: Logger;
@@ -343,8 +339,8 @@ easemob-sdk-agent_v3/
 |------|---------|------|
 | 任务（tasks） | TaskQueue | 状态机 pending/processing/done/dead |
 | 通道（channels） | ChannelPool | 创建即落库，完成只做状态变更 |
-| 业务配置（businesses） | BusinessRegistry | 含 creator_id、匹配字段、依赖、disposition |
-| 会话映射（sessions） | SessionStore | 外部键↔session_id、session_id↔agent 会话 id 两类 |
+| 业务配置（businesses） | BusinessRegistry | 含 business_id（不可改）、business_name（可改）、creator_id、匹配字段、依赖、disposition |
+| 通道映射（channels_sessions） | ChannelStore | 串行键↔agent 会话 id 一张表 |
 | skill 元数据 | SkillRegistry | 包内容在文件树，库中只存元数据 |
 | 环境配置（含 secrets） | EnvProvider | 按业务隔离 |
 | 设置（config） | ConfigStore | 只存覆盖值，默认值在键注册表 |
@@ -358,7 +354,7 @@ easemob-sdk-agent_v3/
 
 | 项 | 说明 | 归属 |
 |----|------|------|
-| GitHub webhook 事件种类 | **v2 已完成调研**，实现时取回 v2 结论；与 session-model §4 批注一致（source 段即可区分事件种类） | 实现期取回 v2 |
+| GitHub webhook 事件种类 | **已定**：会话标识按事件种类细分（PR=仓库+PR号、issues=仓库+issue号、push=仓库+分支），见 `design/channel-model.md` §4 | 已定 |
 | 业务语义去重 | 第一层入口幂等由 `event_id` 承担（event-contract §1）；`dedupe_key` 为第二层预留字段，后续再议，需要时单独文档 | 后续再议 |
 | SQLite 驱动选型 | **待调研**：`node:sqlite` vs `better-sqlite3`（功能覆盖、稳定性、维护性对比），调研后定 | 实现期前，需调研 |
 | 测试运行器 | **实现期前参考 v2 版本做法后定**（v2 位置暂不引入，保独立设计）；本稿独立设计倾向 `node:test`（Node 24 内置零依赖） | 实现期前，参考 v2 |
