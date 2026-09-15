@@ -69,7 +69,7 @@
 
 一句话：跨任务的上下文串联键。
 
-精确义：平台侧的会话，**不等于 agent-cli 的会话**（大模型会话）——两者由会话模块维护映射。会话标识 = `source__session_id`；session_id = 业务id + 时间戳 + 随机数。
+精确义：平台侧的会话，**不等于 agent-cli 的会话**（大模型会话）——两者由会话模块维护映射。会话标识 = `source__session_id`；session_id 的组成唯一定义见 `design/session-model.md` §2。
 
 要点：四个基本操作——创建、恢复、压缩、清空（见 `design/session-model.md`）。
 
