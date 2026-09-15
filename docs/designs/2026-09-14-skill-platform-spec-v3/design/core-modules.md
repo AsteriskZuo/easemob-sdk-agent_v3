@@ -1,9 +1,9 @@
-# 核心模块与接口（草稿）
+# 核心模块与接口
 
 > 日期：2026-09-15
-> 状态：草稿，讨论用，未定稿
-> 范围：**核心模块清单 + 各模块公开接口（TS）+ 工程结构**。已在《调度循环契约》《设置模块契约》草稿中定义的接口（Event、TaskQueue、BusinessRegistry、ProcessingChain、BusinessContext、Lifecycle、Channel/ChannelPool、Semaphore、PlatformConfig、ConfigStore）此处只引用不重复。
-> 依据：骨架 `skill-platform-spec-v3.md` §2 架构分层 + `design/` 各节点文档 + 前两份契约草稿。
+> 状态：定稿
+> 范围：**核心模块清单 + 各模块公开接口（TS）+ 工程结构**。已在《调度循环契约》《设置模块契约》中定义的接口（Event、TaskQueue、BusinessRegistry、ProcessingChain、BusinessContext、Lifecycle、Channel/ChannelPool、Semaphore、PlatformConfig、ConfigStore）此处只引用不重复。
+> 依据：骨架 `skill-platform-spec-v3.md` §2 架构分层 + `design/` 各节点文档 + 调度循环契约与设置契约。
 > 纪律：模块间只许通过本文档列出的公开接口调用，禁止跨模块直接引用内部实现（骨架 §2 命门）。
 > 技术栈：**Node.js 24（LTS）+ yarn 4.14.1（corepack 启用）+ TypeScript 5.x（strict）**。
 
@@ -354,16 +354,7 @@ easemob-sdk-agent_v3/
 
 ---
 
-## 7. 毕业时的文档同步项（本稿发现的不一致）
-
-1. ~~session_id 定义三处不一致~~ —— 已解决（2026-09-15）：单点定义落在 `session-model.md` §2（四段式、单下划线），话术集与 event-contract 已改引用；
-2. ~~骨架架构图~~ —— 已解决（2026-09-15）：出口模块群从图中移除并加注（出口=队列中的可选任务，能力以 public skill 提供），编排内核补业务注册表，要点 2 与 §6/§7 残留"出口模块"表述一并更新；
-3. ~~循环契约回补~~ —— 已解决（2026-09-15）：`BusinessMatch.creator_id`（§3）、`PlatformConfig.task_timeout_minutes`（§6）已补入调度循环契约草稿；
-4. ~~骨架 §4 技术选型补版本号~~ —— 已解决（2026-09-15）：TypeScript 5.x（strict）/ Node 24（LTS）/ yarn 4.14.1（corepack）已写入 §4，SQLite 驱动选型倾向一并注明。
-
----
-
-## 8. 待定项
+## 7. 待定项
 
 | 项 | 说明 | 归属 |
 |----|------|------|

@@ -10,19 +10,32 @@
 
 ## 文档地图
 
+设计文档分两类：**偏流程和理论**（机制、模型、规则）与**偏实现接口**（契约、包格式、接口定义）。
+
+### 流程与理论
+
 | 文档 | 内容 |
 |------|------|
-| `design/glossary.md` | **话术集**：全部关键概念的统一定义（含英文术语，先读） |
-| `design/scheduler.md` | 调度循环与任务队列（心脏、通道键、会话通道、并发闸门、压力分布） |
-| `design/processing-chain.md` | 业务处理链（链的生成、依赖语义、门禁、数据约定、防循环） |
-| `design/lifecycle.md` | 生命周期与执行（单次执行、多阶段转化、沙箱隔离、超时与配置优先级、agent 适配槽） |
-| `design/session-model.md` | 会话模型（两种会话一张映射、会话标识、四个基本操作、各来源会话键规则） |
-| `design/skill-package.md` | Skill 包模型（能力单元、public/private、平台元数据、schema 注入、MCP 不支持） |
-| `design/event-contract.md` | 事件契约与队列（信封 v1 逐字段说明、版本管理与 changelog、SQLite 持久化、大产物引用） |
-| `design/logging.md` | 日志设计（三层、标准能力、输出规则、关联键） |
+| `design/accounts.md` | 用户与账号体系（admin/member 两角色、权限总表、不开放注册） |
+| `design/console-design.md` | 控制台设计（业务定义、资料集合、账号体系、工作目录、UI 骨架） |
 | `design/failure-handling.md` | 失败处理（占位：第一阶段日志留痕，第二阶段据实分析） |
+| `design/glossary.md` | **话术集**：全部关键概念的统一定义（含英文术语，先读） |
+| `design/lifecycle.md` | 生命周期与执行（单次执行、多阶段转化、沙箱隔离、超时与配置优先级、agent 适配槽） |
+| `design/logging.md` | 日志设计（三层、标准能力、输出规则、关联键） |
+| `design/processing-chain.md` | 业务处理链（链的生成、依赖语义、门禁、数据约定、防循环） |
+| `design/scheduler.md` | 调度循环与任务队列（心脏、通道键、会话通道、并发闸门、压力分布） |
 | `design/security.md` | 安全设计（验签、Bearer Token、密钥、脱敏、预算、配额） |
-| `design/console-design.md` | 控制台设计（业务定义、资料集合、账号体系、工作目录、监控统计） |
+| `design/session-model.md` | 会话模型（两种会话一张映射、会话标识、四个基本操作、各来源会话键规则） |
+
+### 实现接口
+
+| 文档 | 内容 |
+|------|------|
+| `design/config-contracts.md` | 设置模块契约（全局/业务设置、key-value 读写接口、权限规则） |
+| `design/core-modules.md` | 核心模块划分与公开接口清单、依赖纪律、工程结构、数据归属 |
+| `design/event-contract.md` | 事件契约与队列（信封 v1 逐字段说明、版本管理与 changelog、SQLite 持久化、大产物引用） |
+| `design/scheduler-loop-contracts.md` | 调度循环契约（事件、队列、注册表、上下文、执行、通道与闸门、循环本体） |
+| `design/skill-package.md` | Skill 包模型（能力单元、包格式与元数据、public/private、schema 注入、MCP 不支持） |
 
 ---
 
