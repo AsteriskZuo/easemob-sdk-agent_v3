@@ -21,7 +21,7 @@
 ```ts
 type Role = 'admin' | 'member';
 
-/** 权限判定所需的最小形状；完整用户设计单独文档 */
+/** 权限判定所需的最小形状；User 与角色规则的唯一定义处：design/accounts.md */
 interface User {
   user_id: string;
   role: Role;

@@ -2,7 +2,7 @@
 
 > 日期：2026-09-15
 > 状态：草稿，讨论用，未定稿
-> 范围：**只覆盖调度循环直接使用的契约**。入口内部、dedupe 规则（占位不实现）、控制台 UI、日志接口不在本稿。
+> 范围：**只覆盖调度循环直接使用的契约**。入口内部、业务语义去重（后续单独设计）、控制台 UI、日志接口不在本稿。
 > 依据：`design/scheduler.md`、`design/processing-chain.md`、`design/lifecycle.md`、`design/event-contract.md`（v1）。
 > 目标：契约定稿后，调度循环就是这些契约的串联（见 §8）。
 
@@ -21,7 +21,7 @@ interface Event {
   event_type: string;      // 关注匹配的键（规则见下）
   timestamp: string;       // ISO 8601 带时区，入口包装时间
   session_id: string;      // 必填；通道键的组成
-  dedupe_key?: string;     // 入口侧去重（占位不实现）；循环不使用
+  dedupe_key?: string;     // 第二层业务语义去重的预留字段（本版不实现）；第一层入口幂等由 event_id 承担；循环不使用
   correlation_id: string;  // 首个任务的 event_id，派生继承
   hop_count: number;       // 派生 +1，超阈值进死信
   payload: unknown;        // 来源自定义；大产物走引用
@@ -396,6 +396,6 @@ declare function createLifecycle(business_id: string, task: Task): Lifecycle;
 
 | 项 | 说明 | 归属 |
 |----|------|------|
-| dedupe 去重规则 | **占位不实现**；方向已定（平台定规范+上下文，业务给实现），单独文档设计 | 后续文档 |
+| 业务语义去重 | 第一层入口幂等由 `event_id` 承担（入口识别源生事件重推并丢弃）；`dedupe_key` 为第二层预留字段（平台定规范+业务给实现），后续再议，需要时单独文档 | 后续再议 |
 | `EventSource` / agent / model 枚举扩展 | 枚举新增属向后兼容 | 各文档 |
 | GitHub webhook 事件种类调研 | 建分支/push/CI 等事件的源生标识提取规则 | 待调研 |

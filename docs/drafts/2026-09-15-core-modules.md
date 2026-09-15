@@ -39,7 +39,7 @@ easemob-agent（模块化单体）
 │   ├── 标识生成     IdGen            # event_id / task_id / lifecycle_id / 随机段
 │   └── 时钟         Clock            # 时间戳统一来源（信封/日志/session_id）
 └── 控制台 Console                   # 开关与仪表盘集合，无业务逻辑
-    └── 账号体系（单独文档）
+    └── 账号体系（`design/accounts.md`）
 ```
 
 说明：**「出口模块群」不再出现在树里**（已定决策）——出口 = 队列中的可选任务，由出口型业务消化；触达外部的能力以 public skill 形式由 Skill 包仓提供。
@@ -48,8 +48,8 @@ easemob-agent（模块化单体）
 
 | # | 模块 | 层 | 一句话职责 | 公开接口 | 主要消费方 |
 |---|------|----|-----------|---------|-----------|
-| 1 | 入口适配器群 EntryAdapter | 入口 | 验签 → 包装信封（含 session_id）→ 落队，立即返回 | 无对外接口（只消费队列/会话/日志） | — |
-| 2 | 定时器 CronTimer | 入口 | 到点包装任务入队，不直接执行 | 同上 | — |
+| 1 | 入口适配器群 EntryAdapter | 入口 | 验签 → 包装信封（含 session_id）→ 落队，立即返回 | `EntryAdapter`（§4.8，契约一致、各自实现） | — |
+| 2 | 定时器 CronTimer | 入口 | 到点包装任务入队，不直接执行 | 同上（`source = cron` 的 EntryAdapter 实现） | — |
 | 3 | 任务队列 TaskQueue | 内核 | 统一缓冲带：FIFO、SQLite 持久化、状态机 | `TaskQueue`（循环契约 §2） | 入口群、调度循环、控制台 |
 | 4 | 业务注册表 BusinessRegistry | 内核 | 业务匹配视图 + 业务配置统一读写口 | `BusinessRegistry`（循环契约 §3） | 调度循环、控制台、设置模块 |
 | 5 | 调度循环 SchedulerLoop | 内核 | 心脏：摄取 + 各通道消化 | 无（是消费方，见循环契约 §8） | — |
@@ -174,23 +174,23 @@ interface SkillRegistry {
   /** 登记：计算整包 hash 作为 skill_id（天然唯一、内容变即 id 变），附元数据，不改写包内容 */
   register(input: SkillPackageInput): SkillObject;
 
-  /** 控制台列表：public 全部可见；private 按归属业务过滤 */
-  list(filter: { visibility?: 'public' | 'private'; business_id?: string }): SkillMeta[];
+  /** 控制台列表：public 全部可见；private 按归属账号过滤（权限规则见 skill-package.md §2） */
+  list(filter: { visibility?: 'public' | 'private'; owner_id?: string }): SkillMeta[];
 
   /** 组装上下文时取用最小视图（skill_id + 注入用 schema） */
   get(skill_id: string): SkillObject;
 }
 
 interface SkillPackageInput {
-  path: string;                          // 包在文件树中的位置（public/skills/ 或 businesses/{id}/skills/）
+  path: string;                          // 包在文件树中的位置（public/skills/ 或 accounts/{账号id}/skills/）
   visibility: 'public' | 'private';
-  business_id?: string;                  // private 时必填（归属业务）
+  owner_id: string;                      // 创建者账号：读写权限判定（admin 兜底）
 }
 
 interface SkillMeta {
   skill_id: string;                      // 整包 hash（短哈希展示）
   visibility: 'public' | 'private';
-  business_id?: string;
+  owner_id: string;
   created_at: string;
   modified_at: string;
 }
@@ -269,14 +269,54 @@ interface Clock {
 }
 ```
 
+### 4.8 入口适配器 EntryAdapter
+
+形态定为**接口而非基类**（已定）：各源差异大（webhook 接收 / 定时触发 / 手动触发），基类能复用的实现极少却引入耦合；契约一致即可，重复代码真出现时以普通工具函数沉淀，不立继承体系。
+
+```ts
+/** 入口适配器契约：每个事件源一个实现（wecom / jira / github / cron / manual），
+ *  职责链：验签 → 包装信封（含 session_id）→ 落队，立即返回 */
+interface EntryAdapter {
+  readonly source: EventSource;
+  /** 启动监听/定时器；依赖由 main.ts 注入，入口与内部模块共用同一套公开接口 */
+  start(deps: EntryDeps): void;
+  stop(): void;
+}
+
+interface EntryDeps {
+  queue: TaskQueue;
+  sessions: SessionStore;   // getOrCreate：外部键 ↔ session_id
+  idGen: IdGen;
+  clock: Clock;
+  log: Logger;
+}
+```
+
 ---
 
 ## 5. 工程结构
 
 模块边界在目录层面落地，依赖规则在代码层面强制（骨架 §2 命门）。
 
+仓库根：
+
 ```
-src/
+easemob-sdk-agent_v3/
+├── package.json      # 单包起步；packageManager: yarn@4.14.1（corepack）
+├── tsconfig.json     # TypeScript 5.x，strict
+├── .gitignore        # 运行时数据（workspace、runs/、日志、*.sqlite）不入库
+├── public/
+│   └── skills/       # 内置 public skill 发布物（jira 工具 / github 操作 / 企微通知…），随仓库发布
+├── tests/            # 跨模块端到端测试（M3 起）；模块单测与源码同处（*.test.ts）
+├── docs/             # 设计文档
+└── src/              # 平台本体，见下
+```
+
+内置工具的归属分两类：**监听/接收类**（各源 webhook 监听、企微机器人收消息）是 `src/entries/` 的入口适配器代码模块；**操作/触达类**（jira 客户端、github 操作、企微群通知）是内置 public skill 包——仓库 `public/skills/` 为发布物，首启由 SkillRegistry 登记/同步进 workspace 与注册表（hash 兼任 id，平台升级包内容变即新版本），与用户上传的 public skill 同规则。两类都不含账号凭证：凭证走 EnvProvider 专用 key-value（services），按业务隔离，业务创建者在控制台填自己的账号即可用。
+
+`src/`：
+
+```
 ├── contracts/    # 纯类型契约（Event、TaskQueue、BusinessRegistry、ConfigStore…），零实现零依赖，所有模块可 import
 ├── infra/        # 基础设施与工具：database.ts / id-gen.ts / clock.ts；不依赖任何业务模块
 ├── entries/      # 入口模块群：wecom.ts / jira.ts / github.ts / cron.ts / manual.ts（新事件源 = 新文件）
@@ -292,7 +332,8 @@ src/
 1. **业务模块只许 import `contracts/`、`infra/`、以及其他模块的公开出口**（模块根 `index.ts`）；禁止深入其他模块内部文件——由 lint 边界规则（如 `eslint-plugin-boundaries`）强制，不靠自觉；
 2. `contracts/` 纯类型、零实现、零依赖；`infra/` 不反向依赖业务模块；
 3. **运行时数据不进 `src/`**：业务目录、`runs/`、日志等按 `design/console-design.md` §6 的 workspace 树，平台级工作目录由控制台配置；
-4. `main.ts` 组装：创建各模块实例、按 §2 的方向注入依赖——模块之间不互相 new。
+4. `main.ts` 组装：创建各模块实例、按 §2 的方向注入依赖——模块之间不互相 new；
+5. **测试同处**：模块单测紧邻源码（`scheduler-loop.test.ts` 挨着 `scheduler-loop.ts`），随模块移动、随模块删除；跨模块端到端放根 `tests/`。测试经公开接口注入 fake（依赖注入本就在 `main.ts`，测试复用同一组装方式），不 mock 内部实现。
 
 ---
 
@@ -316,9 +357,9 @@ src/
 ## 7. 毕业时的文档同步项（本稿发现的不一致）
 
 1. ~~session_id 定义三处不一致~~ —— 已解决（2026-09-15）：单点定义落在 `session-model.md` §2（四段式、单下划线），话术集与 event-contract 已改引用；
-2. **骨架架构图**：出口模块群加注释（出口=队列中的可选任务，能力以 public skill 提供）、补业务注册表（已定，待改）；
-3. **循环契约回补**：`BusinessMatch.creator_id`、`PlatformConfig.task_timeout_minutes` 已补入调度循环契约草稿；
-4. **骨架 §4 技术选型补版本号**：Node 24 / yarn 4.14.1 / TypeScript 5.x（已定，待改）。
+2. ~~骨架架构图~~ —— 已解决（2026-09-15）：出口模块群从图中移除并加注（出口=队列中的可选任务，能力以 public skill 提供），编排内核补业务注册表，要点 2 与 §6/§7 残留"出口模块"表述一并更新；
+3. ~~循环契约回补~~ —— 已解决（2026-09-15）：`BusinessMatch.creator_id`（§3）、`PlatformConfig.task_timeout_minutes`（§6）已补入调度循环契约草稿；
+4. ~~骨架 §4 技术选型补版本号~~ —— 已解决（2026-09-15）：TypeScript 5.x（strict）/ Node 24（LTS）/ yarn 4.14.1（corepack）已写入 §4，SQLite 驱动选型倾向一并注明。
 
 ---
 
@@ -326,8 +367,7 @@ src/
 
 | 项 | 说明 | 归属 |
 |----|------|------|
-| 用户/账号体系完整设计 | 认证、注册、admin/成员管理 | 单独文档 |
-| GitHub webhook 事件种类调研 | 各事件的源生标识提取规则 | 待调研 |
-| 入口适配器形态 | 各源独立小模块，本稿只定职责契约不定基类；是否抽象公共基类属实现期 | 实现期 |
-| dedupe 去重规则 | 占位不实现，单独文档设计 | 后续文档 |
-| SQLite 驱动选型 | `node:sqlite`（Node 24 内置，零依赖）vs `better-sqlite3`（成熟生态）；倾向 node:sqlite，待确认 | 实现期前 |
+| GitHub webhook 事件种类 | **v2 已完成调研**，实现时取回 v2 结论；与 session-model §4 批注一致（source 段即可区分事件种类） | 实现期取回 v2 |
+| 业务语义去重 | 第一层入口幂等由 `event_id` 承担（event-contract §1）；`dedupe_key` 为第二层预留字段，后续再议，需要时单独文档 | 后续再议 |
+| SQLite 驱动选型 | **待调研**：`node:sqlite` vs `better-sqlite3`（功能覆盖、稳定性、维护性对比），调研后定 | 实现期前，需调研 |
+| 测试运行器 | **实现期前参考 v2 版本做法后定**（v2 位置暂不引入，保独立设计）；本稿独立设计倾向 `node:test`（Node 24 内置零依赖） | 实现期前，参考 v2 |
