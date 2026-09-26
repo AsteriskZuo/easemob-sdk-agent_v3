@@ -3,7 +3,7 @@
 > 日期：2026-09-15
 > 状态：定稿
 > 范围：**设置（key-value）的读写核心接口 + 权限规则 + 调度循环所需键清单**。用户/账号的完整设计见 `design/accounts.md`，本文档只引用权限判定所需的最小形状；控制台 UI 不在本文档。
-> 依据：调度循环契约 §6（PlatformConfig 是本模块全局作用域的类型化读取视图）。
+> 依据：调度循环契约 §7（PlatformConfig 是本模块全局作用域的类型化读取视图）。
 
 ---
 
@@ -96,13 +96,14 @@ interface ConfigStore {
 
 ---
 
-## 6. 第一批键清单（调度循环印证所需，就这三个）
+## 6. 第一批键清单（调度循环印证所需，就这四个）
 
 | 键 | 作用域 | 类型 | 建议默认值 | 谁使用 |
 |----|--------|------|-----------|--------|
 | `task_timeout_minutes` | global | number | 60 | Lifecycle.run 超时 |
-| `hop_limit` | global | number | 待定 | 循环判派生循环进死信 |
-| `channel_concurrency` | global | number | 待定 | 并发闸门（最大通道并发数） |
+| `hop_limit` | global | number | 待定 | 入口事件循环判派生循环进死信 |
+| `task_concurrency` | global | number | 待定 | 业务闸门（入口循环 LLM 推理任务的并发上限） |
+| `result_concurrency` | global | number | 待定 | 出口闸门（出口循环结果通知投递的并发上限） |
 
 - **业务级键第一批为空**：当前没有已确认的业务级设置需求，不预测扩展；将来有具体需求时在键注册表新增即可，接口不用动。
 
@@ -112,7 +113,7 @@ interface ConfigStore {
 
 | 配置种类 | 归属 | 例子 |
 |---------|------|------|
-| 结构化、影响匹配/链构造/权限归属的字段 | **BusinessRegistry**（循环契约 §3，统一读写口） | `source`、`event_type`、`disposition`、`creator_id`、`business_name` |
+| 结构化、影响匹配/链构造/权限归属的字段 | **BusinessRegistry**（循环契约 §3，统一读写口） | `source`、`event_type`、`on_failure`、出口绑定、`creator_id`、`business_name` |
 | 数值/开关型运行参数 | **ConfigStore**（本稿） | 超时、hop 阈值、闸门值 |
 
 判定口诀：**进匹配视图 BusinessMatch 的归注册表，可调的数归设置**。
@@ -127,12 +128,12 @@ interface ConfigStore {
         ▼
 ConfigStore.get({kind:'global'}, 'task_timeout_minutes')
         ▲
-PlatformConfig（循环契约 §6）= global 作用域的类型化读取视图
+PlatformConfig（循环契约 §7）= global 作用域的类型化读取视图
         ▲                        （启动时加载 / 变更后重载，节奏由实现定）
 调度循环 / Lifecycle ── 只读
 ```
 
-- 循环不直接摸 key-value 字符串，经 `PlatformConfig` 拿强类型值；三个全局键正好对上 `PlatformConfig` 的三个字段；
+- 循环不直接摸 key-value 字符串，经 `PlatformConfig` 拿强类型值；四个全局键正好对上 `PlatformConfig` 的四个字段（见循环契约 §7）；
 - 加载节奏（启动读一次 / 变更通知 / 定期重载）是实现细节，不影响契约。
 
 ---
@@ -143,4 +144,4 @@ PlatformConfig（循环契约 §6）= global 作用域的类型化读取视图
 |----|------|------|
 | 用户/管理员完整设计 | 认证、创建、最小够用 | 单独文档 |
 | 变更历史 | ConfigEntry 只留最新 updated_by/at；是否保留修改历史 | 待定 |
-| `hop_limit` / `channel_concurrency` 默认值 | 待定 | 定稿时填 |
+| `hop_limit` / `task_concurrency` / `result_concurrency` 默认值 | 待定 | 定稿时填 |

@@ -4,7 +4,9 @@
 
 ## 1. 定位
 
-一个事件源一个独立小模块（wecom / jira / github / cron / manual / …）。**新事件源 = 新增一个入口小模块，不动内核**（出入口对称抽象，见骨架 §2）。同一类平台的不同实例/生态按独立 source 处理（如 github / gitee / feishu 各自一个入口）。
+一个事件源一个独立小模块（wecom / jira / github / webhook / cron / manual / …）。**新事件源 = 新增一个入口小模块，不动内核**（出入口对称抽象，见骨架 §2）。同一类平台的不同实例/生态按独立 source 处理（如 github / gitee / feishu 各自一个入口）。
+
+**webhook 入口（内置）**：接收任意外部系统的 HTTP 推送并包装入队——平台可以是别家的中间组件（入口收 webhook、出口发 webhook）。其 session_id 由入口配置指定从 payload 提取的字段；未配置则以业务标识兜底（业务级串行）。
 
 ## 2. 职责链（固定四步）
 
@@ -26,7 +28,7 @@
 
 ## 4. 定时与手动入口
 
-- **定时到点 = 包装成任务入队，不直接执行**——所有触发走同一条队列，语义统一（见 `design/console-design.md` §5）；
+- **定时到点 = 包装成任务入队，不直接执行**——所有触发走同一条入口队列，语义统一（出口队列只装业务产出的派生事件，见 `design/console-design.md` §5）；
 - cron / manual 天然无会话：session_id 以业务标识兜底 → **业务级串行**（见 `design/scheduler.md` §3）。
 
 ## 5. 入口与业务的绑定
@@ -35,4 +37,4 @@
 
 ## 6. 出口说明（对照）
 
-出口不是入口的对称模块，而是**任务队列中的可选任务**：业务结果统一包装成信封回队，由出口型业务（结果处置 = 终结）关注并消化；触达外部系统的能力（企微通知、Jira 编辑等）以 public skill 形式由 Skill 包仓提供（见 `design/glossary.md` 出口词条）。
+出口与入口**对称**：出口 = 出口事件循环 + 出口工具群（一个目的地一个投递器模块）。业务完成即把派生事件无脑扇出到出口队列；出口循环按 `producer_business_id` 归属匹配产出方业务的出口绑定，逐绑定投递——不过 LLM、毫秒级；同目标串行（出口通道 `exit__destination_id`），保序且天然限流。详见 `design/glossary.md` 出口词条与 `design/scheduler-loop-contracts.md` §6。
