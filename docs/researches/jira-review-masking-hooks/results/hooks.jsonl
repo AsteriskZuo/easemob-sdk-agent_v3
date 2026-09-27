@@ -1,0 +1,3 @@
+{"t":"2026-09-27T01:28:18.423Z","event":"extension_loaded","data":{"resultsDir":"/Users/asterisk/Codes/ai/easemob-sdk-agent_v3/docs/researches/jira-review-masking-hooks/results"}}
+{"t":"2026-09-27T01:28:18.438Z","event":"input_masked","data":{"issueKey":"HIM-23706","originalBytes":7439,"maskedBytes":7283,"kvCategories":{"accounts":2,"urls":5,"ips":0,"hosts":0,"phones":0,"appkeys":1}}}
+{"t":"2026-09-27T01:28:49.920Z","event":"message_end_restored","data":{"restoredBytes":1981,"missingTokens":[]}}

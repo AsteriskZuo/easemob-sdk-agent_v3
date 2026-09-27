@@ -1,0 +1,21 @@
+{
+  "HIM-23706": {
+    "accounts": {
+      "[ACCOUNT_1]": "kongjialin@easemob.com",
+      "[ACCOUNT_2]": "zuoyu@easemob.com"
+    },
+    "urls": {
+      "[URL_1]": "/common/ChatGroup.ts",
+      "[URL_2]": "/src/emgroupmanager.cpp",
+      "[URL_3]": "/src/emmucmanager.cpp",
+      "[URL_4]": "/4.24/4.25",
+      "[URL_5]": "/android/com_hyphenate_chat_adapter_EMAGroupSetting.cpp"
+    },
+    "ips": {},
+    "hosts": {},
+    "phones": {},
+    "appkeys": {
+      "[APPKEY_1]": "Cluster："
+    }
+  }
+}

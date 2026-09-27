@@ -1,0 +1,30 @@
+{
+  "key": "HIM-23706",
+  "project": "环信IM",
+  "issueType": "Bug",
+  "status": "Complete",
+  "statusCategory": "Complete",
+  "resolution": "Done",
+  "priority": "Major",
+  "assignee": {
+    "name": "asteriskzuo",
+    "displayName": "佐玉",
+    "emailAddress": "zuoyu@easemob.com"
+  },
+  "creator": {
+    "name": "kongjialin",
+    "displayName": "孔佳林",
+    "emailAddress": "kongjialin@easemob.com"
+  },
+  "reporter": {
+    "name": "kongjialin",
+    "displayName": "孔佳林",
+    "emailAddress": "kongjialin@easemob.com"
+  },
+  "components": [
+    "Other"
+  ],
+  "labels": [],
+  "versions": [],
+  "fixVersions": []
+}

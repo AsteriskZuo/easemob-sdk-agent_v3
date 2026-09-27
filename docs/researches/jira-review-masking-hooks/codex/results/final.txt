@@ -1,0 +1,32 @@
+**1. 问题摘要**
+`HIM-23706`：Android 端 `updateGroupConfigs` 设置 `inviteNeedConfirm=true` 后，原生成功响应缺少该字段，RN 更新结果与重新读取均错误显示为 `false`。
+
+**2. 涉及的相关方**
+- 经办人：`zuoyu@easemob.com`（佐玉），工单评论中自述“负责人：佐玉”
+- 创建人/报告人：`kongjialin@easemob.com`（孔佳林）
+- 附件提交人：`kongjialin@easemob.com`（孔佳林）
+- 评论参与方：`zuoyu@easemob.com`（佐玉）、`kongjialin@easemob.com`（孔佳林）
+
+**3. 关键线索**
+- 工单号：`HIM-23706`
+- 群 ID：`325737183772673`
+- AppKey 占位：`Cluster：`
+- 内部域名：`j1.private.easemob.com`
+- 附件地址：`http://j1.private.easemob.com/secure/attachment/73669/bug-3.redacted.log`
+- 环境提交：`a6fbea3f877e2228a48e4bb6ec4666e35fce3fa9`（`branch: 5.0.0`）
+- 分析检出提交：`2f4d2094c78047e07c41d7fb0e4232e05010d331`
+- 主分支审计提交：`ce7362853b2e5a04e6cc200e79c4b526bffa5c12`
+- 请求 ID：`03eb0396-52a4-43c4-a882-a7a63326355d`
+- 代码路径占位：`src/common/ChatGroup.ts:317`、`source/src/emgroupmanager.cpp`、`source/src/emmucmanager.cpp`、`4.23/4.24/4.25 版本线`、`src/android/com_hyphenate_chat_adapter_EMAGroupSetting.cpp`
+- 包名/代码标识：`com.hyphenate.chat`、`source-react-native-chat-sdk/...ExtSdkHelper.java`、`ExtSdkGroupManagerWrapper.java`
+- 复现时间窗：`2026-09-22 11:23:54–11:24:26 Asia/Shanghai`
+- 平台：`Android 14 / API 34 arm64 模拟器`
+- 版本线：`SDK_5.0.0`、`android 5.1.0`
+- 未发现独立 IP 地址；工单中唯一域名即 `j1.private.easemob.com`
+
+**4. 风险与处理建议**
+- 根因已收敛为 Android `EMGroup` 缺少 `inviteNeedConfirm` 获取/setter 链路，字段缺失被 `src/common/ChatGroup.ts:317` 的 `?? false` 静默解释为假，建议从桥接/序列化源头修复，而不是仅在 RN 侧兜底。
+- 当前状态为 `Complete`/`Done`，但评论明确“android 5.1.0 版本修复”且“现未发布5.1.0版本”，存在“标记完成但修复未发布”的闭环风险，建议保留为发版已知问题并跟踪复测。
+- 主分支审计提示该特性在 `4.23/4.24/4.25` 版本线不存在、真正缺陷组件 `com.hyphenate.chat` 不在本次审计仓库内，需确认修复确实落在正确的 `SDK_5.0.0`/`5.1.0` Android 原生仓库。
+- 回归测试应覆盖 `inviteNeedConfirm=true/false` 两种设置，校验 `updateGroupConfigs` 返回值与 `fetchGroupInfoWithoutMembersFromServer` 读回值一致，并确认邀请审批实际行为与返回配置一致。
+- 证据方面 traceId 例外已获批准，应继续保留准确时间、PID/TID、群 ID 和脱敏日志作为关联证据，避免后续复核时证据链中断。

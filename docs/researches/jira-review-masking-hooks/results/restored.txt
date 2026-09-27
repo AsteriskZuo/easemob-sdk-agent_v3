@@ -1,0 +1,36 @@
+1. 问题摘要
+`HIM-23706`：RN SDK 5.0.0 Android 调用 `updateGroupConfigs` 设置 `inviteNeedConfirm=true` 后，原生成功响应的 `configs` 未输出 `inviteNeedConfirm`，RN 更新结果和重新读取结果均显示 `false`。
+
+2. 涉及的相关方
+- 创建人 / 报告人：`kongjialin@easemob.com`（`孔佳林`）
+- 经办人 / 负责人：`zuoyu@easemob.com`（`佐玉`）
+- 评论分析人：`zuoyu@easemob.com`（`佐玉`）
+- 附件上传者：`kongjialin@easemob.com`（`孔佳林`）
+
+3. 关键线索
+- 工单号：`HIM-23706`
+- AppKey：`Cluster：`
+- 群 ID：`325737183772673`
+- 平台：`Android 14 / API 34 arm64 模拟器`
+- SDK 版本：`React Native Chat SDK 5.0.0`、`Android native 5.0.0`
+- 分支：`5.0.0`
+- 原始提交：`a6fbea3f877e2228a48e4bb6ec4666e35fce3fa9`
+- 初步定位代码位置：`src/common/ChatGroup.ts:317`（`?? false`）
+- 评论中引用的提交：`2f4d2094c78047e07c41d7fb0e4232e05010d331`
+- 评论中引用的 core 仓库：`emclient-linux`，commit `ce7362853b2e5a04e6cc200e79c4b526bffa5c12`
+- 评论中引用的代码引用：`source/src/emgroupmanager.cpp`、`source/src/emmucmanager.cpp`、`4.23/4.24/4.25`、`src/android/com_hyphenate_chat_adapter_EMAGroupSetting.cpp`
+- 评论中引用的源码路径：`source-react-native-chat-sdk/...ExtSdkHelper.java`、`ExtSdkGroupManagerWrapper.java`
+- 缺失的证据标识：`未取得 traceId`
+- 替代关联请求 ID：`requestId 03eb0396-52a4-43c4-a882-a7a63326355d`
+- 附件：`bug-3.redacted.log`（id：`73669`）
+- 附件地址：`http://j1.private.easemob.com/secure/attachment/73669/bug-3.redacted.log`
+- 问题时间：`2026-09-22 11:23:54–11:24:26 Asia/Shanghai`
+
+4. 风险与处理建议
+- 风险：`src/common/ChatGroup.ts:317` 对缺失字段使用 `?? false`，会把缺少的 `inviteNeedConfirm` 静默解释为 `false`，业务读取群配置时可能错误展示或判断是否需要邀请确认。
+- 风险：评论明确根因为 `Android EMGroup 缺 inviteNeedConfirm 获取方法 = 根因`，但真正的缺陷组件在 Android 原生 Java 层（`com.hyphenate.chat`），该部分未在已审计的 core 源码仓库内，无法直接核对完成修复。
+- 风险：修复版本为 `android 5.1.0 版本修复`，但当前 `现未发布5.1.0版本`，属于发版已知问题，线上仍可能受该缺陷影响。
+- 建议：在 Android 5.1.0 修复中补齐 `EMGroup` 的 `inviteNeedConfirm` 获取方法，并确认桥接序列化在成功响应中输出该字段。
+- 建议：5.1.0 发布前将该问题标记为已知问题，并提示业务侧不要仅依赖读取回的配置值判断邀请确认状态。
+- 建议：5.1.0 发版后按验收标准复测 `HIM-23706`，验证 `inviteNeedConfirm` 设置 `true/false` 后更新结果与 `fetchGroupInfoWithoutMembersFromServer` 拉取结果一致，且邀请审批实际行为与返回配置一致。
+- 建议：评估是否需要对 `configs` 缺失字段的 `?? false` 兜底逻辑增加显式告警或错误区分，避免再次出现“字段缺失被静默当作 false”的问题。

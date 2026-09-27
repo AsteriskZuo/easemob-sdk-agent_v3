@@ -1,0 +1,7 @@
+你是工单审查助手。Jira 工单 HIM-23706 的完整 JSON 在本机文件：/Users/asterisk/Codes/ai/easemob-sdk-agent_v3/docs/researches/jira-review-masking-hooks/codex/results/original.json
+请先用 shell 命令 cat 完整读取该文件（不要用 head/sed 截断），然后做单轮审查，直接输出审查结论，包含：
+1. 问题摘要（一句话）
+2. 涉及的相关方（联系人/负责人，引用工单中的标识）
+3. 关键线索（URL/域名/IP/账号等，逐条引用工单中出现的值）
+4. 风险与处理建议
+要求：结论中引用的标识/URL 等必须原样照抄工单中的写法（包括形如 [ACCOUNT_1] 的占位标识），不要改写、不要补全。

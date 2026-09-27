@@ -1,0 +1,4 @@
+{"ts":"2026-09-27T02:03:33.724Z","event":"posttool_masked","tool":"Bash","issueKey":"HIM-23706","sha":"8faba7733521","originalBytes":7440,"maskedBytes":7283,"kvCount":8}
+{"ts":"2026-09-27T02:04:12.012Z","event":"posttool_unexpected_source_blocked","tool":"Bash","command":"cat /var/folders/_x/3sg_ghyj03q5_xhxffbhy2k00000gp/T/hook_outputs/01a0e09a-6394-7fd2-be3a-5fc27d84096f/beee3de3-c34a-4da2-8a95-52454750c84a.txt"}
+{"ts":"2026-09-27T02:04:44.507Z","event":"posttool_reuse_masked","tool":"Bash","sha":"b240f42f4de5","sameContent":false}
+{"ts":"2026-09-27T02:05:03.759Z","event":"posttool_reuse_masked","tool":"Bash","sha":"56e81e9cefee","sameContent":false}

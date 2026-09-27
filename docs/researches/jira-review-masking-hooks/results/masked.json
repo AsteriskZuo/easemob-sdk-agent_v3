@@ -1,0 +1,94 @@
+{
+  "key": "HIM-23706",
+  "summary": "【RN SDK 5.0.0 Android】【群配置】inviteNeedConfirm设为true后返回字段缺失，RN读回false",
+  "description": "h2. 问题描述\n\n原生 updateGroupConfigs 成功响应的 configs 未输出 inviteNeedConfirm；RN 更新结果和重新读取结果均显示 false。\n\nh2. 环境信息\n\n* platform: Android 14 / API 34 arm64 模拟器\n* sdk: React Native Chat SDK 5.0.0 / Android native 5.0.0\n* branch: 5.0.0\n* commit: a6fbea3f877e2228a48e4bb6ec4666e35fce3fa9\n* environment: 用户指定的测试环境；凭证不附入 Jira\n* time: 2026-09-22 11:23:54–11:24:26 Asia/Shanghai\n* trace_note: 未取得 traceId；用户已于2026-09-22确认本条提交及traceId例外，批准以准确时间、接口、PID和群/消息ID及脱敏原生日志作为替代关联证据。\n\nh2. 复现步骤\n\n# 用户1作为群325737183772673的群主登录。\n# 调用 updateGroupConfigs，types=4，configs.inviteNeedConfirm=true（完整参数见附件）。\n# 检查更新返回值，再调用 fetchGroupInfoWithoutMembersFromServer 读取群配置。\n\nh2. 预期结果\n\n{code:json}\n\"更新成功后，返回和读回的 configs.inviteNeedConfirm 与设置的 true 一致。\"\n{code}\n\nh2. 实际结果\n\n{code:json}\n\"原生 updateGroupConfigs 成功响应的 configs 未输出 inviteNeedConfirm；RN 更新结果和重新读取结果均显示 false。\"\n{code}\n\nh2. 对照结果\n\n此前邀请需确认的实际审批流程已验证有效，本单仅报告配置返回值不一致，不认定邀请设置失效。\n\nh2. 日志证据\n\n* [bug-3.redacted.log] 清空 logcat 后重新执行的最小日志；含准确时间、PID/TID、原生调用和响应。traceId 未取得，用户已于2026-09-22明确批准替代证据例外。\n\nh2. 初步定位\n\n* 已确认：原生入口 true，成功响应缺少字段，RN结果 false。\n* 已确认：src[URL_1]:317 对缺失值使用 ?? false。\n* 初步推断：需核对 native EMGroupConfigs 字段值和桥接序列化，尚未证明具体丢失层。\n\nh2. 影响范围\n\n业务读取群配置时可能错误展示或判断是否需要邀请确认。\n\nh2. 修复建议\n\n核对 native 群配置返回及桥接序列化，避免缺失字段被静默解释为 false。\n\nh2. 验收标准\n\n* 设置true/false后更新结果与重新拉取结果一致。\n* 邀请审批实际行为与返回配置一致。\n",
+  "himBugContent": "【客户信息收集】\r\nAppKey：\r\n[APPKEY_1]\r\nSDK信息：\r\n客户APP名称：\r\n涉及终端：如IOS、Android、Web、鸿蒙OS等等\r\n环境信息：核心中间件版本，如涉及，请填写\r\n【问题描述（重点）】\r\n建议包含以下内容：\r\n1、客户的业务场景\r\n2、问题出现的场景（条件）和具体现象\r\n3、是否存在替代方案，如存在，为什么不满足\r\n4、客户原始反馈信息\r\n【预计结果】\r\n客户预期结果，建议明确范围。\r\n【日志或者补充说明】\r\n包含日志记录、图片说明、代码片段、返回值等等\r\n【期望解决时间】\r\n客户希望解决的时间\r\n",
+  "himRequirementContent": "【需求描述（重点）】\r\n建议包含以下内容：\r\n1、客户APP名称\r\n2、客户业务场景\r\n3、客户需求场景介绍\r\n4、涉及终端：如IOS、Android、Web、鸿蒙OS等等\r\n5、客户原始反馈信息\r\n【友商信息】\r\n客户是否之前使用的友商产品，友商产品是否有类似的解决方案，如有可附上截图或者链接\r\n【预期效果】\r\n客户预期效果，建议明确需求范围\r\n【期望解决时间】\r\n客户希望解决时间\r\n【其他补充】\r\n其他补充说明\r\n",
+  "testScope": "1. 做了什么事情。比如：\r\n\r\n     a. 添加了某些api；\r\n\r\n     b. 做了某些新功能；\r\n\r\n     c. 添加了某些限制；\r\n\r\n     d. 做了哪些修复；\r\n\r\n     e. 其他；\r\n\r\n2. 前置条件：\r\n\r\n     a. 测试环境；\r\n    \r\n     b. 基础数据；\r\n\r\n     c. 数据量；\r\n\r\n     d. 需要开通功能；\r\n\r\n     e. 被测功能是否在imm中可配置，具体配置项在imm中什么位置。\r\n\r\n     f. 其他\r\n\r\n3. 测试范围:\r\n\r\n     a. 限流，是否可配，如何配置；\r\n\r\n     b. 涉及到的api(比如修改了底层的逻辑，其他api也使用了相同的代码)；\r\n\r\n     c. 请求的api 参数范围(比如分页中每页上限多少)；\r\n\r\n     d. 正确返回结果预期(比如分页未结束时的json结构，分页结束时的json结构，预期值)；\r\n\r\n     e. 错误返回结果预期(比如限流，参数错误，未开通等)；\r\n\r\n     f. 请求参数的字段范围限制(如设置推送昵称的api，昵称长度。用户属性总大小等)；\r\n\r\n     g. 其他\r\n\r\n4. 针对bug的修复，需要额外提供：\r\n\r\n     a. 描述清楚bug是什么；\r\n\r\n     b. 如何复现bug；\r\n\r\n     c. 是如何修复的；\r\n\r\n     d. 修复后预期结果；\r\n\r\n     e. 其他\r\n",
+  "assignee": {
+    "name": "[ACCOUNT_2]",
+    "displayName": "佐玉",
+    "emailAddress": "[ACCOUNT_2]"
+  },
+  "creator": {
+    "name": "[ACCOUNT_1]",
+    "displayName": "孔佳林",
+    "emailAddress": "[ACCOUNT_1]"
+  },
+  "reporter": {
+    "name": "[ACCOUNT_1]",
+    "displayName": "孔佳林",
+    "emailAddress": "[ACCOUNT_1]"
+  },
+  "status": "Complete",
+  "statusCategory": "Complete",
+  "resolution": "Done",
+  "issueType": "Bug",
+  "priority": "Major",
+  "project": "环信IM",
+  "components": [
+    "Other"
+  ],
+  "labels": [],
+  "versions": [],
+  "fixVersions": [],
+  "attachments": [
+    {
+      "id": "73669",
+      "filename": "bug-3.redacted.log",
+      "mimeType": "text/plain",
+      "size": 2112,
+      "created": "2026-09-22T12:03:48.000+0800",
+      "author": {
+        "name": "[ACCOUNT_1]",
+        "displayName": "孔佳林",
+        "emailAddress": "[ACCOUNT_1]"
+      },
+      "content": "http://j1.private.easemob.com/secure/attachment/73669/bug-3.redacted.log"
+    }
+  ],
+  "comments": [
+    {
+      "author": {
+        "name": "[ACCOUNT_2]",
+        "displayName": "佐玉",
+        "emailAddress": "[ACCOUNT_2]"
+      },
+      "body": "Jira HIM-23706 分析完成\r\n负责人：佐玉\r\n平台 / 版本：react-native/ios ·   SDK_5.0.0  （tag-approximate）\r\n主分支修复：⚠️ 无法确认（msync）\r\n摘要\r\n日志分析完成。\r\n任务：jira-HIM-23706-<num-id>\r\n检出引用：SDK_5.0.0\r\ncommit：2f4d2094c78047e07c41d7fb0e4232e05010d331\r\n- 现象：RN 5.0.0（Android）调用   updateGroupConfigs(types=4, configs.inviteNeedConfirm=true)  ，原生   onSuccess   返回的   configs   里没有   inviteNeedConfirm  ，RN 更新结果与随后服务器读回均为   false  。\r\n- 最可能原因：  inviteNeedConfirm=true   在 Android 原生 SDK 的 Java 层（  com.hyphenate.chat  ，未检出） 未被写入传给核心的原生 group setting；核心因此认为该字段“无变化”，既没向服务器下发   invite_need_confirm=true  ，也就返回了旧值   false  。所以   onSuccess  （更新“成功”）但值没变，服务器读回也仍是   false  。\r\n- 关键证据：\r\n  - RN 已确认正确：桥接层把   types=4   正确映射为原生枚举   INVITE_NEED_CONFIRM  ，且响应序列化确实包含   inviteNeedConfirm  （  source-react-native-chat-sdk/...ExtSdkHelper.java  、  ExtSdkGroupManagerWrapper.java  ）。\r\n  - 共享 C++ 核心已确认正确：  updateGroupOptionsInternal   /   processChangeOptionsResponse   会正确处理并落地   inviteNeedConfirm  （  source[URL_2]  、  source[URL_3]  ）。\r\n  - 结构性佐证：Android JNI 适配器   EMAGroupSetting   对   isPublic/joinApprovalRequired/allowInvites/maxUserCount   都提供了   nativeSet*   setter，唯独  inviteNeedConfirm   只有构造入参和 getter，没有 setter（`source/s…（已截断）\r\n主分支审计\r\n主分支检出的是 core（emclient-linux）仓库 @ msync（commit ce7362853b2e5a04e6cc200e79c4b526bffa5c12），git 历史显示为 4.23[URL_4] 版本线。全仓搜索 updateGroupConfigs/updateGroupOptions/changeMucOptions/processChangeOptionsResponse/CHANGE_OPTION_INVITE_NEED_CONFIRM/EMGroupConfigsType 均无任何匹配——本单涉及的 updateGroupConfigs 群配置更新特性在此主分支中根本不存在（该特性属 SDK_5.0.0，原报告即基于 5.0.0 分析）。同时，原报告将根因（强推断）定位在未检出的 Android 原生 SDK Java 层（com.hyphenate.chat 将 EMGroupConfigs 编组为 EMAGroupSetting），该仓库不在本次审计的 core 源码内，无法核对。core 内的 JNI 适配器 src[URL_5] 仍只有 nativeSetStyle/nativeSetMaxUserCount setter 及带 inviteNeedConfirm 的构造 nativeInit(IIZLjava/lang/String;)，依旧没有 nativeSetInviteNeedConfirm setter，与报告所述结构一致，未见修复改动。git-context.md 历史中也没有 HIM-23706 相关提交。由于真正的缺陷组件（Android Java SDK）不在本仓、且受影响特性在此版本不存在，证据…（已截断）\r\n查看 Jira 工单 HIM-23706\r\n requestId 03eb0396-52a4-43c4-a882-a7a63326355d  ",
+      "created": "2026-09-22T16:19:45.000+0800",
+      "updated": "2026-09-22T16:19:45.000+0800"
+    },
+    {
+      "author": {
+        "name": "[ACCOUNT_2]",
+        "displayName": "佐玉",
+        "emailAddress": "[ACCOUNT_2]"
+      },
+      "body": "这个问题的分析，因为可能因为分支不对，导致分析不准确。\r\n 1. ✅ 测试用例路径：updateGroupConfigs（写）+ fetchGroupInfoWithoutMembersFromServer（读）。\r\n 2. ✅ EMGroupConfigs 只进不出（全仓搜过，从未作为返回类型），EMGroup 只出不进。 （这俩容易混淆）\r\n 3. ✅ Android EMGroup 缺 inviteNeedConfirm 获取方法 = 根因。",
+      "created": "2026-09-22T16:19:58.000+0800",
+      "updated": "2026-09-22T16:19:58.000+0800"
+    },
+    {
+      "author": {
+        "name": "[ACCOUNT_2]",
+        "displayName": "佐玉",
+        "emailAddress": "[ACCOUNT_2]"
+      },
+      "body": "android 5.1.0 版本修复。",
+      "created": "2026-09-22T18:50:37.000+0800",
+      "updated": "2026-09-22T18:50:37.000+0800"
+    },
+    {
+      "author": {
+        "name": "[ACCOUNT_1]",
+        "displayName": "孔佳林",
+        "emailAddress": "[ACCOUNT_1]"
+      },
+      "body": "现未发布5.1.0版本，作为发版已知问题，下一个版本发版时复测",
+      "created": "2026-09-23T16:32:58.000+0800",
+      "updated": "2026-09-23T16:32:58.000+0800"
+    }
+  ],
+  "created": "2026-09-22T12:03:47.000+0800",
+  "updated": "2026-09-23T16:33:04.000+0800"
+}
