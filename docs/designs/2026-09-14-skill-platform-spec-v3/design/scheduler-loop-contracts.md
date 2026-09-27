@@ -104,12 +104,18 @@ interface BusinessRegistry {
   /** 出口循环匹配：返回产出方业务的全部出口绑定（归属匹配；空集 = 丢弃，无害） */
   exitBindings(business_id: string): ExitBinding[];
 
-  /** 业务配置读写：控制台与内部同一个接口 */
-  get(business_id: string): BusinessMatch;
+  /** 业务配置读写：控制台与内部同一个接口。
+   *  一个业务 = 其全部匹配行（一对多：多入口/多关注时每个 (source, event_type) 一行，
+   *  常规一行）；行业务级字段（business_id/name/creator_id/on_failure/出口绑定）各行一致 */
+  get(business_id: string): BusinessMatch[];
+  /** 更新业务级字段（business_name / on_failure / 出口绑定等）；
+   *  匹配行的增删不用 patch——新增入口/关注 = 新增一行，取消 = 删除一行 */
   update(business_id: string, patch: Partial<BusinessMatch>): void;
 }
 
-/** 匹配视图：注册表执行视图的一行，常驻内存 */
+/** 匹配视图：注册表执行视图的一行，常驻内存。
+ *  业务与匹配行一对多：一个业务可配多个入口（每个 (source, event_type) 组合一行，
+ *  channel-model §5）；常规场景一个业务一行 */
 interface BusinessMatch {
   business_id: string;        // 业务 id：创建时自动生成、不可修改，一切内部引用的锚
   business_name: string;      // 展示名：用户设置、可修改；不参与任何匹配与引用
@@ -305,7 +311,7 @@ interface ChannelPool {
   onActivate(cb: (channel: Channel) => void): void;
 }
 
-/** 并发闸门：每个循环一道——业务闸门保沙箱（量级几十），出口闸门管投递（可宽） */
+/** 并发闸门：每个循环一道——业务闸门保执行进程（量级几十），出口闸门管投递（可宽） */
 interface Semaphore {
   acquire(): Promise<void>;   // 取不到令牌就等
   release(): void;
@@ -316,9 +322,10 @@ interface Semaphore {
  *  底层数据来自设置模块（ConfigStore 的 global 作用域），循环不直接摸 key-value 字符串。 */
 interface PlatformConfig {
   hop_limit: number;            // hop_count 阈值，超限判循环进死信（只管入口循环）
-  task_concurrency: number;     // 业务闸门值：LLM 推理任务的并发上限（入口循环），控制台可调
+  task_concurrency: number;     // 业务闸门值：执行任务的并发上限（入口循环），控制台可调
   result_concurrency: number;   // 出口闸门值：结果通知投递的并发上限（出口循环），控制台可调
-  task_timeout_minutes: number; // Lifecycle.run 超时（分钟），默认 60
+  task_timeout_minutes: number; // run wall-clock 超时（分钟），默认 60；业务可覆盖，业务优先
+  max_agent_calls: number;      // run 级 agent 调用次数配额，超限强杀；业务可覆盖，业务优先
 }
 ```
 
@@ -414,7 +421,7 @@ class SchedulerLoop {
    *  同通道的后续 (task, 业务) 被这个 await 挡住——同通道严格串行就体现在这里。 */
   private async drain(channel: Channel): Promise<void> {
     for await (const { task, watcher: bm } of channel) {
-      // 闸门：按业务执行粒度获取（一个执行 = 一个沙箱进程）
+      // 闸门：按业务执行粒度获取（一个执行 = 一个流程进程，可再拉起 agent 子进程）
       await this.semaphore.acquire();
       try {
         // 通过闸门才组装重数据（含通道映射引用：channel_id ↔ agent 会话）

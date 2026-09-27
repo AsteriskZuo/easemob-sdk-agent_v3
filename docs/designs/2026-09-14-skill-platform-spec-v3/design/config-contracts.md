@@ -96,16 +96,17 @@ interface ConfigStore {
 
 ---
 
-## 6. 第一批键清单（调度循环印证所需，就这四个）
+## 6. 第一批键清单（调度循环印证所需）
 
 | 键 | 作用域 | 类型 | 建议默认值 | 谁使用 |
 |----|--------|------|-----------|--------|
-| `task_timeout_minutes` | global | number | 60 | Lifecycle.run 超时 |
+| `task_timeout_minutes` | global（业务可覆盖，业务优先） | number | 60 | run wall-clock 超时（Lifecycle.run） |
+| `max_agent_calls` | global（业务可覆盖，业务优先） | number | 待定 | agent 调用服务的 run 级调用次数配额（防失控循环，business-workflow §6） |
 | `hop_limit` | global | number | 待定 | 入口事件循环判派生循环进死信 |
-| `task_concurrency` | global | number | 待定 | 业务闸门（入口循环 LLM 推理任务的并发上限） |
+| `task_concurrency` | global | number | 待定 | 业务闸门（入口循环执行任务的并发上限） |
 | `result_concurrency` | global | number | 待定 | 出口闸门（出口循环结果通知投递的并发上限） |
 
-- **业务级键第一批为空**：当前没有已确认的业务级设置需求，不预测扩展；将来有具体需求时在键注册表新增即可，接口不用动。
+- **业务级覆盖的落地**：允许覆盖的键在注册表声明 `scope: 'global' | 'business'` 均可写，读取时业务值优先——与超时同一优先级规则（`design/lifecycle.md` §4）；其余业务级键第一批为空，不预测扩展。
 
 ---
 

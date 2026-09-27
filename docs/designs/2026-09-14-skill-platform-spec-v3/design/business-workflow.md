@@ -26,10 +26,12 @@
    │  进程退出 = 本次 run 结束
 ```
 
-- **子进程契约**：stdin 一段 JSON（输入）、stdout 一段 JSON（结果）、exit code 非零或超时 = 失败（fail-closed）。这是平台与业务之间唯一的线；
+- **子进程契约**：stdin 一段 JSON（输入）、stdout 一段 JSON（结果）、exit code 非零或超时 = 失败（fail-closed）。这是平台与业务之间唯一的线；契约带 `contract_version: 'v1'`（版本纪律同事件契约，`design/event-contract.md` §2）；
 - **业务上下文业务自己管理**：流程中的中间数据（如脱敏 kv）就是程序内的变量，平台不持有、不传递；
 - **平台注入的额外上下文**：入口信封、业务环境配置与安全变量、run 工作目录、agent 服务端点——经 stdin 与环境变量在启动时一次性注入；
 - **结果校验**：平台只对 stdout 结果做 schema 校验与大小上限（大产物走引用，见 `design/event-contract.md`），不解析内容。
+
+**运行时形态**：业务上传 TypeScript 源码包，**平台在上传时经 esbuild 转译存 JS**（平台运行时零编译，类型检查是业务开发期的事）；业务 SDK 由平台注入 run 环境的依赖解析路径，业务零安装、只 import；`WorkflowRunner.run({program})` 的 `program` = 程序包转译产物的入口文件。
 
 **无挂起/恢复**：多轮交互的连续性由通道模块承接（`design/channel-model.md`），流程程序本身跨 run 无状态。
 
@@ -51,8 +53,19 @@ interface Sdk {
   secret(name: string): string;
 
   /** 调大模型服务（经 socket 到平台 agent 调用服务执行；配额在此强制）。
-   *  skill 必须在本业务的 skill 组内（平台校验）；提示词总纲与模型由平台按业务资料注入 */
-  agent(call: { skill: string; input: unknown }): Promise<unknown>;
+   *  skill 必须在本业务的 skill 组内（平台校验）；提示词总纲与模型由平台按业务资料注入。
+   *  mode 默认 'channel'：沿用/恢复当前通道的 agent 会话（多轮业务的每轮调用都是它）；
+   *  'fresh'：独立会话、不写通道映射（单 run 内初审→复审这类额外调用，上下文不串味） */
+  agent(call: { skill: string; input: unknown; mode?: 'channel' | 'fresh' }): Promise<unknown>;
+
+  /** 当前通道的 agent 会话操作：多轮业务处理 /compact、/clear 类用户命令用。
+   *  命令的识别归业务（用户消息原样到达流程程序，平台不识别不翻译），平台只提供通用会话能力 */
+  session: {
+    /** 压缩当前通道的 agent 会话上下文（由 pi 执行） */
+    compact(): Promise<void>;
+    /** 清空映射：之后的 agent 调用使用全新会话（通道标识不变，历史按时间追溯） */
+    clear(): Promise<void>;
+  };
 
   /** 调子程序：spawn 独立程序，同一子进程契约（§2），超时与编解码全封装 */
   run(program: string, args: { input: unknown; config?: Record<string, string>; timeout_ms?: number }): Promise<unknown>;
@@ -67,7 +80,8 @@ interface Sdk {
   fail(reason: string): never;
 }
 
-/** input() 的返回：入口信封 + 平台注入的运行上下文 */
+/** input() 的返回：入口信封 + 平台注入的运行上下文。
+ *  信封自带 source / session_id / channel 相关字段——业务据此获得当前执行的足够上下文 */
 interface RunInput {
   event: Event;        // 触发信封（design/event-contract.md v1）
   workspace: string;   // 本 run 的隔离工作目录（cwd）
@@ -119,11 +133,11 @@ sdk.return(restored);
 
 | 环节 | 约定 |
 |------|------|
-| 通道 | 每个 run 一个本地 unix socket + 一次性 token，启动时注入；token 随 run 结束失效 |
+| 通道 | 每个 run 一个本地 unix socket + 一次性 token，启动时注入；token 随 run 结束失效；socket 协议同样带 `contract_version` |
 | 执行 | 平台 spawn pi 子进程（决策已定，pi 是唯一内核）；cwd = run 工作目录 |
 | 提示词总纲 | 平台按业务资料自动注入，业务代码无需传入 |
 | skill 与钩子 | skill 必须在本业务 skill 组内（白名单校验）；skill 附带的 pi extension 经 `-e` 注入（见 `design/skill-package.md` §6） |
-| 会话连续性 | 平台按通道映射恢复/绑定 agent 会话（`design/channel-model.md`），业务代码无感 |
+| 会话连续性 | 平台按通道映射恢复/绑定 agent 会话（`design/channel-model.md`），业务代码无感；单 run 多次调用时，`mode: 'channel'` 的调用共享通道会话，`'fresh'` 各自独立 |
 | 配额 | 按 run 计：agent 调用次数上限 + wall-clock 超时（默认 60 分钟，业务可配）——超限强杀，防失控循环 |
 | 埋点 | token 用量、耗时、成本统一上报控制台 |
 | 审计 | `before_provider_request` 落盘真实 LLM 请求体——「敏感内容不出边界」的唯一直接证据 |

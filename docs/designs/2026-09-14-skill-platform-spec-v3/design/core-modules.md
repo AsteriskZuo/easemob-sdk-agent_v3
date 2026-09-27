@@ -151,12 +151,20 @@ interface WorkflowRunner {
 
 /** agent 调用服务：sdk.agent() 的另一端。每 run 监听一个 unix socket（一次性 token 鉴权），
  *  每次调用 spawn pi 子进程执行：cwd=workspace、总纲注入、skill 白名单校验、
- *  -e 注入 skill 附带的 pi extension、按 channel 恢复/绑定会话、配额强制、埋点与请求体审计 */
+ *  -e 注入 skill 附带的 pi extension、按 channel 恢复/绑定会话、配额强制、埋点与请求体审计。
+ *  会话操作：compact 转交 pi 执行，clear 经 ChannelStore 解除映射（channel-model §3） */
 interface AgentService {
   /** 随 run 启动监听，随 run 结束关闭（token 失效） */
   serve(context: BusinessContext): Promise<ServiceEndpoint>;
 }
 ```
+
+**run 内的组装时序**（Lifecycle.run 内部固定四步，本节为唯一定义处）：
+
+1. ContextLoader 组装静态上下文（业务资料 / env / channel / quota）——此时尚无 endpoint；
+2. `AgentService.serve(context)` → 得 endpoint（socket 监听就绪）；
+3. `WorkflowRunner.run`（endpoint 注入环境变量）→ 业务流程程序执行；
+4. 进程退出 → serve 关闭、token 失效，ExecutionResult 出炉。
 
 ### 4.3 通道模块 ChannelStore
 
