@@ -1,6 +1,6 @@
 # 核心模块与接口
 
-> 日期：2026-09-15（2026-09-26 修订：双循环、出口工具群、出口绑定）
+> 日期：2026-09-15（2026-09-26 修订：双循环、出口工具群、出口绑定。2026-09-27 修订：代码即流程——AgentSlot 拆解为 WorkflowRunner + AgentService，新增业务 SDK）
 > 状态：定稿
 > 范围：**核心模块清单 + 各模块公开接口（TS）+ 工程结构**。已在《调度循环契约》《设置模块契约》中定义的接口（Event、TaskQueue、BusinessRegistry、ProcessingChain、BusinessContext、Lifecycle、ExitTool、Exit、ExitBinding、ExitRegistry、Channel/ChannelPool、Semaphore、PlatformConfig、ConfigStore）此处只引用不重复。
 > 依据：骨架 `skill-platform-spec-v3.md` §2 架构分层 + `design/` 各节点文档 + 调度循环契约与设置契约。
@@ -31,8 +31,9 @@ easemob-agent（模块化单体）
 │   ├── 任务队列     TaskQueue ×2       # 入口队列 / 出口队列，同一契约，SQLite 持久化，FIFO
 │   ├── 业务注册表   BusinessRegistry   # 匹配视图 + 业务配置（含出口绑定）统一读写口
 │   ├── 业务组装器   ContextLoader      # 匹配通过后才组装重数据
-│   ├── 生命周期     Lifecycle          # 单次执行，跑完即销毁
-│   └── Agent 适配槽 AgentSlot          # 调用 agent-cli 的唯一通道，适配器要薄
+│   ├── 生命周期     Lifecycle          # 单次执行 = spawn 业务流程程序，跑完即销毁
+│   ├── 流程执行器   WorkflowRunner     # spawn 业务流程程序的薄原语（子进程契约、超时、输出上限）
+│   └── agent 服务   AgentService       # sdk.agent() 的另一端：socket 服务 + pi 子进程执行
 ├── Skill 包仓（动态加载）
 │   └── Skill 注册表 SkillRegistry    # public / private，hash 兼任 id
 ├── 平台公共模块
@@ -40,7 +41,7 @@ easemob-agent（模块化单体）
 │   ├── 出口注册表   ExitRegistry     # 内置出口工具菜单的登记与取用
 │   ├── 环境配置     EnvProvider      # 通用/专用 key-value，业务级优先
 │   ├── 设置模块     ConfigStore      # 全局/业务设置，含权限校验
-│   └── 日志模块     Logger           # 三层日志，脱敏内建
+│   └── 日志模块     Logger           # 四类日志（系统/入口循环/出口循环），脱敏内建
 ├── 基础设施与工具                   # 被所有模块依赖，不反向依赖任何业务模块
 │   ├── 数据库       Database         # SQLite 薄封装，全平台唯一数据访问口
 │   ├── 标识生成     IdGen            # event_id / task_id / lifecycle_id / 随机段
@@ -63,18 +64,19 @@ easemob-agent（模块化单体）
 | 6 | 入口事件循环 SchedulerLoop | 内核 | 心脏之一：摄取 + 各业务通道消化 + 结果扇出 | 无（是消费方，见循环契约 §9） | — |
 | 7 | 出口事件循环 ExitSchedulerLoop | 内核 | 心脏之二：摄取 + 各出口通道消化 + 投递 | 无（是消费方，见循环契约 §9） | — |
 | 8 | 业务组装器 ContextLoader | 内核 | 匹配通过后才组装重数据为 BusinessContext | `ContextLoader`（§4.1） | 入口循环 |
-| 9 | 生命周期 Lifecycle | 内核 | 单次执行、跑完即销毁、统一打标埋点 | `Lifecycle`（循环契约 §5） | 入口循环、控制台（业务标记投影） |
-| 10 | Agent 适配槽 AgentSlot | 内核 | 统一调用 agent-cli 的唯一通道，适配器要薄 | `AgentSlot`（§4.2） | 生命周期 |
-| 11 | 通道模块 ChannelStore | 公共 | 业务通道 channel_id↔agent 会话映射 + 四操作中的平台侧部分 | `ChannelStore`（§4.3） | 业务组装器 |
-| 12 | 出口注册表 ExitRegistry | 公共 | 内置出口工具菜单的登记与取用 | `ExitRegistry`（循环契约 §6） | 出口循环、控制台 |
-| 13 | Skill 注册表 SkillRegistry | Skill 仓 | 登记/列表/取用 skill 包，hash 兼任 id | `SkillRegistry`（§4.4） | 控制台、业务组装器 |
-| 14 | 环境配置 EnvProvider | 公共 | 按业务合并通用/专用 key-value，运行时注入 | `EnvProvider`（§4.5） | 业务组装器、出口循环（出口凭证解析）、控制台 |
-| 15 | 设置模块 ConfigStore | 公共 | 全局/业务设置统一读写（含权限校验） | `ConfigStore`（设置契约） | 控制台、内核各模块（只读） |
-| 16 | 日志模块 Logger | 公共 | 三层日志、四级契约性输出、脱敏内建 | `Logger`（§4.6） | 全部模块 |
-| 17 | 数据库 Database | 基础设施 | SQLite 薄封装：全平台唯一数据访问口，保薄抽象 | `Database`（§4.7） | 全部持久化模块 |
-| 18 | 标识生成 IdGen | 基础设施 | 各类 id 与随机段的唯一生成口 | `IdGen`（§4.7） | 入口群、内核 |
-| 19 | 时钟 Clock | 基础设施 | 时间戳统一来源（信封 timestamp、日志、session_id 时间戳段） | `Clock`（§4.7） | 全部模块 |
-| 20 | 控制台 Console | 控制台 | 开关与仪表盘集合，本身无业务逻辑 | 无（是纯消费方） | — |
+| 9 | 生命周期 Lifecycle | 内核 | 单次执行 = spawn 业务流程程序、进程退出即完结、统一打标埋点 | `Lifecycle`（循环契约 §5） | 入口循环、控制台（业务标记投影） |
+| 10 | 流程执行器 WorkflowRunner | 内核 | spawn 业务流程程序的薄原语：子进程契约、超时强杀、输出上限 | `WorkflowRunner`（§4.2） | 生命周期 |
+| 11 | agent 服务 AgentService | 内核 | sdk.agent() 的另一端：per-run socket + pi 子进程执行 + 配额与审计 | `AgentService`（§4.2） | 业务流程程序（经 socket，非 import） |
+| 12 | 通道模块 ChannelStore | 公共 | 业务通道 channel_id↔agent 会话映射 + 四操作中的平台侧部分 | `ChannelStore`（§4.3） | 业务组装器、agent 服务 |
+| 13 | 出口注册表 ExitRegistry | 公共 | 内置出口工具菜单的登记与取用 | `ExitRegistry`（循环契约 §6） | 出口循环、控制台 |
+| 14 | Skill 注册表 SkillRegistry | Skill 仓 | 登记/列表/取用 skill 包，hash 兼任 id | `SkillRegistry`（§4.4） | 控制台、业务组装器 |
+| 15 | 环境配置 EnvProvider | 公共 | 按业务合并通用/专用 key-value，运行时注入 | `EnvProvider`（§4.5） | 业务组装器、出口循环（出口凭证解析）、控制台 |
+| 16 | 设置模块 ConfigStore | 公共 | 全局/业务设置统一读写（含权限校验） | `ConfigStore`（设置契约） | 控制台、内核各模块（只读） |
+| 17 | 日志模块 Logger | 公共 | 四类日志（系统/入口循环/出口循环；业务日志由执行器采集）、四级契约性输出、脱敏内建 | `Logger`（§4.6） | 全部模块 |
+| 18 | 数据库 Database | 基础设施 | SQLite 薄封装：全平台唯一数据访问口，保薄抽象 | `Database`（§4.7） | 全部持久化模块 |
+| 19 | 标识生成 IdGen | 基础设施 | 各类 id 与随机段的唯一生成口 | `IdGen`（§4.7） | 入口群、内核 |
+| 20 | 时钟 Clock | 基础设施 | 时间戳统一来源（信封 timestamp、日志、session_id 时间戳段） | `Clock`（§4.7） | 全部模块 |
+| 21 | 控制台 Console | 控制台 | 开关与仪表盘集合，本身无业务逻辑 | 无（是纯消费方） | — |
 
 ---
 
@@ -85,10 +87,12 @@ easemob-agent（模块化单体）
 入口循环 ──▶ TaskQueue(入口/出口) / BusinessRegistry / ContextLoader / Lifecycle / ChannelPool / PlatformConfig / Logger
 出口循环 ──▶ TaskQueue(出口) / BusinessRegistry(出口绑定) / ExitRegistry / ChannelPool / EnvProvider / PlatformConfig / Logger
 ContextLoader ──▶ BusinessRegistry / SkillRegistry / EnvProvider / ChannelStore
-Lifecycle ──▶ AgentSlot / Logger
+Lifecycle ──▶ WorkflowRunner / Logger
+WorkflowRunner ──▶ Logger                      # spawn 业务流程程序（子进程，非 import）
+AgentService ──▶ ChannelStore / Logger          # 经 socket 服务业务进程（非 import）；内部 spawn pi 子进程
 Console ──▶ 全部公开接口（只经接口，不碰内部存储；与内部模块共用同一套读写口）
 全部模块 ──▶ infra（Database / IdGen / Clock）——基础设施不反向依赖
-业务 = 注册表里的数据行，不是模块，不被 import
+业务 = 注册表里的数据行 + 工作区里的流程程序资产，不是模块，不被 import
 ```
 
 - **心脏不认识业务**：两个循环只读信封字段与匹配视图；业务细节（提示词、skill、agent 配置）全部封在 ContextLoader 组装出的 BusinessContext 里；
@@ -126,34 +130,33 @@ interface ContextLoader {
 }
 ```
 
-### 4.2 Agent 适配槽 AgentSlot
+### 4.2 流程执行器 WorkflowRunner 与 agent 服务 AgentService
 
-生命周期调用 agent-cli 的唯一通道。适配器要薄：只统一调用方式，不封装能力差异（`design/lifecycle.md` §5）。
+业务执行模型的完整语义（一入一出、子进程契约、SDK、配额、hooks 纪律）见 `design/business-workflow.md`；此处只定义平台侧两个接口的形状。
 
 ```ts
-interface AgentSlot {
-  /** 单次调用：分钟级长耗时（沙箱进程）；内部统一埋点 token/耗时/成本 */
-  invoke(call: AgentInvocation): Promise<AgentResult>;
+/** 流程执行器：spawn 业务流程程序的薄原语。子进程契约：stdin 进（信封+注入上下文）、
+ *  stdout 出（唯一结果，schema 校验 + 大小上限）、exit 非零或超时 = failed（fail-closed）。
+ *  同一契约被业务侧 sdk.run() 递归复用（business-workflow §5） */
+interface WorkflowRunner {
+  run(job: {
+    program: string;           // 业务流程程序入口（业务工作区内）
+    event: Event;              // 触发信封
+    env: EnvConfig;            // 按业务隔离注入（secrets 不落盘不进日志）
+    workspace: string;         // run 隔离目录 runs/{run_id}/，作为 cwd
+    endpoint: ServiceEndpoint; // 注入环境变量，SDK 据此连 agent 服务
+    timeout_minutes: number;   // 业务配置优先，缺省取全局 task_timeout_minutes（60）
+  }): Promise<ExecutionResult>;
 }
 
-interface AgentInvocation {
-  agent: AgentCliObject;     // 适配器引用 + 配置（MVP 仅 pi）
-  model: ModelObject;        // MVP 仅 qwen3.8max
-  prompt: string;            // 提示词总纲
-  skills: SkillObject[];     // schema 按需注入
-  env: EnvConfig;            // 运行时注入，secrets 不落盘不进日志
-  channel: ChannelRef;       // 平台侧注入通道映射引用（channel_id ↔ agent 会话），用户斜杠命令原样透传（平台不翻译）
-  workspace: string;         // 任务级隔离目录 runs/{run_id}/
-  timeout_minutes: number;   // 业务配置优先，缺省取全局 task_timeout_minutes（60）
-}
-
-interface AgentResult {
-  output: unknown;           // 业务产出；大产物走引用
-  usage: { tokens: number; duration_ms: number };
+/** agent 调用服务：sdk.agent() 的另一端。每 run 监听一个 unix socket（一次性 token 鉴权），
+ *  每次调用 spawn pi 子进程执行：cwd=workspace、总纲注入、skill 白名单校验、
+ *  -e 注入 skill 附带的 pi extension、按 channel 恢复/绑定会话、配额强制、埋点与请求体审计 */
+interface AgentService {
+  /** 随 run 启动监听，随 run 结束关闭（token 失效） */
+  serve(context: BusinessContext): Promise<ServiceEndpoint>;
 }
 ```
-
-**超时优先级规则**（`design/lifecycle.md` §4）：业务配置 > 平台通用配置。超时是该规则的第一条适用项，后续同类配置同规则。
 
 ### 4.3 通道模块 ChannelStore
 
@@ -226,14 +229,14 @@ interface EnvProvider {
 
 ### 4.6 日志模块 Logger
 
-三层日志（通道/总/模块），error/warn/info 契约性必打，脱敏内建（`design/logging.md`）。
+四类日志（系统级 / 入口事件循环 / 出口事件循环 / 业务），error/warn/info 契约性必打，脱敏内建（`design/logging.md`）。业务日志不在本接口内——由流程执行器捕获业务进程 stderr 采集（logging.md §1）。
 
 ```ts
 type LogLevel = 'error' | 'warn' | 'info' | 'debug';
 
-/** 关联键即路由依据：带 channel_id 进通道日志，其余按模块归模块日志，总日志由关键节点自动镜像 */
+/** 关联键即检索键：模块标记决定进哪类日志，关联键用于跨日志互跳 */
 interface LogContext {
-  module: string;            // 必带：scheduler / exit-loop / queue / lifecycle / console …
+  module: string;            // 必带：system / entry-loop / exit-loop / queue / console / lifecycle …
   event_id?: string;
   lifecycle_id?: string;
   channel_id?: ChannelId;    // 业务通道 source__session_id__business_id；出口通道 exit__destination_id
@@ -331,7 +334,8 @@ easemob-sdk-agent_v3/
 ├── entries/      # 入口模块群：wecom.ts / jira.ts / github.ts / webhook.ts / cron.ts / manual.ts（新事件源 = 新文件）
 ├── exits/        # 出口工具群：wecom-bot.ts / wecom-webhook.ts / mail.ts / webhook.ts / jira.ts / confluence.ts / github.ts（新目的地 = 新文件，出口封装）
 ├── tools/        # 工具实现：一个工具一个 TS 文件（github / jira / confluence / mail …），skill 与出口工具复用同一实现
-├── kernel/       # 编排内核：scheduler-loop（入口循环）/ exit-loop（出口循环）/ task-queue / business-registry / context-loader / lifecycle / agent-slot / channel
+├── kernel/       # 编排内核：scheduler-loop（入口循环）/ exit-loop（出口循环）/ task-queue / business-registry / context-loader / lifecycle / workflow-runner / agent-service / channel
+├── sdk/          # 业务 SDK 发布物（业务程序的唯一依赖；API 唯一定义见 design/business-workflow.md §3）
 ├── skills/       # SkillRegistry 与 skill 包加载
 ├── platform/     # 平台公共模块：channel-store / exit-registry / env-provider / config-store / logger
 ├── console/      # 控制台服务与 UI（前后端同构，共享 contracts/ 类型）

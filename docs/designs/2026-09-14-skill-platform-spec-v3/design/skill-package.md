@@ -6,7 +6,7 @@
 
 Skill 是**能力单元、工具单元**，是业务的组成部分——没有更多特殊身份。
 
-- **触发订阅事件的是业务组合体**（提示词 + 一组 skill + agent-cli + 大模型），不是 skill；skill 不持有 triggers，入口绑定在业务上；
+- **触发订阅事件的是业务**（业务流程程序 + 业务资料），不是 skill；skill 不持有 triggers，入口绑定在业务上；
 - skill 遵循**公开 skill 规范**（SKILL.md 式），**不为本平台做任何适配**；
 - 推荐作者在规范必选字段之外添加**版本号**属性。
 
@@ -50,3 +50,9 @@ Skill 是**能力单元、工具单元**，是业务的组成部分——没有�
 ## 5. MCP
 
 **不支持，后续是否支持待定，不预留接口。** 理由：各家大模型对 MCP 的支持程度与配置方式差异明显，远没有 skill 规范统一、标准。
+
+## 6. skill 与 run 内钩子（pi extension）
+
+skill 可附带 **pi extension**（TypeScript 模块）：agent 调用时平台经 `-e` 白名单注入，在会话内生效（输入改写、工具拦截、请求审计等）。用途定位：**会话内守卫**——需要拦会话中间态的机械保证（如脱敏拦截、LLM 请求体审计）归这里；不进会话的业务环节（检查/获取/脱敏/还原/门禁）归业务流程程序（`design/business-workflow.md` §5）。
+
+遵守 hooks 三条纪律（fail-closed、判定自写结构化日志、`before_provider_request` 落盘审计）——唯一定义处：`design/business-workflow.md` §4。

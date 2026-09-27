@@ -50,9 +50,9 @@ Node 并发不是约束：平台负载是 I/O 密集（等 LLM API），事件�
 2. **判定自写日志**：hook 阻断不反映在进程退出码（两家都是 exit 0），平台门禁判定以 hook 自写的结构化判定日志为准。
 3. **边界审计挂点**：`before_provider_request` 落盘真实 LLM 请求体，是「敏感内容不出边界」的唯一直接证据。
 
-## 待回写设计文档（后续任务）
+## 设计文档回写（2026-09-27 已完成）
 
-- 执行器契约：Runner 接口 + per-run 资源声明（含「pi 无沙箱、平台外层补」的说明）。
-- hooks 机制：挂接点 + 契约 + 上述三条纪律；glossary 门禁词条改写（机械部分归平台钩子，语义部分留 skill）。
-- skill 规范：skill 可附带 pi extension 做 run 内钩子（脱敏、工具拦截），平台经 `-e` 白名单注入。
+- 执行器契约：WorkflowRunner + per-run 资源声明，见 `design/business-workflow.md` §2/§7 与 `design/core-modules.md` §4.2。
+- hooks 机制：三条纪律落在 `design/business-workflow.md` §4；glossary 门禁词条已改写（检查/门禁/处理器归业务流程程序内部，平台无挂接点——经「代码即流程」决策，见 `docs/decisions/2026-09-27-business-workflow-code-as-workflow.md`）。
+- skill 规范：skill 可附带 pi extension 经 `-e` 白名单注入，见 `design/skill-package.md` §6。
 - 已知待修：脱敏模块白名单缺 `attachments[].content`（实测内网域名曾因此泄漏，见 pi 版调研报告）。

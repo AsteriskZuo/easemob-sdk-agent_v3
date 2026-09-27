@@ -1,6 +1,6 @@
 # 调度循环契约
 
-> 日期：2026-09-15（2026-09-26 修订：双循环、结果扇出、出口契约；移除 ResultDisposition）
+> 日期：2026-09-15（2026-09-26 修订：双循环、结果扇出、出口契约；移除 ResultDisposition。2026-09-27 修订：代码即流程——BusinessContext 面向流程程序 + agent 服务，Lifecycle = spawn 业务流程程序）
 > 状态：定稿
 > 范围：**只覆盖两个调度循环（入口事件循环 / 出口事件循环）直接使用的契约**。入口内部、业务语义去重（后续单独设计）、控制台 UI、日志接口不在本文档。
 > 依据：`design/glossary.md`、`design/scheduler.md`、`design/processing-chain.md`、`design/lifecycle.md`、`design/event-contract.md`（v1）、`design/channel-model.md`。
@@ -119,7 +119,7 @@ interface BusinessMatch {
   on_failure?: boolean;       // 失败也扇出（派生事件带失败状态，下游门禁验收）；
                               // 默认 false = 失败不扇出：下游天然不触发、出口无投递
   // 无 order / depends_on / gate 字段：链内并行（glossary 处理链词条）；
-  // 顺序靠事件订阅表达，门禁由业务执行体内部完成（glossary 门禁词条）
+  // 顺序靠事件订阅表达，门禁/检查由业务流程程序内部完成（glossary 门禁词条）
 }
 
 /** 处理链 = 一个事件的关注者集合；链内并行消化——每个关注者按自己的 channel_id 挂通道。
@@ -134,15 +134,20 @@ type ProcessingChain = BusinessMatch[];
 **仅入口事件循环**——出口循环没有 BusinessContext（出口绑定配置即投递所需的全部）。匹配成功、通道轮到、闸门通过之后才组装。各成员只给最小视图——循环只需要"能执行任务"的形状，成员自身的完整设计各归其文档。
 
 ```ts
-/** 可执行任务的完整上下文 = 提示词 + skill 组 + agent-cli + 大模型 + 环境配置 */
+/** 可执行任务的完整上下文 = 业务资料 + 环境配置 + 运行端点 + 配额。
+ *  两个消费方：流程执行器注入业务进程（env/workspace/endpoint）；
+ *  agent 调用服务执行 sdk.agent()（prompt/skills/model/channel/quota） */
 interface BusinessContext {
   business_id: string;
-  prompt: PromptObject;       // 总纲：规则、边界、要求、不可做
-  skills: SkillObject[];      // 本业务选用的 skill（内置/公开/私有）
-  agent: AgentCliObject;      // agent-cli 适配器引用 + 配置
+  prompt: PromptObject;       // 总纲：agent 调用时由平台注入，业务代码无需传入
+  skills: SkillObject[];      // 本业务选用的 skill：sdk.agent() 的白名单校验依据
+  agent: AgentCliObject;      // agent 内核引用 + 配置（MVP 仅 pi）
   model: ModelObject;         // 大模型选择
-  env: EnvConfig;             // 环境/安全/专用配置，按业务隔离注入
-  channel: ChannelRef;        // 通道映射引用：业务通道 channel_id ↔ agent-cli 会话
+  env: EnvConfig;             // 环境/安全/专用配置，按业务隔离注入业务进程
+  channel: ChannelRef;        // 通道映射引用：agent 服务据此恢复/绑定会话
+  workspace: string;          // run 隔离目录 runs/{run_id}/
+  endpoint: ServiceEndpoint;  // agent 调用服务端点：unix socket + 一次性 token
+  quota: RunQuota;            // 按 run 计：agent 调用次数上限 + wall-clock 超时
 }
 
 /** 提示词对象（大纲）。循环只透传，不解析 */
@@ -156,9 +161,9 @@ interface SkillObject {
   schema: unknown;            // 注入 agent 上下文的简式 schema
 }
 
-/** agent-cli 最小视图（适配槽纪律见 design/lifecycle.md §5：适配器要薄） */
+/** agent 内核最小视图（pi 为唯一内核，见 design/lifecycle.md §5） */
 interface AgentCliObject {
-  kind: 'pi';                 // MVP 仅 pi；新 agent = 枚举新增 + 适配器
+  kind: 'pi';                 // MVP 仅 pi；新内核 = 枚举新增 + 调研决策
   config: Record<string, unknown>;
 }
 
@@ -180,6 +185,18 @@ interface ChannelRef {
   channel_id: ChannelId;      // 业务通道：同通道上下文连续的唯一依据
   agent_session_id?: string;  // 首次执行为空，由首次执行建立并绑定
 }
+
+/** agent 调用服务端点：每 run 一个 unix socket + 一次性 token，run 结束失效 */
+interface ServiceEndpoint {
+  socket_path: string;
+  token: string;
+}
+
+/** run 配额：防失控循环的机械防线（design/business-workflow.md §6） */
+interface RunQuota {
+  max_agent_calls: number;
+  timeout_minutes: number;    // 业务配置优先，缺省取全局 task_timeout_minutes（60）
+}
 ```
 
 ---
@@ -197,8 +214,9 @@ interface Lifecycle {
   business_id: string;
   status: LifecycleStatus;
 
-  /** 单次执行。分钟级长耗时（agent 沙箱进程，超时默认 60 分钟），必须 await。
-   *  内部经适配槽 invoke，统一埋点（token/耗时/成本） */
+  /** 单次执行 = spawn 业务流程程序（子进程契约：stdin 信封+上下文 / stdout 唯一结果 /
+   *  进程退出即完结；design/business-workflow.md §2）。分钟级长耗时，必须 await。
+   *  失败语义：程序内任一步失败 = 整体 failed，不重跑（business-workflow §6） */
   run(event: Event, context: BusinessContext): Promise<ExecutionResult>;
 }
 
@@ -215,9 +233,9 @@ interface ExecutionResult {
  *  session_id 继承上游源生标识、producer_business_id=产出方业务 id、
  *  event_type=业务id.产出类型（channel-model §4.1、glossary event_type 词条） */
 
-/** 门禁：不设平台契约。双门禁（业务自检 + 下游验收）由业务执行体（大模型）完成，
- *  规则写在提示词/skill（弱约束）或 skill 内脚本（强约束，半机械检查），
- *  唯一定义见 design/glossary.md；验收未通过 = 本次执行 failed（输入未就绪），不扇出、下游自然不触发 */
+/** 门禁/检查：不设平台契约、没有平台挂接点——它们是业务流程程序内部的环节，
+ *  业务代码实现（唯一定义见 design/glossary.md 门禁词条；机制见 business-workflow §5）。
+ *  验收未通过 = 本次执行 failed（输入未就绪），不扇出、下游自然不触发 */
 ```
 
 ---
@@ -317,10 +335,10 @@ interface PlatformConfig {
 | 成链 | `ProcessingChain` | 关注者集合，无顺序语义，链内并行 |
 | 挂通道 | `ChannelPool.get()` → `Channel.enqueue()` | 每个关注者按自己的 channel_id 挂通道 |
 | 顺序与依赖 | 无平台机制 | 由事件订阅表达（关注上游产出类型），见 processing-chain §2 |
-| 门禁 | 无平台契约（业务执行体内部完成，见 glossary） | 验收未通过 = failed（输入未就绪），不扇出 |
+| 门禁/检查 | 无平台契约、无平台挂接点（业务流程程序内部环节，见 glossary） | 验收未通过 = failed（输入未就绪），不扇出 |
 | 过闸门 | `Semaphore.acquire()`（业务闸门） | 按业务执行粒度获取，非按任务 |
 | 组装上下文 | `BusinessContext` | 此刻才加载重数据；被拦掉的不加载 |
-| 执行 | `Lifecycle.run()` | 单次执行、跑完即销毁、打标 |
+| 执行 | `Lifecycle.run()` | spawn 业务流程程序；单次执行、进程退出即完结、打标 |
 | 结果扇出 | `deriveEvent()` → 两个队列 `enqueue()` | 无脑扇出：hop+1、correlation 继承、源生标识继承、producer_business_id 补入 |
 | 完结 | `TaskQueue.complete()` / `deadLetter()` | 状态变更非删除；全部关注者完结后 complete |
 
