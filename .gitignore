@@ -389,3 +389,7 @@ $RECYCLE.BIN/
 .workbuddy/
 .easemob-agent/
 .vscode/
+
+# T0 工程骨架
+dist-test/
+businesses/

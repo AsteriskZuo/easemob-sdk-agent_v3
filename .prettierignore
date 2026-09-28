@@ -1,0 +1,20 @@
+.git
+node_modules
+dist
+dist-test
+coverage
+logs
+businesses
+.yarn
+.easemob-agent
+.workbuddy
+.vscode
+yarn.lock
+*.log
+*.tsbuildinfo
+
+# 存量文档不做格式化（docs/ 由人工维护，禁止改动）
+docs
+AGENTS.md
+AI.md
+README.md
