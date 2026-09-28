@@ -21,7 +21,6 @@ interface Event {
   event_type: string;      // 关注匹配的键（定义见 glossary 事件类型词条）
   timestamp: string;       // ISO 8601 带时区，入口包装时间
   session_id: string;      // 必填；源生会话标识，入口按来源规则提取（design/channel-model.md §4）
-  dedupe_key?: string;     // 第二层业务语义去重的预留字段（本版不实现）；第一层入口幂等由 event_id 承担；循环不使用
   correlation_id: string;  // 首个任务的 event_id，派生继承
   hop_count: number;       // 派生 +1，超阈值进死信（只管入口事件循环；出口循环不派生）
   payload: unknown;        // 来源自定义；大产物走引用。派生事件的 payload = 业务产出，出口循环投递的就是它
@@ -544,7 +543,7 @@ declare function resolveExitConfig(binding: ExitBinding): Record<string, string>
 
 | 项 | 说明 | 归属 |
 |----|------|------|
-| 业务语义去重 | 第一层入口幂等由 `event_id` 承担（入口识别源生事件重推并丢弃）；`dedupe_key` 为第二层预留字段（平台定规范+业务给实现），后续再议，需要时单独文档 | 后续再议 |
+| 业务语义去重 | **已定**：归业务流程程序自行处理——平台不了解业务细节，不定规范、不提供字段（业务可在流程内调子程序按业务字段过滤，如同一工单只审一次）；第一层入口幂等由 `event_id` 承担（入口识别源生事件重推并丢弃）。`dedupe_key` 预留字段已移除（event-contract changelog 2026-09-28） | 已定 |
 | `EventSource` / agent / model / 出口工具枚举扩展 | 枚举新增属向后兼容 | 各文档 |
 | 死信告警渠道 | 死信 = 任务状态 + error 日志（已定）；是否再通知管理员（如企微告警） | 待定 |
 | 死信事件的消化 | 第一阶段：死信不消化，仅留痕 + 告警；未来若允许业务关注死信事件做善后，属业务规则扩展 | 后续再议 |

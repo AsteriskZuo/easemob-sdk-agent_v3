@@ -382,6 +382,6 @@ easemob-sdk-agent_v3/
 | 项 | 说明 | 归属 |
 |----|------|------|
 | GitHub webhook 事件种类 | **已定**：会话标识按事件种类细分（PR=仓库+PR号、issues=仓库+issue号、push=仓库+分支），见 `design/channel-model.md` §4 | 已定 |
-| 业务语义去重 | 第一层入口幂等由 `event_id` 承担（event-contract §1）；`dedupe_key` 为第二层预留字段，后续再议，需要时单独文档 | 后续再议 |
-| SQLite 驱动选型 | **待调研**：`node:sqlite` vs `better-sqlite3`（功能覆盖、稳定性、维护性对比），调研后定 | 实现期前，需调研 |
-| 测试运行器 | **实现期前参考 v2 版本做法后定**（v2 位置暂不引入，保独立设计）；本稿独立设计倾向 `node:test`（Node 24 内置零依赖） | 实现期前，参考 v2 |
+| 业务语义去重 | **已定**：归业务流程程序自行处理（平台不定规范、不提供字段）；第一层入口幂等由 `event_id` 承担（event-contract §1 去重职责划分） | 已定 |
+| SQLite 驱动选型 | **已定**：`node:sqlite`（Node 24 内置，零依赖；队列场景性能足够） | 已定 |
+| 测试运行器 | **已定**：jest 29 + esbuild 编译态（参考 v2 已验证组合；只保留编译态一套模式） | 已定 |
