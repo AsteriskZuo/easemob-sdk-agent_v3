@@ -48,7 +48,7 @@
 1. **workspaces 范围**：`packages/*`、`app/*`、`sdk`（sdk 本身是单包目录）。
 2. **包内结构**：每包 `src/ + tests/`，入口 `src/index.ts`，`exports` 指向 `./dist/index.js`（types 指向 `./dist/index.d.ts`）。**包间引用走构建产物**（yarn workspaces 软链 + exports 解析），不允许跨包引用 `src`。
 3. **ESM 规则**：源码中相对导入一律带 `.js` 后缀（NodeNext 要求）。
-4. **devDependencies 集中根目录**（typescript/jest/esbuild/eslint/prettier/dpdm/@types）；包内只声明自己的运行时 `dependencies`。
+4. **devDependencies 分工**（yarn 4 约束：workspace 脚本只能看到自己声明依赖的 bin）：各包在自己的 `devDependencies` 声明包级脚本用到的工具（`typescript` / `esbuild` / `jest`，版本与根一致）；根目录保留根脚本用到的工具（eslint / prettier / dpdm 等）与版本基准。
 5. **包级脚本模板**（每包一致）：
    - `build`：`tsc -p tsconfig.json`（产物到 `dist/`）
    - `test`：esbuild 编译 `src`+`tests` 到 `dist-test/`（--format=esm --platform=node --target=node24 --sourcemap，保持目录结构）→ `NODE_OPTIONS='--experimental-vm-modules' jest --config <根>/jest.compiled.config.mjs --rootDir .`

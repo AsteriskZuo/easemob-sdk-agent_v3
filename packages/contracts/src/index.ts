@@ -1,2 +1,3 @@
-// 模板包占位入口：实现归 T1，本文件仅验证工具链。
-export {};
+export * from "./envelope.js";
+export * from "./channel-id.js";
+export * from "./id.js";
