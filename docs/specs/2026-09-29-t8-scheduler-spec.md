@@ -178,7 +178,7 @@ export function deriveEvent(
 
 规则（逐条可测）：
 
-1. `contract_version: 'v1'`；`event_id: newUlid()`；`timestamp: new Date().toISOString()`；
+1. `contract_version: 'v1'`；`event_id: newEventId()`（`evt_` 前缀，contracts 提供）；`timestamp: new Date().toISOString()`；
 2. `source: 'internal'`；`producer_business_id: producer.business_id`；
 3. `hop_count: upstream.hop_count + 1`；`correlation_id` 继承 upstream；`session_id` 继承 upstream（源生标识全链不变）；
 4. **event_type**（本规格裁决，见 §9-A）：`result.status === 'success'` → `${producer.business_id}.completed`；否则（failed/timeout）→ `${producer.business_id}.failed`；

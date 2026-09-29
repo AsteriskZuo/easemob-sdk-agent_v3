@@ -136,3 +136,14 @@
   - spec 未定义行为裁决（主 agent 确认）：trim 仅用于"未设置"判定，getString 返回原始值；default 与 required 同时给时 default 优先；
   - 类型收窄用例经独立 `tsc --noEmit --strict` 验证（重载双向正确），包 tsconfig 排除 tests 的全仓约定未动；
   - 工程修复：`.gitignore` 的 Python venv 规则（`env/`）误伤 `packages/env/`，已加 `!packages/env/` 例外。
+
+### T8 scheduler
+
+- 状态：完成
+- 子 agent：agent-10
+- 开始：2026-09-29 14:20；完成：2026-09-29 14:45
+- 验收证据：主 agent 独立复验——scheduler 28 测试全过（4 套件）、六项根检查全绿（全仓 180 测试）；串行/并行/竞态用例子 agent 连跑 20 次不 flake，主 agent 复跑确认
+- commit：（见本节提交记录）
+- 备注：
+  - 主 agent 修正一处 spec 笔误并同步实现：派生事件 event_id 用 `newEventId()`（`evt_` 前缀，与 contracts 约定一致），spec §5.2 已更正，测试加前缀断言；
+  - 子 agent 合理裁决（主 agent 确认）：settle 防御分支——任务已 dispatch_error 死信时跳过 complete（防 dead 复活成 done）；onActivate 在首次 start() 注册；dead_reason 测试经 db 直查断言（query 不返回该字段，不改上游包）。
