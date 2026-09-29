@@ -172,3 +172,27 @@
   - **数据分类落地（用户）**：runner 路径从 businesses/{三维}/runs|logs 改为 runs/{三维}/{run_id} 与 logs/businesses/{三维}/{run_id}.log（七类数据分类，console-design §6）；
   - 迁移修正：tsconfig extends 路径、jest config 路径、fixture 引用路径、根 workspaces 收编为纯 packages/* + app/*；
   - 子 agent 合理裁决：判定优先级交叉（超限>结果>超时>exit code>missing result）；duration_ms 附在 reason 尾部；重复出口 exit 拦截落穿隐患已修。
+
+### T11 agent-service
+
+- 状态：完成
+- 子 agent：agent-16（与 T15 并行派发）
+- 开始：2026-09-29 23:02；完成：2026-09-29
+- 验收证据：主 agent 独立复验——agent-service 13 测试全过（2 套件）、六项根检查全绿、抽查 pi-runner/socket-server 源码与 spec §5 一致
+- commit：7aa0105
+- 备注：
+  - **真 pi RPC compact smoke 未做**（需真实模型凭据，子代理不碰凭据）——留待人工/T12 联调验证；若 RPC 绑定既有会话有障碍，按 spec §8.8 降级为 pi SDK helper；
+  - 子代理合理裁决（主 agent 确认）：审计 extension 路径向上查找解析（dist 与 dist-test 深度不同）；close 后新连接必 ECONNREFUSED，故 service_closed 只覆盖挂起请求；compact argv 补同套白名单 flag（纪律一致）；审计事件体 provider/model 防御式提取（真 pi smoke 时核对）；
+  - 依赖协议统一：agent-service 的 `@easemob/agent-logger` 改为 `0.1.0`（与 scheduler/workflow-runner 存量形式一致）；
+  - 并行冲突：T15 的 templates/ 自带 tsconfig 导致根 `yarn lint` 的 typescript-eslint 解析崩溃——根 eslint.config.js ignores 加 `templates/`（随 T15 提交）。
+
+### T15 程序包模板
+
+- 状态：完成
+- 子 agent：agent-17（与 T11 并行派发）
+- 开始：2026-09-29 23:02；完成：2026-09-29
+- 验收证据：主 agent 独立复验——`bash scripts/verify-template.sh` 全绿（真实 npm install 408 包 + 模板六条命令全过 + e2e 2 用例）、根 format:check 绿、workspaces 无 my-package、模板内无 `../..` 相对路径
+- commit：728488b
+- 备注：
+  - spec §4 回写 prettier 实际格式（package.json engines、eslint.config.js、main.test.ts 三处折行，无语义变化）；
+  - README 按 §4.10 提纲成文，内容均取自 spec 既定表述。
