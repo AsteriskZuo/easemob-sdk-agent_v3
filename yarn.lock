@@ -403,7 +403,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@easemob/agent-contracts@workspace:packages/contracts":
+"@easemob/agent-contracts@npm:0.1.0, @easemob/agent-contracts@workspace:packages/contracts":
   version: 0.0.0-use.local
   resolution: "@easemob/agent-contracts@workspace:packages/contracts"
   dependencies:
@@ -413,10 +413,34 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@easemob/agent-database@workspace:packages/database":
+"@easemob/agent-database@npm:0.1.0, @easemob/agent-database@workspace:packages/database":
   version: 0.0.0-use.local
   resolution: "@easemob/agent-database@workspace:packages/database"
   dependencies:
+    esbuild: "npm:^0.28.1"
+    jest: "npm:^29.7.0"
+    typescript: "npm:^5.9.0"
+  languageName: unknown
+  linkType: soft
+
+"@easemob/agent-queue@workspace:packages/queue":
+  version: 0.0.0-use.local
+  resolution: "@easemob/agent-queue@workspace:packages/queue"
+  dependencies:
+    "@easemob/agent-contracts": "npm:0.1.0"
+    "@easemob/agent-database": "npm:0.1.0"
+    esbuild: "npm:^0.28.1"
+    jest: "npm:^29.7.0"
+    typescript: "npm:^5.9.0"
+  languageName: unknown
+  linkType: soft
+
+"@easemob/agent-registry@workspace:packages/registry":
+  version: 0.0.0-use.local
+  resolution: "@easemob/agent-registry@workspace:packages/registry"
+  dependencies:
+    "@easemob/agent-contracts": "npm:0.1.0"
+    "@easemob/agent-database": "npm:0.1.0"
     esbuild: "npm:^0.28.1"
     jest: "npm:^29.7.0"
     typescript: "npm:^5.9.0"
