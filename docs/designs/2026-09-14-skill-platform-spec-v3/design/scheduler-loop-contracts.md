@@ -160,9 +160,9 @@ interface PromptObject {
   content: string;
 }
 
-/** skill 最小视图（完整模型见 design/skill-package.md） */
+/** skill 最小视图（完整模型见 design/package-model.md §9） */
 interface SkillObject {
-  skill_id: string;           // 整包 hash（兼任内部编号）
+  skill_id: string;           // 所在包的 asset_id + 包内路径（名解析规则见 package-model §7）
   schema: unknown;            // 注入 agent 上下文的简式 schema
 }
 

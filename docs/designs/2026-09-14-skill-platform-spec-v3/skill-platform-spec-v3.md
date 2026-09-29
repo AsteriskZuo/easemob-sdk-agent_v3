@@ -38,7 +38,7 @@
 | `design/core-modules.md` | 核心模块划分与公开接口清单、依赖纪律、工程结构、数据归属 |
 | `design/event-contract.md` | 事件契约与队列（信封 v1 逐字段说明、版本管理与 changelog、SQLite 持久化、大产物引用） |
 | `design/scheduler-loop-contracts.md` | 调度循环契约（事件、队列、注册表、上下文、执行与扇出、出口工具、通道与闸门、双循环本体） |
-| `design/skill-package.md` | Skill 包模型（能力单元、包格式与元数据、public/private、schema 注入、MCP 不支持） |
+| `design/package-model.md` | 程序包模型（资产单元=程序包：子程序/skill/资源的载体；公共/账号/业务三级可见；引用/上传双模；清单契约与子程序约束；物化与业务初始化；MCP 不支持） |
 
 ---
 
@@ -46,7 +46,7 @@
 
 | 原则 | 说明 |
 |------|------|
-| Skill 一等公民 | skill 是遵循公开规范的能力单元，业务的组成部分；不为本平台做适配 |
+| Skill 一等公民 | skill 是遵循公开规范的能力单元，程序包的内容之一；不为本平台做适配 |
 | 代码即流程 | 业务 = 业务流程程序（代码承载全部流程逻辑）+ 业务资料（提示词/skill/模型等资源声明）；平台不编排流程、不认识业务内容；触发与订阅属于业务，不属于 skill |
 | 公共能力平台化 | 入口、出口、密钥、日志、会话、控制台、任务队列、agent 调用服务由平台统一提供 |
 | 契约优先，接口稳定 | 模块间一切交互受版本化契约约束。**接口一旦发布不轻易修改**：只向后兼容新增，破坏性变更升契约版本号（changelog 随文档维护） |
@@ -111,7 +111,7 @@
 | 业务工作流 | 代码即流程：业务 = 一个流程程序（子进程，一入一出），经业务 SDK 调 agent 服务与子程序；平台不编排 | `design/business-workflow.md` |
 | 生命周期 | 业务的一次完整执行 = 流程程序的一次进程运行，退出即销毁；多阶段是程序内普通代码 | `design/lifecycle.md` |
 | 通道模型 | 业务通道 ↔ agent-cli 会话，一张映射表；创建/恢复/压缩/清空四操作；三种「会话」辨析 | `design/channel-model.md` |
-| Skill 包 | 公开规范的能力单元；public/private 可见性；MCP 不支持、不预留 | `design/skill-package.md` |
+| 程序包 | 资产单元：子程序/skill/资源的载体；公共/账号/业务三级可见性；git 引用或上传；MCP 不支持、不预留 | `design/package-model.md` |
 | 事件契约 | 信封 v1 是唯一稳定边界；契约稳定、传输可换；大产物走引用 | `design/event-contract.md` |
 | 日志 | 四类：系统级（总纲）/ 入口循环 / 出口循环 / 业务（SDK 日志 API，按业务按 run）；error/warn/info 必打；logrotate 管分割 | `design/logging.md` |
 | 控制台 | 全部控制开关与仪表盘的集合，本身无业务逻辑 | `design/console-design.md` |

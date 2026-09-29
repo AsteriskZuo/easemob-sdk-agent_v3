@@ -34,8 +34,8 @@ easemob-agent（模块化单体）
 │   ├── 生命周期     Lifecycle          # 单次执行 = spawn 业务流程程序，跑完即销毁
 │   ├── 流程执行器   WorkflowRunner     # spawn 业务流程程序的薄原语（子进程契约、超时、输出上限）
 │   └── agent 服务   AgentService       # sdk.agent() 的另一端：socket 服务 + pi 子进程执行
-├── Skill 包仓（动态加载）
-│   └── Skill 注册表 SkillRegistry    # public / private，hash 兼任 id
+├── 程序包仓（动态加载）
+│   └── 程序包注册表 PackageRegistry  # 公共/账号/业务三级可见；引用或上传双模；asset_id 兼任编号
 ├── 平台公共模块
 │   ├── 通道模块     ChannelStore     # 业务通道 channel_id↔agent 会话映射 + 四操作的平台侧部分
 │   ├── 出口注册表   ExitRegistry     # 内置出口工具菜单的登记与取用
@@ -50,7 +50,7 @@ easemob-agent（模块化单体）
     └── 账号体系（`design/accounts.md`）
 ```
 
-说明：**出口与入口对称**（已定决策）——出口 = 出口事件循环 + 出口工具群（内置投递器模块，不是 skill）。业务结果无脑扇出到两个队列：入口队列由关注业务消化（订阅匹配），出口队列由产出方业务的出口绑定消化（归属匹配，不过 LLM、毫秒级）。注意区分两类「触达能力」：**结果投递**归出口工具；**执行内调用**（如审查过程中读写 Jira）仍以 public skill 由 Skill 包仓提供。
+说明：**出口与入口对称**（已定决策）——出口 = 出口事件循环 + 出口工具群（内置投递器模块，不是 skill）。业务结果无脑扇出到两个队列：入口队列由关注业务消化（订阅匹配），出口队列由产出方业务的出口绑定消化（归属匹配，不过 LLM、毫秒级）。注意区分两类「触达能力」：**结果投递**归出口工具；**执行内调用**（如审查过程中读写 Jira）以公共程序包内的 skill/子程序由程序包仓提供。
 
 模块明细：
 
@@ -69,7 +69,7 @@ easemob-agent（模块化单体）
 | 11 | agent 服务 AgentService | 内核 | sdk.agent() 的另一端：per-run socket + pi 子进程执行 + 配额与审计 | `AgentService`（§4.2） | 业务流程程序（经 socket，非 import） |
 | 12 | 通道模块 ChannelStore | 公共 | 业务通道 channel_id↔agent 会话映射 + 四操作中的平台侧部分 | `ChannelStore`（§4.3） | 业务组装器、agent 服务 |
 | 13 | 出口注册表 ExitRegistry | 公共 | 内置出口工具菜单的登记与取用 | `ExitRegistry`（循环契约 §6） | 出口循环、控制台 |
-| 14 | Skill 注册表 SkillRegistry | Skill 仓 | 登记/列表/取用 skill 包，hash 兼任 id | `SkillRegistry`（§4.4） | 控制台、业务组装器 |
+| 14 | 程序包注册表 PackageRegistry | 程序包仓 | 登记/列表/取用/物化程序包，asset_id 兼任 id | `PackageRegistry`（§4.4） | 控制台、业务组装器 |
 | 15 | 环境配置 EnvProvider | 公共 | 按业务合并通用/专用 key-value，运行时注入 | `EnvProvider`（§4.5） | 业务组装器、出口循环（出口凭证解析）、控制台 |
 | 16 | 设置模块 ConfigStore | 公共 | 全局/业务设置统一读写（含权限校验） | `ConfigStore`（设置契约） | 控制台、内核各模块（只读） |
 | 17 | 日志模块 Logger | 公共 | 四类日志（系统/入口循环/出口循环；业务日志由执行器采集）、四级契约性输出、脱敏内建 | `Logger`（§4.6） | 全部模块 |
@@ -86,7 +86,7 @@ easemob-agent（模块化单体）
 入口群 ──▶ TaskQueue(入口) / Logger   # 会话标识直接从事件提取（channel-model §4），入口不再需要会话存储
 入口循环 ──▶ TaskQueue(入口/出口) / BusinessRegistry / ContextLoader / Lifecycle / ChannelPool / PlatformConfig / Logger
 出口循环 ──▶ TaskQueue(出口) / BusinessRegistry(出口绑定) / ExitRegistry / ChannelPool / EnvProvider / PlatformConfig / Logger
-ContextLoader ──▶ BusinessRegistry / SkillRegistry / EnvProvider / ChannelStore
+ContextLoader ──▶ BusinessRegistry / PackageRegistry / EnvProvider / ChannelStore
 Lifecycle ──▶ WorkflowRunner / Logger
 WorkflowRunner ──▶ Logger                      # spawn 业务流程程序（子进程，非 import）
 AgentService ──▶ ChannelStore / Logger          # 经 socket 服务业务进程（非 import）；内部 spawn pi 子进程
@@ -123,7 +123,7 @@ Console ──▶ 全部公开接口（只经接口，不碰内部存储；与�
 匹配、依赖、门禁、闸门全部通过之后才调用——没通过的检查不触发任何重数据加载。
 
 ```ts
-/** 按业务 id 组装可执行上下文：注册表取组合体声明 → Skill 仓取 skill →
+/** 按业务 id 组装可执行上下文：注册表取组合体声明 → PackageRegistry 物化绑定包并取清单 →
  *  EnvProvider 取环境配置 → ChannelStore 取通道映射引用 → PlatformConfig 取超时 */
 interface ContextLoader {
   load(business_id: string, channel_id: ChannelId): BusinessContext;
@@ -186,31 +186,38 @@ interface ChannelStore {
 - **压缩**不占接口：由用户消息（如企微斜杠命令）原样透传给 agent-cli 执行，平台不翻译、不主动调用；
 - 各来源会话标识规则定义在 `design/channel-model.md` §4（wecom=群/用户 id，jira=工单 key，github 按事件种类细分，internal 继承上游源生标识，cron/manual 业务级兜底）。
 
-### 4.4 Skill 注册表 SkillRegistry
+### 4.4 程序包注册表 PackageRegistry
 
-skill 遵循公开规范、不为本平台适配；整包 hash 兼任内部编号（`design/skill-package.md` §3）。
+程序包是平台管理的唯一资产单元：内含子程序、skill、自有资源；skill 遵循公开规范、不为本平台适配。提供方式、清单契约、子程序约束、名解析规则的唯一定义处：`design/package-model.md`。
 
 ```ts
-interface SkillRegistry {
-  /** 登记：计算整包 hash 作为 skill_id（天然唯一、内容变即 id 变），附元数据，不改写包内容 */
-  register(input: SkillPackageInput): SkillObject;
+interface PackageRegistry {
+  /** 登记：引用模式记 git 地址（url+ref+子路径）、上传模式收字节存母本；
+   *  asset_id 规则（引用描述符 hash / 内容 hash）见 package-model §4；附元数据，不改写包内容 */
+  register(input: PackageInput): PackageMeta;
 
-  /** 控制台列表：public 全部可见；private 按归属账号过滤（权限规则见 skill-package.md §2） */
-  list(filter: { visibility?: 'public' | 'private'; owner_id?: string }): SkillMeta[];
+  /** 控制台列表：公共全部可见；账号/业务级按归属过滤（权限规则见 package-model §2） */
+  list(filter: { visibility?: 'public' | 'account' | 'business'; owner_id?: string }): PackageMeta[];
 
-  /** 组装上下文时取用最小视图（skill_id + 注入用 schema） */
-  get(skill_id: string): SkillObject;
+  /** 取用：清单解析结果（programs/skills）+ 元数据 */
+  get(asset_id: string): PackageObject;
+
+  /** 物化：确保包内容在本地可用，返回本地路径（引用模式拉进 cache，幂等；缺失补拉） */
+  materialize(asset_id: string): string;
 }
 
-interface SkillPackageInput {
-  path: string;                          // 包在文件树中的位置（public/skills/ 或 accounts/{账号id}/skills/）
-  visibility: 'public' | 'private';
+interface PackageInput {
+  source:                        // 提供方式（package-model §3）
+    | { type: 'git'; url: string; ref: string; subpath?: string }  // 引用模式
+    | { type: 'upload'; path: string };                            // 上传模式（已落 content/ 的字节）
+  visibility: 'public' | 'account' | 'business';
   owner_id: string;                      // 创建者账号：读写权限判定（admin 兜底）
+  business_id?: string;                  // visibility='business' 时必填
 }
 
-interface SkillMeta {
-  skill_id: string;                      // 整包 hash（短哈希展示）
-  visibility: 'public' | 'private';
+interface PackageMeta {
+  asset_id: string;                      // 兼任内部编号（短哈希展示）
+  visibility: 'public' | 'account' | 'business';
   owner_id: string;
   created_at: string;
   modified_at: string;
@@ -307,13 +314,13 @@ easemob-sdk-agent_v3/
 ├── tsconfig.json     # TypeScript 5.x，strict
 ├── .gitignore        # 运行时数据（workspace、runs/、日志、*.sqlite）不入库
 ├── public/
-│   └── skills/       # 内置 public skill 发布物（jira 工具 / github 操作 / 企微工具…），随仓库发布
+│   └── packages/     # 内置公共程序包发布物（jira 工具 / github 操作 / 企微工具…），随仓库发布
 ├── tests/            # 跨模块端到端测试（M3 起）；模块单测与源码同处（*.test.ts）
 ├── docs/             # 设计文档
 └── src/              # 平台本体，见下
 ```
 
-内置工具（github / jira / confluence / 邮件 / 企微等）的载体统一为**工具实现文件**：`src/tools/` 下**一个工具一个 TypeScript 文件**，独立、可复用、不含账号凭证。它有两种封装：**执行内调用**——包装为内置 public skill（`public/skills/` 发布、首启由 SkillRegistry 登记/同步进 workspace 与注册表，供 LLM 在业务执行中调用，与用户上传的 public skill 同规则）；**结果投递**——包装为出口工具（`src/exits/`，随平台发布、由 ExitRegistry 登记，平台直接调用）。两种封装复用同一份工具实现。此外还有**监听/接收类**（各源 webhook 监听、企微机器人收消息）——是 `src/entries/` 的入口适配器代码模块，不基于工具实现。凭证一律走 EnvProvider 专用 key-value（services），按业务隔离，业务创建者在控制台填自己的账号即可用。
+内置工具（github / jira / confluence / 邮件 / 企微等）的载体统一为**工具实现文件**：`src/tools/` 下**一个工具一个 TypeScript 文件**，独立、可复用、不含账号凭证。它有两种封装：**执行内调用**——收进内置公共程序包（`public/packages/` 发布、首启由 PackageRegistry 登记/同步进 workspace 与注册表，供 LLM 在业务执行中调用或业务经 `sdk.run` 调用，与用户上传的公共包同规则）；**结果投递**——包装为出口工具（`src/exits/`，随平台发布、由 ExitRegistry 登记，平台直接调用）。两种封装复用同一份工具实现。此外还有**监听/接收类**（各源 webhook 监听、企微机器人收消息）——是 `src/entries/` 的入口适配器代码模块，不基于工具实现。凭证一律走 EnvProvider 专用 key-value（services），按业务隔离，业务创建者在控制台填自己的账号即可用。
 
 `src/`：
 
@@ -322,10 +329,10 @@ easemob-sdk-agent_v3/
 ├── infra/        # 基础设施与工具：database.ts / id-gen.ts / clock.ts；不依赖任何业务模块
 ├── entries/      # 入口模块群：wecom.ts / jira.ts / github.ts / webhook.ts / cron.ts / manual.ts（新事件源 = 新文件）
 ├── exits/        # 出口工具群：wecom-bot.ts / wecom-webhook.ts / mail.ts / webhook.ts / jira.ts / confluence.ts / github.ts（新目的地 = 新文件，出口封装）
-├── tools/        # 工具实现：一个工具一个 TS 文件（github / jira / confluence / mail …），skill 与出口工具复用同一实现
+├── tools/        # 工具实现：一个工具一个 TS 文件（github / jira / confluence / mail …），程序包内 skill 与出口工具复用同一实现
 ├── kernel/       # 编排内核：scheduler-loop（入口循环）/ exit-loop（出口循环）/ task-queue / business-registry / context-loader / lifecycle / workflow-runner / agent-service / channel
 ├── sdk/          # 业务 SDK 发布物（业务程序的唯一依赖；API 唯一定义见 design/business-workflow.md §3）
-├── skills/       # SkillRegistry 与 skill 包加载
+├── packages/     # PackageRegistry 与程序包加载/物化（清单校验、cache 物化）
 ├── platform/     # 平台公共模块：channel-store / exit-registry / env-provider / config-store / logger
 ├── console/      # 控制台服务与 UI（前后端同构，共享 contracts/ 类型）
 └── main.ts       # 组装根：依赖注入的唯一地点，唯一允许 import 全部模块的文件
@@ -349,7 +356,8 @@ easemob-sdk-agent_v3/
 | 通道（channels） | ChannelPool | 两个循环共用一张表，channel_id 前缀区分域（业务通道三维 / 出口通道 `exit__`）；创建即落库，完成只做状态变更 |
 | 业务配置（businesses） | BusinessRegistry | 含 business_id（不可改）、business_name（可改）、creator_id、匹配字段、依赖、on_failure、**出口绑定**（business_id + 工具 kind + 配置） |
 | 通道映射（channels_sessions） | ChannelStore | 业务通道 channel_id ↔ agent 会话 id 一张表（出口通道不在此表） |
-| skill 元数据 | SkillRegistry | 包内容在文件树，库中只存元数据 |
+| 程序包元数据 | PackageRegistry | 母本/物化在文件树（`content/` 与 `cache/packages/`），库中只存登记记录 |
+| 身份目录（identity_links） | 后续模块（本版只定归属） | jira↔github↔邮箱↔企微账号映射；可见性三级同程序包 |
 | 环境配置（含 secrets） | EnvProvider | 按业务隔离 |
 | 设置（config） | ConfigStore | 只存覆盖值，默认值在键注册表 |
 | 日志 | Logger | 文件，不进 SQLite；分割交 logrotate |

@@ -9,7 +9,7 @@
 | **系统级 system** | **日志总纲**：启动自检结果、初始化信息、通用信息、关键事件（任务入队/完结/死信、生命周期状态变更、配置变更、告警）——只记关键事实 + 关联键，细节到子日志查找 | `logs/system.log` |
 | **入口事件循环 entry-loop** | 任务执行过程的机械流水：取出 → 匹配 → 挂通道 → 闸门 → spawn → 完结/扇出。**平台不认识业务细节，业务内容不在这里记录** | `logs/entry-loop.log` |
 | **出口事件循环 exit-loop** | 投递流水：归属匹配 → 出口绑定 → 目标（destination_id）→ 投递结果/重试/死信——回答「发送到了哪里」 | `logs/exit-loop.log` |
-| **业务 business** | 业务流程程序自己的记录（SDK 日志 API），**按来源 + 会话 + 业务组织、按 run 分文件**——目录三维与 channel_id 严格对齐（source/session_id 业务可经 SDK 从信封获得）：同通道串行 ⇒ 同目录无并发写；跨来源 session_id 撞值也物理隔离 | `businesses/{source}/{session_id}/{business_id}/logs/{run_id}.log` |
+| **业务 business** | 业务流程程序自己的记录（SDK 日志 API），**按来源 + 会话 + 业务组织、按 run 分文件**——目录三维与 channel_id 严格对齐（source/session_id 业务可经 SDK 从信封获得）：同通道串行 ⇒ 同目录无并发写；跨来源 session_id 撞值也物理隔离 | `logs/businesses/{source}/{session_id}/{business_id}/{run_id}.log` |
 
 业务日志的采集通道：**stdout 是结果契约通道，不承载日志**（`design/business-workflow.md` §2）。SDK 日志 API 把结构化日志行写入 **stderr**，流程执行器捕获业务进程 stderr 追加到该 run 的业务日志；`sdk.run()` 子程序的 stderr 同样汇入（带子程序标记）。**采集要容忍非结构化内容**：结构化行解析，异常堆栈、库杂讯等非结构化行原样透传追加——日志管道自身永不因内容而失败。业务日志按 run 分文件，清理时机与 `runs/{run_id}/` 工作区一致（同属实现期清理策略），不单独设规则。
 

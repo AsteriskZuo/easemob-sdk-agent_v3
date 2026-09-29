@@ -29,7 +29,7 @@
 ├── .gitignore
 ├── .prettierignore
 ├── .editorconfig
-├── eslint.config.js          # flat config，作用于 packages/app/sdk
+├── eslint.config.js          # flat config，作用于 packages/app
 ├── tsconfig.base.json        # 共享编译选项
 ├── jest.compiled.config.mjs  # 共享 jest 配置（跑 dist-test 产物）
 ├── packages/
@@ -39,13 +39,14 @@
 │       ├── src/index.ts      # 空导出占位
 │       └── tests/smoke.test.ts
 ├── app/                      # 空目录占位（server 归 T10，console 归 T12）
-├── sdk/                      # 空目录占位（业务 SDK 归 T8）
-└── businesses/               # 运行时数据目录占位，gitignore
+└── workspace/                # 运行时数据目录占位（七类数据布局见 console-design §6），gitignore
 ```
+
+（业务 SDK 也归 packages/：`packages/sdk/`——发布边界由"平台 bundle 注入"决定，不由目录位置决定。）
 
 ## 4. 工程约定（后续所有任务必须遵守，本文是唯一定义处）
 
-1. **workspaces 范围**：`packages/*`、`app/*`、`sdk`（sdk 本身是单包目录）。
+1. **workspaces 范围**：`packages/*`、`app/*`（业务 SDK 在 `packages/sdk/`）。
 2. **包内结构**：每包 `src/ + tests/`，入口 `src/index.ts`，`exports` 指向 `./dist/index.js`（types 指向 `./dist/index.d.ts`）。**包间引用走构建产物**（yarn workspaces 软链 + exports 解析），不允许跨包引用 `src`。
 3. **ESM 规则**：源码中相对导入一律带 `.js` 后缀（NodeNext 要求）。
 4. **devDependencies 分工**（yarn 4 约束：workspace 脚本只能看到自己声明依赖的 bin）：各包在自己的 `devDependencies` 声明包级脚本用到的工具（`typescript` / `esbuild` / `jest`，版本与根一致）；根目录保留根脚本用到的工具（eslint / prettier / dpdm 等）与版本基准。
@@ -55,7 +56,7 @@
    - `typecheck`：`tsc --noEmit`
 6. **根聚合脚本**：`build` / `test` / `typecheck` 用 `yarn workspaces foreach`（build 需拓扑序 `-p`）；`lint` = eslint 全仓；`format` / `format:check` = prettier；`circular` = dpdm 检查全部包的 `src/**/*.ts`。
 7. **测试前依赖构建**：jest 跑的是编译产物、包间引用解析到 dist，因此根 `test` 脚本必须先 `build` 再逐包 `test`。
-8. **.gitignore** 至少含：`node_modules`、`dist`、`dist-test`、`coverage`、`logs/`、`businesses/`、`.easemob-agent/`、`.DS_Store`、`.yarn/*` 中除 releases 外的缓存（参考 v2 的 yarn gitignore 惯例）。
+8. **.gitignore** 至少含：`node_modules`、`dist`、`dist-test`、`coverage`、`logs/`、`workspace/`（运行时数据）、`.easemob-agent/`、`.DS_Store`、`.yarn/*` 中除 releases 外的缓存（参考 v2 的 yarn gitignore 惯例）。
 
 ## 5. 不做清单
 

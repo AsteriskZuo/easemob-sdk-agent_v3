@@ -131,7 +131,7 @@
 - 子 agent：agent-9
 - 开始：2026-09-29 13:40；完成：2026-09-29 13:45
 - 验收证据：主 agent 独立复验——env 16 测试全过、六项根检查全绿（全仓 152 测试）、导出签名与 spec §5 一致、运行时零依赖
-- commit：（见本节提交记录）
+- commit：822473a
 - 备注：
   - spec 未定义行为裁决（主 agent 确认）：trim 仅用于"未设置"判定，getString 返回原始值；default 与 required 同时给时 default 优先；
   - 类型收窄用例经独立 `tsc --noEmit --strict` 验证（重载双向正确），包 tsconfig 排除 tests 的全仓约定未动；
@@ -143,7 +143,30 @@
 - 子 agent：agent-10
 - 开始：2026-09-29 14:20；完成：2026-09-29 14:45
 - 验收证据：主 agent 独立复验——scheduler 28 测试全过（4 套件）、六项根检查全绿（全仓 180 测试）；串行/并行/竞态用例子 agent 连跑 20 次不 flake，主 agent 复跑确认
-- commit：（见本节提交记录）
+- commit：9175cef
 - 备注：
   - 主 agent 修正一处 spec 笔误并同步实现：派生事件 event_id 用 `newEventId()`（`evt_` 前缀，与 contracts 约定一致），spec §5.2 已更正，测试加前缀断言；
   - 子 agent 合理裁决（主 agent 确认）：settle 防御分支——任务已 dispatch_error 死信时跳过 complete（防 dead 复活成 done）；onActivate 在首次 start() 注册；dead_reason 测试经 db 直查断言（query 不返回该字段，不改上游包）。
+
+### T9 exit-tools
+
+- 状态：完成
+- 子 agent：agent-15（首次派发的 agent-13 因 spec 范围修订被中止重做）
+- 验收证据：主 agent 独立复验——exit-tools 33 测试全过（4 套件）、六项根检查全绿（全仓 238 测试）
+- commit：27eea75
+- 备注：
+  - 范围修订（用户）：七个工具全登记 = 3 实现（wecom-webhook/mail/webhook）+ 4 占位（wecom-aibot/github/jira/confluence，implemented:false，destinationOf/bind 抛「未实现」）；占位工具补实现是独立后续任务；
+  - 全仓首个外部运行时依赖 nodemailer（用户批准）；
+  - 子 agent 合理裁决：mail 的 secure 归一化进注入 config；企微工具不复用 postJson（要判 errcode）；对象 payload 渲染两工具一致带 json 围栏。
+
+### T10 workflow-runner + 业务 SDK
+
+- 状态：完成
+- 子 agent：agent-14
+- 验收证据：主 agent 独立复验——runner 11 + sdk 14 测试全过、六项根检查全绿、runner 无 process.env、无残留子进程
+- commit：84f0d77
+- 备注：
+  - **SDK 位置与依赖规则修订（用户）**：sdk/ → packages/sdk/；允许依赖零依赖纯包（contracts 类型、logger 纯函数层），发布形态 = 平台 esbuild bundle 注入；sdk.log 定位为平台管控的日志控制点（源头脱敏、将来注入 run 级关联字段）；
+  - **数据分类落地（用户）**：runner 路径从 businesses/{三维}/runs|logs 改为 runs/{三维}/{run_id} 与 logs/businesses/{三维}/{run_id}.log（七类数据分类，console-design §6）；
+  - 迁移修正：tsconfig extends 路径、jest config 路径、fixture 引用路径、根 workspaces 收编为纯 packages/* + app/*；
+  - 子 agent 合理裁决：判定优先级交叉（超限>结果>超时>exit code>missing result）；duration_ms 附在 reason 尾部；重复出口 exit 拦截落穿隐患已修。

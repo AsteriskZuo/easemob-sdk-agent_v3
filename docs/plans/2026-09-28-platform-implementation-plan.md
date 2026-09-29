@@ -22,7 +22,7 @@
 ├── app/
 │   ├── server/             # 后台守护进程：装配 + webhook 入口 + 管理 API
 │   └── console/            # 浏览器控制台 SPA（React + Vite）
-├── businesses/             # 运行时数据（gitignore）
+├── workspace/              # 运行时数据（gitignore；七类数据布局见 console-design §6）
 └── docs/
 ```
 
