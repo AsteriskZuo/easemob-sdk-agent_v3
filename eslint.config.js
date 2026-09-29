@@ -16,7 +16,7 @@ export default tseslint.config(
   },
   ...tseslint.configs.recommended,
   {
-    files: ["packages/**/*.ts", "app/**/*.ts", "sdk/**/*.ts"],
+    files: ["packages/**/*.ts", "app/**/*.ts"],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",

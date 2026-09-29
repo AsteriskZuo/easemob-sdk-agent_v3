@@ -9,8 +9,7 @@
   },
   "workspaces": [
     "packages/*",
-    "app/*",
-    "sdk"
+    "app/*"
   ],
   "scripts": {
     "build": "yarn workspaces foreach -Apt run build",
@@ -19,7 +18,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "circular": "dpdm --circular --transform \"packages/*/src/**/*.ts\" \"sdk/src/**/*.ts\" \"app/*/src/**/*.ts\""
+    "circular": "dpdm --circular --transform \"packages/*/src/**/*.ts\" \"app/*/src/**/*.ts\""
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
