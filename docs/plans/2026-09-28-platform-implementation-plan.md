@@ -48,14 +48,15 @@
 | T4 | `@easemob/agent-registry` | 业务注册表 + 入口匹配 + 出口绑定存取 | T2 | [spec](../specs/2026-09-28-t4-registry-spec.md) | [x] |
 | T5 | `@easemob/agent-channel` | ChannelPool/Channel（异步可迭代串行链）+ ChannelStore（会话映射） | T2 T3 | [spec](../specs/2026-09-29-t5-channel-spec.md) | [x] |
 | T6 | `@easemob/agent-logger` | ConsoleLike 底层 + 全局外观（initLogger/logger.for）+ 脱敏 + fail-fast | T1 | [spec](../specs/2026-09-29-t6-logger-spec.md) | [x] |
-| T7 | `@easemob/agent-env` | 环境变量唯一读取口（类型解析 + 必需校验 fail-fast） | T1 | 执行前编写 | [ ] |
-| T8 | `@easemob/agent-scheduler` | 入口/出口双调度循环 + 并发闸门 + hop_count + on_failure | T3 T4 T5 | 执行前编写 | [ ] |
-| T9 | `@easemob/agent-exit-tools` | ExitTool 接口 + 企微群 webhook + 邮件 + 自定义 webhook | T1 | 执行前编写 | [ ] |
-| T10 | WorkflowRunner + `@easemob/agent-sdk` | 业务子进程契约两侧同批实现（含 stdin/stdout 契约补入 contracts） | T1 T6 | 执行前编写 | [ ] |
+| T7 | `@easemob/agent-env` | 环境变量唯一读取口（类型解析 + 必需校验 fail-fast） | T1 | [spec](../specs/2026-09-29-t7-env-spec.md) | [x] |
+| T8 | `@easemob/agent-scheduler` | 入口/出口双调度循环 + 并发闸门 + hop_count + on_failure | T3 T4 T5 | [spec](../specs/2026-09-29-t8-scheduler-spec.md) | [x] |
+| T9 | `@easemob/agent-exit-tools` | ExitTool 接口 + 3 实现（企微群 webhook/邮件/自定义 webhook）+ 4 占位 | T1 | [spec](../specs/2026-09-29-t9-exit-tools-spec.md) | [x] |
+| T10 | WorkflowRunner + `@easemob/agent-sdk` | 业务子进程契约两侧同批实现（socket wire 协议唯一定义） | T1 T6 | [spec](../specs/2026-09-29-t10-workflow-runner-sdk-spec.md) | [x] |
 | T11 | AgentService（runtime 包内） | unix socket + 一次性 token + spawn pi + 配额 + 审计落盘 | T10 | 执行前编写 | [ ] |
 | T12 | `app/server` | 平台装配 + EntryAdapter 接口 + webhook 入口适配器 + 启动自检 | T7 T8 T9 T11 | 执行前编写 | [ ] |
 | T13 | 管理 API | server 侧 console 接口（契约补入 contracts） | T12 | 执行前编写 | [ ] |
 | T14 | `app/console` | React + Vite SPA，调管理 API | T13 | 执行前编写 | [ ] |
+| T15 | 程序包模板 | `templates/agent-package/`：拷贝即用的包骨架（清单 + sdk 依赖 + lint/test/format/circular 同平台 + 示例 program/skill） | T10 | 执行前编写 | [ ] |
 
 ## 4. 执行批次（并发 ≤2）
 
@@ -68,7 +69,7 @@
 批次5：T7                （串行，env 小包先行——server 等后续任务依赖它）
 批次6：T8
 批次7：T9 ‖ T10
-批次8：T11
+批次8：T11 ‖ T15
 批次9：T12
 批次10：T13
 批次11：T14
@@ -101,8 +102,10 @@
 - T12 ← T7, T8, T9, T11
 - T13 ← T12
 - T14 ← T13
+- T15 ← T10
 
 ## 变更记录
 
 - 2026-09-28：插入 T2 database（core-modules §4.7「SQLite 薄封装、全平台唯一数据访问口」的落地——queue/registry/channel 都需要持久化，不允许各自直接用 node:sqlite），原 T2–T12 顺延为 T3–T13。
 - 2026-09-29：T5 依赖补 T3（Channel 迭代项携带 Task 类型）；EntryAdapter 接口从 T5 移到 T12（装配层接口）；顶级规则「依赖管理四类归宿」定稿（design/dependency-rules.md + AGENTS.md #11）；插入 T7 env（环境变量唯一读取口，规则第 1 类落地），原 T7–T13 顺延为 T8–T14；T6 logger 由 hub 注入改为全局外观（规则第 2 类落地）。
+- 2026-09-29：七类数据分类定稿（console-design §6 重写，businesses/ 目录消解为 config.json + data/ + content/ + cache/ + runs/ + logs/）；资产单元从 skill 更正为程序包（skill-package.md → package-model.md 重写为模型+作者指南）；SDK 迁 packages/sdk/ 并允许依赖零依赖纯包；插入 T15 程序包模板（批次8 与 T11 并行）。

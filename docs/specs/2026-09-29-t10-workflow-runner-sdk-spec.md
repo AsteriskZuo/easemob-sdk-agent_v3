@@ -160,7 +160,7 @@ export interface RunInput {
 }
 
 export interface AgentCall {
-  skill: string;                         // 必须在绑定程序包的 skills 内（服务端白名单校验）
+  skills: string[];                        // 本次调用注入的 skill 名（可多个、可跨程序包，服务端逐个 --skill 注入）；均须在绑定程序包的 skills 内（服务端白名单校验）；空数组本地直接抛错
   input: unknown;                        // 给大模型的内容（业务保证已脱敏）
   mode?: 'channel' | 'fresh';            // 缺省 'channel'：沿用/恢复当前通道会话；'fresh'：独立会话不写映射
 }
@@ -224,7 +224,7 @@ interface ServiceRequest {
   contract_version: 'v1';
   token: string;                          // per-run 一次性 token，run 结束失效
   op: 'agent' | 'compact' | 'clear';
-  skill?: string;                         // op='agent' 必填
+  skills?: string[];                      // op='agent' 必填（可多个、可跨程序包；服务端逐个白名单校验 + --skill 注入）
   input?: unknown;                        // op='agent' 必填
   mode?: 'channel' | 'fresh';             // op='agent' 可选，缺省 'channel'
 }
@@ -258,7 +258,7 @@ type ServiceResponse =
 1. input/runInput/config/secret：管道喂 stdin JSON，各读口正确；secret 未注入名 → 抛错；无 stdin（空输入）→ 抛错；
 2. return → stdout 是合法 StdoutResult(ok:true) 且进程 exit 0；fail → ok:false + exit 1；重复出口 → exit 1；
 3. log → stderr 单行 JSON 含 `__biz_log`；fields 合入；
-4. agent：测试起假 unix socket 服务端（node:net），断言收到请求行字段完整（token/op/skill/input/mode），回 ok:true → agent 返回 output；回 ok:false → agent 抛错；
+4. agent：测试起假 unix socket 服务端（node:net），断言收到请求行字段完整（token/op/skills/input/mode），回 ok:true → agent 返回 output；回 ok:false → agent 抛错；skills 空数组 → 本地直接抛错（不发 socket 请求）；
 5. session.compact/clear：请求 op 正确，ok:true 正常返回；
 6. run：子程序 fixture（收 input/config、回 output）→ 返回 output；子程序 ok:false → 抛错含 reason；子程序超时（timeout_ms 小值）→ 抛错；
 7. 无 endpoint 调 agent → 抛错。

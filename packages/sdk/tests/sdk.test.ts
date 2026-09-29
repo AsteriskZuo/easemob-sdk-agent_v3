@@ -225,7 +225,7 @@ describe("sdk.agent / session", () => {
         contract_version: "v1",
         token: "tok-123",
         op: "agent",
-        skill: "summarize",
+        skills: ["summarize", "output-format"],
         input: { text: "hi" },
         mode: "fresh",
       });
@@ -289,6 +289,18 @@ describe("sdk.agent / session", () => {
     const output = result.output as Record<string, any>;
     expect(output.threw).toBe(true);
     expect(output.message).toContain("endpoint");
+  });
+
+  it("skills 空数组 → 本地直接抛错（不发 socket 请求）", async () => {
+    const r = await runFixture("probe-agent-empty-skills.js", {
+      stdin: makeEnvelope(),
+    });
+    expect(r.code).toBe(0);
+    const result = parseResult(r.stdout);
+    expect(result.ok).toBe(true);
+    const output = result.output as Record<string, any>;
+    expect(output.threw).toBe(true);
+    expect(output.message).toContain("skills");
   });
 });
 

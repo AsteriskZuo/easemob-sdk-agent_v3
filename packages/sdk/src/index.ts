@@ -14,7 +14,7 @@ export interface RunInput {
 
 /** agent() 的调用参数 */
 export interface AgentCall {
-  skill: string; // 必须在本业务 skill 组内（服务端白名单校验）
+  skills: string[]; // 本次调用注入的 skill 名（可多个、可跨程序包，服务端逐个 --skill 注入）；均须在本业务 skill 组内（服务端白名单校验）
   input: unknown; // 给大模型的内容（业务保证已脱敏）
   mode?: "channel" | "fresh"; // 缺省 'channel'：沿用/恢复当前通道会话；'fresh'：独立会话不写映射
 }
@@ -61,12 +61,15 @@ export const sdk = {
 
   /** 调大模型服务（unix socket 到 AgentService；配额在服务端强制）。失败抛错 */
   agent(call: AgentCall): Promise<unknown> {
+    if (call.skills.length === 0) {
+      throw new Error("skills 至少一个（均须在本业务 skill 组内）");
+    }
     const endpoint = requireEndpoint(readStdinEnvelope());
     return callService(endpoint, {
       contract_version: "v1",
       token: endpoint.token,
       op: "agent",
-      skill: call.skill,
+      skills: call.skills,
       input: call.input,
       mode: call.mode ?? "channel",
     });

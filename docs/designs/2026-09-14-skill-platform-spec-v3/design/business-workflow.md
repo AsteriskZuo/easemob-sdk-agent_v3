@@ -53,10 +53,11 @@ interface Sdk {
   secret(name: string): string;
 
   /** 调大模型服务（经 socket 到平台 agent 调用服务执行；配额在此强制）。
-   *  skill 必须在绑定程序包的 skills 内（平台校验）；提示词总纲与模型由平台按业务资料注入。
+   *  skills 为本次注入的 skill 名（可多个、可跨程序包，服务端逐个 --skill 注入）；
+   *  每个都必须在绑定程序包的 skills 内（平台校验）；提示词总纲与模型由平台按业务资料注入。
    *  mode 默认 'channel'：沿用/恢复当前通道的 agent 会话（多轮业务的每轮调用都是它）；
    *  'fresh'：独立会话、不写通道映射（单 run 内初审→复审这类额外调用，上下文不串味） */
-  agent(call: { skill: string; input: unknown; mode?: 'channel' | 'fresh' }): Promise<unknown>;
+  agent(call: { skills: string[]; input: unknown; mode?: 'channel' | 'fresh' }): Promise<unknown>;
 
   /** 当前通道的 agent 会话操作：多轮业务处理 /compact、/clear 类用户命令用。
    *  命令的识别归业务（用户消息原样到达流程程序，平台不识别不翻译），平台只提供通用会话能力 */
@@ -116,8 +117,8 @@ const ticket = await sdk.run('jira-fetch', {
 // 子程序环节：脱敏。kv 是本程序的局部变量——业务上下文业务自己管理，平台不持有
 const { masked, kv } = await sdk.run('masking', { input: ticket });
 
-// 大模型审查：总纲由平台注入；skill 须在绑定程序包的 skills 内；全程只接触脱敏内容
-const review = await sdk.agent({ skill: 'ticket-review', input: masked });
+// 大模型审查：总纲由平台注入；skills 须在绑定程序包的 skills 内（可多个、可跨包）；全程只接触脱敏内容
+const review = await sdk.agent({ skills: ['ticket-review'], input: masked });
 
 // 子程序环节：按 kv 还原
 const restored = await sdk.run('restore', { input: { text: review, kv } });
@@ -138,7 +139,7 @@ sdk.return(restored);
 | 通道 | 每个 run 一个本地 unix socket + 一次性 token，启动时注入；token 随 run 结束失效；socket 协议同样带 `contract_version` |
 | 执行 | 平台 spawn pi 子进程（决策已定，pi 是唯一内核）；cwd = run 工作目录 |
 | 提示词总纲 | 平台按业务资料自动注入，业务代码无需传入 |
-| skill 与钩子 | skill 必须在绑定程序包的 skills 内（白名单校验）；skill 附带的 pi extension 经 `-e` 注入（见 `design/package-model.md` §9） |
+| skill 与钩子 | `skills` 可多个、可跨程序包；每个都必须在绑定程序包的 skills 内（白名单校验），按名解析为物化路径后经 `--no-skills` + 逐个 `--skill` 注入；skill 附带的 pi extension 经 `-e` + `--no-extensions` 注入（机制见 `design/package-model.md` §10） |
 | 会话连续性 | 平台按通道映射恢复/绑定 agent 会话（`design/channel-model.md`），业务代码无感；单 run 多次调用时，`mode: 'channel'` 的调用共享通道会话，`'fresh'` 各自独立 |
 | 配额 | 按 run 计：agent 调用次数上限 + wall-clock 超时（默认 60 分钟，业务可配）——超限强杀，防失控循环 |
 | 埋点 | token 用量、耗时、成本统一上报控制台 |

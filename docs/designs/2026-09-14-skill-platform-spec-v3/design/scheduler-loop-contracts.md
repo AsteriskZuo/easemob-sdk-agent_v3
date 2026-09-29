@@ -150,7 +150,7 @@ interface BusinessContext {
   model: ModelObject;         // 大模型选择
   env: EnvConfig;             // 环境/安全/专用配置，按业务隔离注入业务进程
   channel: ChannelRef;        // 通道映射引用：agent 服务据此恢复/绑定会话
-  workspace: string;          // run 隔离目录 runs/{run_id}/
+  workspace: string;          // run 隔离目录 runs/{source}/{session_id}/{business_id}/{run_id}/
   endpoint: ServiceEndpoint;  // agent 调用服务端点：unix socket + 一次性 token
   quota: RunQuota;            // 按 run 计：agent 调用次数上限 + wall-clock 超时
 }
@@ -160,10 +160,10 @@ interface PromptObject {
   content: string;
 }
 
-/** skill 最小视图（完整模型见 design/package-model.md §9） */
+/** skill 最小视图（完整模型见 design/package-model.md §6/§7） */
 interface SkillObject {
   skill_id: string;           // 所在包的 asset_id + 包内路径（名解析规则见 package-model §7）
-  schema: unknown;            // 注入 agent 上下文的简式 schema
+  path: string;               // 物化后的包内 skill 绝对路径：agent 调用时经 --skill 白名单注入（机制见 package-model §10）
 }
 
 /** agent 内核最小视图（pi 为唯一内核，见 design/lifecycle.md §5） */
