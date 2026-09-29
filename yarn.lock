@@ -403,6 +403,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@easemob/agent-channel@workspace:packages/channel":
+  version: 0.0.0-use.local
+  resolution: "@easemob/agent-channel@workspace:packages/channel"
+  dependencies:
+    "@easemob/agent-contracts": "npm:0.1.0"
+    "@easemob/agent-database": "npm:0.1.0"
+    "@easemob/agent-queue": "npm:0.1.0"
+    esbuild: "npm:^0.28.1"
+    jest: "npm:^29.7.0"
+    typescript: "npm:^5.9.0"
+  languageName: unknown
+  linkType: soft
+
 "@easemob/agent-contracts@npm:0.1.0, @easemob/agent-contracts@workspace:packages/contracts":
   version: 0.0.0-use.local
   resolution: "@easemob/agent-contracts@workspace:packages/contracts"
@@ -423,7 +436,18 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@easemob/agent-queue@workspace:packages/queue":
+"@easemob/agent-logger@workspace:packages/logger":
+  version: 0.0.0-use.local
+  resolution: "@easemob/agent-logger@workspace:packages/logger"
+  dependencies:
+    "@jest/globals": "npm:^29.7.0"
+    esbuild: "npm:^0.28.1"
+    jest: "npm:^29.7.0"
+    typescript: "npm:^5.9.0"
+  languageName: unknown
+  linkType: soft
+
+"@easemob/agent-queue@npm:0.1.0, @easemob/agent-queue@workspace:packages/queue":
   version: 0.0.0-use.local
   resolution: "@easemob/agent-queue@workspace:packages/queue"
   dependencies:
