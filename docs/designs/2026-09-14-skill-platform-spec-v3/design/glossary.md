@@ -111,7 +111,7 @@
 
 一句话：大模型调用的唯一通道，平台侧模块。
 
-精确义：`sdk.agent()` 的另一端——每 run 一个本地 socket + 一次性 token；平台 spawn pi 子进程执行（pi 是唯一内核），注入提示词总纲、按业务白名单校验 skill 并经 `--no-skills` + `--skill` 注入、经 `-e` + `--no-extensions` 注入 skill 附带的 pi extension、按通道映射恢复会话、按 run 计配额。契约与 hooks 纪律的唯一定义处：`design/business-workflow.md` §4。
+精确义：`sdk.agent()` 的另一端——每 run 一个本地 socket + 一次性 token；平台 spawn pi 子进程执行（pi 是唯一内核），注入提示词总纲、按业务白名单校验 skill 并经 `--no-skills` + `--skill` 注入、经 `-e` + `--no-extensions` 注入平台审计 extension（请求体落盘；不支持业务 extension）、按通道映射恢复会话、按 run 计配额。契约与 hooks 纪律的唯一定义处：`design/business-workflow.md` §4。
 
 要点：模型凭据由平台持有，不进入业务进程。
 
@@ -141,7 +141,7 @@
 
 一句话：给大模型的能力单元——程序包内的一种内容，不是独立资产。
 
-精确义：遵循公开 skill 规范（SKILL.md 式）的静态内容，不为本平台做任何适配；**包自洽原则**：随所在程序包版本化，用别包的 skill = 业务绑定那个包。业务代码经 `sdk.agent({ skills: [...] })` 按名引用（可多个、可跨包），平台白名单校验（绑定包的 skills 并集）后逐个 `--skill` 注入 pi 子进程（机制见 `design/package-model.md` §10）；skill 可附带 pi extension（会话内守卫，经 `-e` 白名单注入）。
+精确义：遵循公开 skill 规范（SKILL.md 式）的静态内容，不为本平台做任何适配；**包自洽原则**：随所在程序包版本化，用别包的 skill = 业务绑定那个包。业务代码经 `sdk.agent({ skills: [...] })` 按名引用（可多个、可跨包），平台白名单校验（绑定包的 skills 并集）后逐个 `--skill` 注入 pi 子进程（机制见 `design/package-model.md` §10）。skill 是纯提示词能力——**不可附带 pi extension**（业务侧无会话内代码，守卫在会话外业务程序内）。
 
 要点：**没有 `sdk.skill` 运行时注册接口**——skill 是包内静态资产，运行时动态注册会绕过清单校验与白名单，不支持；可见性随包三级（公共/账号/业务），不再有独立的 public/private 划分。
 

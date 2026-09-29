@@ -139,13 +139,13 @@ sdk.return(restored);
 | 通道 | 每个 run 一个本地 unix socket + 一次性 token，启动时注入；token 随 run 结束失效；socket 协议同样带 `contract_version` |
 | 执行 | 平台 spawn pi 子进程（决策已定，pi 是唯一内核）；cwd = run 工作目录 |
 | 提示词总纲 | 平台按业务资料自动注入，业务代码无需传入 |
-| skill 与钩子 | `skills` 可多个、可跨程序包；每个都必须在绑定程序包的 skills 内（白名单校验），按名解析为物化路径后经 `--no-skills` + 逐个 `--skill` 注入；skill 附带的 pi extension 经 `-e` + `--no-extensions` 注入（机制见 `design/package-model.md` §10） |
+| skill 与审计 | `skills` 可多个、可跨程序包；每个都必须在绑定程序包的 skills 内（白名单校验），按名解析为物化路径后经 `--no-skills` + 逐个 `--skill` 注入；平台审计 extension 经 `-e` + `--no-extensions` 注入（不支持业务 extension，机制见 `design/package-model.md` §10） |
 | 会话连续性 | 平台按通道映射恢复/绑定 agent 会话（`design/channel-model.md`），业务代码无感；单 run 多次调用时，`mode: 'channel'` 的调用共享通道会话，`'fresh'` 各自独立 |
 | 配额 | 按 run 计：agent 调用次数上限 + wall-clock 超时（默认 60 分钟，业务可配）——超限强杀，防失控循环 |
 | 埋点 | token 用量、耗时、成本统一上报控制台 |
 | 审计 | `before_provider_request` 落盘真实 LLM 请求体——「敏感内容不出边界」的唯一直接证据 |
 
-**hooks 三条纪律**（适用于 skill 附带的 pi extension，依据实测调研）：
+**hooks 三条纪律**（依据实测调研；本版业务侧无 extension，直接约束平台注入的审计 extension）：
 
 1. **fail-closed**：hook 解析/执行异常 = 阻断，不是放行；
 2. **判定自写日志**：hook 阻断不反映在进程退出码（exit 0），判定以 hook 自写的结构化判定日志为准；

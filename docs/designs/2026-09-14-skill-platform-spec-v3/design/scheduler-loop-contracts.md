@@ -163,6 +163,7 @@ interface PromptObject {
 /** skill 最小视图（完整模型见 design/package-model.md §6/§7） */
 interface SkillObject {
   skill_id: string;           // 所在包的 asset_id + 包内路径（名解析规则见 package-model §7）
+  name: string;               // sdk.agent 请求里的引用名（白名单校验键）
   path: string;               // 物化后的包内 skill 绝对路径：agent 调用时经 --skill 白名单注入（机制见 package-model §10）
 }
 

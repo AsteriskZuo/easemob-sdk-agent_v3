@@ -21,17 +21,19 @@
 | T4 registry | 完成 | 2026-09-29 10:09 | 3b54982 |
 | T5 channel | 完成 | 2026-09-29 12:04 | e728f90 |
 | T6 logger | 完成 | 2026-09-29 12:04 | 5bcb85e |
-| T7 env | 未开始 | — | — |
-| T8 scheduler | 未开始 | — | — |
-| T9 exit-tools | 未开始 | — | — |
-| T10 WorkflowRunner + SDK | 未开始 | — | — |
+| T7 env | 完成 | 2026-09-29 13:45 | 822473a |
+| T8 scheduler | 完成 | 2026-09-29 14:45 | 9175cef |
+| T9 exit-tools | 完成 | 2026-09-29 | 27eea75 |
+| T10 WorkflowRunner + SDK | 完成 | 2026-09-29 | 84f0d77 |
 | T11 AgentService | 未开始 | — | — |
 | T12 server | 未开始 | — | — |
 | T13 管理 API | 未开始 | — | — |
 | T14 console | 未开始 | — | — |
+| T15 程序包模板 | 未开始 | — | — |
 
 > 2026-09-28 计划变更：插入 T2 database（core-modules §4.7 唯一数据访问口的落地），原 T2–T12 顺延为 T3–T13。
 > 2026-09-29 计划变更：「依赖管理四类归宿」顶级规则定稿；插入 T7 env，原 T7–T13 顺延为 T8–T14；T6 logger 改为全局外观形态。
+> 2026-09-29 设计修订（commit 357b35b）：package-model 补写作者指南三节 + skill 注入机制实证落地（`--no-skills` + 逐个 `--skill`）；**sdk.agent 契约 `skill: string` → `skills: string[]`**（可多个、可跨包；空数组 SDK 本地抛错）——T10 spec §5.4 与 SDK 代码已同步（sdk 15 测试），T11 按新契约实现；glossary 新增「程序包」「Skill」词条，骨架旧术语更正；插入 T15 程序包模板任务。
 
 ## 任务记录
 

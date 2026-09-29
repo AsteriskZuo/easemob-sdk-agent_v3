@@ -52,11 +52,11 @@
 | T8 | `@easemob/agent-scheduler` | 入口/出口双调度循环 + 并发闸门 + hop_count + on_failure | T3 T4 T5 | [spec](../specs/2026-09-29-t8-scheduler-spec.md) | [x] |
 | T9 | `@easemob/agent-exit-tools` | ExitTool 接口 + 3 实现（企微群 webhook/邮件/自定义 webhook）+ 4 占位 | T1 | [spec](../specs/2026-09-29-t9-exit-tools-spec.md) | [x] |
 | T10 | WorkflowRunner + `@easemob/agent-sdk` | 业务子进程契约两侧同批实现（socket wire 协议唯一定义） | T1 T6 | [spec](../specs/2026-09-29-t10-workflow-runner-sdk-spec.md) | [x] |
-| T11 | AgentService（runtime 包内） | unix socket + 一次性 token + spawn pi + 配额 + 审计落盘 | T10 | 执行前编写 | [ ] |
+| T11 | AgentService（packages/agent-service） | unix socket + 一次性 token + spawn pi + 配额 + 审计落盘 | T10 | 已编写（2026-09-29-t11-agent-service-spec.md），待用户审 | [ ] |
 | T12 | `app/server` | 平台装配 + EntryAdapter 接口 + webhook 入口适配器 + 启动自检 | T7 T8 T9 T11 | 执行前编写 | [ ] |
 | T13 | 管理 API | server 侧 console 接口（契约补入 contracts） | T12 | 执行前编写 | [ ] |
 | T14 | `app/console` | React + Vite SPA，调管理 API | T13 | 执行前编写 | [ ] |
-| T15 | 程序包模板 | `templates/agent-package/`：拷贝即用的包骨架（清单 + sdk 依赖 + lint/test/format/circular 同平台 + 示例 program/skill） | T10 | 执行前编写 | [ ] |
+| T15 | 程序包模板 | `templates/agent-package/`：拷贝即用的包骨架（清单 + sdk 依赖 + lint/test/format/circular 同平台 + 示例 program/skill） | T10 | 已编写（2026-09-29-t15-package-template-spec.md），待用户审 | [ ] |
 
 ## 4. 执行批次（并发 ≤2）
 

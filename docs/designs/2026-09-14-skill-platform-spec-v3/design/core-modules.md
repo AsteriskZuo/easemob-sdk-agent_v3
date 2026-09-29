@@ -151,11 +151,11 @@ interface WorkflowRunner {
 
 /** agent 调用服务：sdk.agent() 的另一端。每 run 监听一个 unix socket（一次性 token 鉴权），
  *  每次调用 spawn pi 子进程执行：cwd=workspace、总纲注入、skill 白名单校验 + `--no-skills`/`--skill` 注入、
- *  `-e`/`--no-extensions` 注入 skill 附带的 pi extension、按 channel 恢复/绑定会话、配额强制、埋点与请求体审计。
+ *  `-e` + `--no-extensions` 注入平台审计 extension（不支持业务 extension）、按 channel 恢复/绑定会话、配额强制、埋点与请求体审计。
  *  会话操作：compact 转交 pi 执行，clear 经 ChannelStore 解除映射（channel-model §3） */
 interface AgentService {
-  /** 随 run 启动监听，随 run 结束关闭（token 失效） */
-  serve(context: BusinessContext): Promise<ServiceEndpoint>;
+  /** 随 run 启动监听；返回 endpoint（注入业务进程）+ close 句柄（run 结束调用：token 失效、杀在飞 pi 子进程、删 socket 文件） */
+  serve(context: BusinessContext): Promise<{ endpoint: ServiceEndpoint; close(): Promise<void> }>;
 }
 ```
 
