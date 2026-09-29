@@ -8,9 +8,10 @@
 ```text
 ├── packages/               # 平台内部库（@easemob/agent-*，不对外发布）
 │   ├── contracts/          # 事件信封 v1、channel_id、校验器（零依赖）
-│   ├── queue/              # SQLite 持久队列（node:sqlite，entry/exit 双实例共用）
+│   ├── database/           # SQLite 薄封装（node:sqlite），全平台唯一数据访问口
+│   ├── queue/              # 持久任务队列（entry/exit 双实例共用）
 │   ├── registry/           # 业务注册表 + 入口匹配（一对多 BusinessMatch）
-│   ├── channel/            # 通道抽象 + 会话映射 + 入口适配器接口
+│   ├── channel/            # 通道抽象 + channel↔agent 会话映射 + 入口适配器接口
 │   ├── scheduler/          # 双调度循环 + 并发闸门 + hop_count + on_failure
 │   ├── runtime/            # Lifecycle 四步时序 + WorkflowRunner + AgentService
 │   ├── exit-tools/         # 出口工具群（统一 ExitTool 接口）
@@ -23,7 +24,7 @@
 └── docs/
 ```
 
-依赖方向单向：`contracts ← logger/queue/registry/channel ← scheduler/exit-tools ← runtime ← server`；sdk 只依赖 contracts。dpdm 强制检查。
+依赖方向单向：`contracts ← database ← queue/registry/channel；contracts ← logger；queue/registry/channel + logger ← scheduler/exit-tools ← runtime ← server`；sdk 只依赖 contracts。dpdm 强制检查。
 
 ## 2. 编排机制
 
@@ -38,40 +39,42 @@
 
 | # | 任务 | 产出 | 依赖 | spec | 状态 |
 |---|------|------|------|------|------|
-| T0 | 工程骨架 | yarn 4.14.1 workspaces + tsconfig + jest/esbuild + eslint + prettier + dpdm + 根脚本 | — | [spec](../specs/2026-09-28-t0-engineering-skeleton-spec.md) | [ ] |
-| T1 | `@easemob/agent-contracts` | 信封 v1 类型与校验、channel_id 编解码、ULID | T0 | [spec](../specs/2026-09-28-t1-contracts-spec.md) | [ ] |
-| T2 | `@easemob/agent-queue` | SQLite 持久队列（入队/ack/重投/崩溃恢复） | T1 | 执行前编写 | [ ] |
-| T3 | `@easemob/agent-registry` | 业务注册表 + 入口匹配规则 | T1 | 执行前编写 | [ ] |
-| T4 | `@easemob/agent-channel` | 通道抽象 + channel↔agent 会话映射 | T1 | 执行前编写 | [ ] |
-| T5 | `@easemob/agent-logger` | 四类日志 + 启动自检 fail-fast | T1 | 执行前编写 | [ ] |
-| T6 | `@easemob/agent-scheduler` | 入口/出口双调度循环 + 并发闸门 + hop_count + on_failure | T2 T3 T4 | 执行前编写 | [ ] |
-| T7 | `@easemob/agent-exit-tools` | ExitTool 接口 + 企微群 webhook + 邮件 + 自定义 webhook | T1 | 执行前编写 | [ ] |
-| T8 | WorkflowRunner + `@easemob/agent-sdk` | 业务子进程契约两侧同批实现（含 stdin/stdout 契约补入 contracts） | T1 T5 | 执行前编写 | [ ] |
-| T9 | AgentService（runtime 包内） | unix socket + 一次性 token + spawn pi + 配额 + 审计落盘 | T8 | 执行前编写 | [ ] |
-| T10 | `app/server` | 平台装配 + webhook 入口适配器 + 启动自检 | T6 T7 T9 | 执行前编写 | [ ] |
-| T11 | 管理 API | server 侧 console 接口（契约补入 contracts） | T10 | 执行前编写 | [ ] |
-| T12 | `app/console` | React + Vite SPA，调管理 API | T11 | 执行前编写 | [ ] |
+| T0 | 工程骨架 | yarn 4.14.1 workspaces + tsconfig + jest/esbuild + eslint + prettier + dpdm + 根脚本 | — | [spec](../specs/2026-09-28-t0-engineering-skeleton-spec.md) | [x] |
+| T1 | `@easemob/agent-contracts` | 信封 v1 类型与校验、channel_id 编解码、ULID | T0 | [spec](../specs/2026-09-28-t1-contracts-spec.md) | [x] |
+| T2 | `@easemob/agent-database` | SQLite 薄封装（run/get/all/transaction/close），全平台唯一数据访问口 | T1 | [spec](../specs/2026-09-28-t2-database-spec.md) | [x] |
+| T3 | `@easemob/agent-queue` | 持久任务队列（入队/take/complete/deadLetter/query/recover） | T2 | [spec](../specs/2026-09-28-t3-queue-spec.md) | [x] |
+| T4 | `@easemob/agent-registry` | 业务注册表 + 入口匹配 + 出口绑定存取 | T2 | [spec](../specs/2026-09-28-t4-registry-spec.md) | [x] |
+| T5 | `@easemob/agent-channel` | 通道抽象 + channel↔agent 会话映射 + 入口适配器接口 | T2 | 执行前编写 | [ ] |
+| T6 | `@easemob/agent-logger` | 四类日志 + 启动自检 fail-fast | T1 | 执行前编写 | [ ] |
+| T7 | `@easemob/agent-scheduler` | 入口/出口双调度循环 + 并发闸门 + hop_count + on_failure | T3 T4 T5 | 执行前编写 | [ ] |
+| T8 | `@easemob/agent-exit-tools` | ExitTool 接口 + 企微群 webhook + 邮件 + 自定义 webhook | T1 | 执行前编写 | [ ] |
+| T9 | WorkflowRunner + `@easemob/agent-sdk` | 业务子进程契约两侧同批实现（含 stdin/stdout 契约补入 contracts） | T1 T6 | 执行前编写 | [ ] |
+| T10 | AgentService（runtime 包内） | unix socket + 一次性 token + spawn pi + 配额 + 审计落盘 | T9 | 执行前编写 | [ ] |
+| T11 | `app/server` | 平台装配 + webhook 入口适配器 + 启动自检 | T7 T8 T10 | 执行前编写 | [ ] |
+| T12 | 管理 API | server 侧 console 接口（契约补入 contracts） | T11 | 执行前编写 | [ ] |
+| T13 | `app/console` | React + Vite SPA，调管理 API | T12 | 执行前编写 | [ ] |
 
 ## 4. 执行批次（并发 ≤2）
 
 ```text
-批次0：T0                （串行，骨架先行）
-批次1：T1                （串行，契约冻结）
-批次2：T2 ‖ T3
-批次3：T4 ‖ T5
-批次4：T6
-批次5：T7 ‖ T8
-批次6：T9
+批次0：T0                （串行，骨架先行）✅
+批次1：T1                （串行，契约冻结）✅
+批次2：T2                （串行，数据访问口先行——queue/registry/channel 都依赖它）
+批次3：T3 ‖ T4
+批次4：T5 ‖ T6
+批次5：T7
+批次6：T8 ‖ T9
 批次7：T10
 批次8：T11
 批次9：T12
+批次10：T13
 ```
 
 ## 5. 验证策略
 
 - **每任务验收**：该包（或 app）的 `build` / `test` / `typecheck` / `lint` / `format:check` 全绿 + spec 验收标准逐条过；包级测试覆盖该任务 spec 的测试清单。
 - **整体完成**：根目录一键 `yarn build && yarn test && yarn typecheck && yarn lint && yarn format:check && yarn circular` 全绿。
-- T10 的集成验证用内存 fixture（假业务流程程序、假出口），属单元/集成测试范畴，**不接真实业务**。
+- T11 的集成验证用内存 fixture（假业务流程程序、假出口），属单元/集成测试范畴，**不接真实业务**。
 
 ## 6. 范围外（本计划不做）
 
@@ -84,11 +87,17 @@
 
 - T0：无依赖
 - T1 ← T0
-- T2 ← T1；T3 ← T1；T4 ← T1；T5 ← T1
-- T6 ← T2, T3, T4
-- T7 ← T1
-- T8 ← T1, T5
-- T9 ← T8
-- T10 ← T6, T7, T9
-- T11 ← T10
+- T2 ← T1
+- T3 ← T2；T4 ← T2；T5 ← T2
+- T6 ← T1
+- T7 ← T3, T4, T5
+- T8 ← T1
+- T9 ← T1, T6
+- T10 ← T9
+- T11 ← T7, T8, T10
 - T12 ← T11
+- T13 ← T12
+
+## 变更记录
+
+- 2026-09-28：插入 T2 database（core-modules §4.7「SQLite 薄封装、全平台唯一数据访问口」的落地——queue/registry/channel 都需要持久化，不允许各自直接用 node:sqlite），原 T2–T12 顺延为 T3–T13。
