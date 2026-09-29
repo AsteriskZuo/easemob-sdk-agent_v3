@@ -7,30 +7,18 @@ export default tseslint.config(
       "**/dist/**",
       "**/dist-test/**",
       "**/coverage/**",
-      ".yarn/**",
-      ".easemob-agent/**",
-      ".workbuddy/**",
-      "docs/**",
-      "businesses/**",
-      "templates/**",
     ],
   },
   ...tseslint.configs.recommended,
   {
-    files: ["packages/**/*.ts", "app/**/*.ts"],
-    languageOptions: {
-      ecmaVersion: "latest",
-      sourceType: "module",
-    },
+    files: ["src/**/*.ts", "tests/**/*.ts"],
+    languageOptions: { ecmaVersion: "latest", sourceType: "module" },
     rules: {
       "prefer-const": ["error", { ignoreReadBeforeAssign: true }],
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unused-vars": [
         "error",
-        {
-          argsIgnorePattern: "^_",
-          varsIgnorePattern: "^_",
-        },
+        { argsIgnorePattern: "^_" },
       ],
     },
   },

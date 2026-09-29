@@ -1,0 +1,8 @@
+{
+  "name": "my-package",
+  "version": "0.1.0",
+  "programs": {
+    "main": "dist/programs/main.js"
+  },
+  "skills": ["skills/example"]
+}

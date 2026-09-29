@@ -101,7 +101,9 @@ templates/agent-package/
     "typescript": "^5.9.0",
     "typescript-eslint": "^8.63.0"
   },
-  "engines": { "node": ">= 24" },
+  "engines": {
+    "node": ">= 24"
+  },
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.json",
     "test": "npm run build && rm -rf dist-test && esbuild $(find src -name '*.ts') --outdir=dist-test/src --outbase=src --format=esm --platform=node --target=node24 --sourcemap --log-level=error && esbuild $(find tests -name '*.ts') --outdir=dist-test/tests --outbase=tests --format=esm --platform=node --target=node24 --sourcemap --log-level=error && NODE_OPTIONS='--experimental-vm-modules' jest --config jest.config.mjs --rootDir .",
@@ -154,7 +156,14 @@ export default {
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["**/node_modules/**", "**/dist/**", "**/dist-test/**", "**/coverage/**"] },
+  {
+    ignores: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/dist-test/**",
+      "**/coverage/**",
+    ],
+  },
   ...tseslint.configs.recommended,
   {
     files: ["src/**/*.ts", "tests/**/*.ts"],
@@ -162,7 +171,10 @@ export default tseslint.config(
     rules: {
       "prefer-const": ["error", { ignoreReadBeforeAssign: true }],
       "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_" },
+      ],
     },
   },
 );
@@ -240,7 +252,13 @@ function run(stdin: string): { code: number; stdout: string } {
 
 describe("main 程序契约", () => {
   it("检查未通过 → stdout ok:false + exit 1（reason 含原因）", () => {
-    const r = run(JSON.stringify({ contract_version: "v1", input: { payload: {} }, workspace: "." }));
+    const r = run(
+      JSON.stringify({
+        contract_version: "v1",
+        input: { payload: {} },
+        workspace: ".",
+      }),
+    );
     expect(r.code).toBe(1);
     const result = JSON.parse(r.stdout.trim().split("\n").at(-1)!);
     expect(result.ok).toBe(false);
