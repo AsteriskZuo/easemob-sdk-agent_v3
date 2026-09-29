@@ -2,7 +2,7 @@
 export interface Semaphore {
   acquire(): Promise<void>; // 无令牌则排队等（FIFO 唤醒）
   release(): void; // 超发（release 多于 acquire）抛错
-  readonly limit: number;
+  readonly limit: number; // 并发上限（令牌总数）
 }
 
 /** 创建信号量。limit < 1（或非整数）抛错 */

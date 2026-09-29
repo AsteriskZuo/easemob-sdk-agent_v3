@@ -5,19 +5,24 @@ import { format } from "node:util";
 /** 与 Node console 对应方法签名严格一致——console.debug(...) 与 fileLogger.debug(...)
  *  可无脑互相替换；可移植到任何 Node 项目独立使用 */
 export interface ConsoleLike {
+  /** 同 console.error：多参数 util.format 拼接、%s/%d/%j 占位、对象走 inspect */
   error(...args: unknown[]): void;
+  /** 同 console.warn（格式化语义同 error） */
   warn(...args: unknown[]): void;
+  /** 同 console.info（格式化语义同 error） */
   info(...args: unknown[]): void;
+  /** 同 console.debug（格式化语义同 error） */
   debug(...args: unknown[]): void;
 }
 
+/** 日志等级：error < warn < info < debug（阈值过滤，低于配置等级的不输出） */
 export type LogLevel = "error" | "warn" | "info" | "debug";
 
 /** 共享可变控制对象：全局外观用它实现"一改全员生效"；独立使用时省略 */
 export interface SharedControl {
-  level: LogLevel;
-  enabled: boolean;
-  secrets: string[];
+  level: LogLevel; // 输出阈值（等级 <= 此阈值才落盘）
+  enabled: boolean; // false = 全静默
+  secrets: string[]; // 脱敏注册表（运行期可追加，append-only；空串/长度 < 8 不参与替换）
 }
 
 export interface FileLoggerOptions {
@@ -76,6 +81,7 @@ export function createFileLogger(
   path: string,
   options: FileLoggerOptions = {},
 ): ConsoleLike {
+  // 传入 control 则共享之（全局外观"一改全员生效"），否则持有私有控制对象（独立使用者不感知）
   const control: SharedControl = options.control ?? {
     level: options.level ?? "info",
     enabled: options.enabled ?? true,
@@ -83,7 +89,7 @@ export function createFileLogger(
   };
   const sink = createFileSink(path, control);
   const log = (level: LogLevel, args: unknown[]): void => {
-    sink(level, { message: format(...args) });
+    sink(level, { message: format(...args) }); // util.format：与 console 完全相同的参数格式化语义
   };
   return {
     error: (...args: unknown[]) => log("error", args),

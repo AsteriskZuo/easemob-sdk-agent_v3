@@ -10,7 +10,7 @@ export interface PlatformConfig {
 
 /** 执行结果（Lifecycle 的返回形状；本包只消费不生产） */
 export interface ExecutionResult {
-  status: "success" | "failed" | "timeout";
+  status: "success" | "failed" | "timeout"; // 执行状态；timeout 在扇出时归 failed（event_type = xxx.failed）
   output: unknown; // 业务产出；派生事件的 payload（成功时）
   usage?: { tokens: number; duration_ms: number }; // 执行计量（可选）：仅留痕，不进任何判定
 }
@@ -20,6 +20,7 @@ export interface ExecutionResult {
  *  分钟级长调用。约定：业务失败应返回 {status:'failed'|'timeout'} 而非抛错；
  *  抛错 = 基础设施异常，本包按入口循环纪律兜底合成 failed。 */
 export interface EntryDriver {
+  /** 一个 (任务, 关注者) 的一次完整业务执行（分钟级长调用） */
   execute(task: Task, watcher: BusinessMatch): Promise<ExecutionResult>;
 }
 

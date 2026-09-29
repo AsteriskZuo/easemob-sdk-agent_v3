@@ -16,25 +16,26 @@ export interface BusinessMatch {
 
 /** 出口绑定：业务配置的一部分。config 只存非机密项 */
 export interface ExitBinding {
-  business_id: string;
+  business_id: string; // 归属业务 = 出口循环的归属匹配键
   tool: string; // 出口工具 kind
-  config: Record<string, string>;
+  config: Record<string, string>; // 非机密配置（token 等机密项归环境配置模块，不存此处）
 }
 
 /** 业务级字段补丁（行级字段 source/event_type 不可 patch——改匹配 = 增删行） */
 export interface BusinessPatch {
-  business_name?: string;
-  on_failure?: boolean;
+  business_name?: string; // 展示名
+  on_failure?: boolean; // 失败也扇出开关
   exit_bindings?: ExitBinding[]; // 全量替换该业务的出口绑定
 }
 
+/** 创建业务输入（含首个匹配行） */
 export interface CreateBusinessInput {
-  business_name: string;
-  creator_id: string;
+  business_name: string; // 展示名，可修改
+  creator_id: string; // 创建者账号 id，不可修改（权限归属判定用）
   source: EventSource; // 首个匹配行
   event_type: string;
-  on_failure?: boolean;
-  exit_bindings?: Array<{ tool: string; config: Record<string, string> }>;
+  on_failure?: boolean; // 缺省 false
+  exit_bindings?: Array<{ tool: string; config: Record<string, string> }>; // 缺省无绑定
 }
 
 export interface BusinessRegistry {
@@ -107,6 +108,7 @@ function matchKey(source: EventSource, event_type: string): string {
   return `${source}__${event_type}`;
 }
 
+// 内存视图常驻（match 是热路径）；所有写操作 write-through：先事务落库，后更新内存
 class SqliteBusinessRegistry implements BusinessRegistry {
   private readonly businesses = new Map<string, BusinessState>();
   private readonly view = new Map<string, BusinessMatch[]>();
@@ -134,7 +136,7 @@ class SqliteBusinessRegistry implements BusinessRegistry {
     );
     for (const row of matchRows) {
       const state = this.businesses.get(row.business_id);
-      if (!state) continue;
+      if (!state) continue; // 匹配行对应业务不存在则跳过（数据一致性兜底）
       const source = row.source as EventSource;
       state.matches.push({ source, event_type: row.event_type });
       this.pushViewRow(row.business_id, state, source, row.event_type);
@@ -322,6 +324,7 @@ class SqliteBusinessRegistry implements BusinessRegistry {
         [business_id, source, event_type],
       );
     });
+    // 视图行携带业务级字段快照：先整组移除，再按剩余匹配行重建
     this.removeFromView(business_id);
     state.matches.splice(index, 1);
     for (const m of state.matches) {

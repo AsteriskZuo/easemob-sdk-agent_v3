@@ -60,7 +60,7 @@ export interface ChannelPool {
 }
 ```
 
-`@easemob/agent-contracts`：`EventEnvelope`（字段见 §5.2）、`EventSource`、`newUlid()`、`buildBusinessChannelId(source, sessionId, businessId)`、`buildExitChannelId(destinationId)`。
+`@easemob/agent-contracts`：`EventEnvelope`（字段见 §5.2）、`EventSource`、`newUlid()` / `newEventId()`（事件 id 用后者，`evt_` 前缀）、`buildBusinessChannelId(source, sessionId, businessId)`、`buildExitChannelId(destinationId)`。
 
 `@easemob/agent-logger`（全局外观，装配根已 initLogger，本包直接用）：
 
@@ -339,7 +339,7 @@ export interface Semaphore {
   release(): void;           // 超发（release 多于 acquire）抛错
   readonly limit: number;
 }
-export function createSemaphore(limit: number): Semaphore; // limit < 1 抛错
+export function createSemaphore(limit: number): Semaphore; // limit 必须为正整数，否则抛错
 ```
 
 ## 6. 测试清单

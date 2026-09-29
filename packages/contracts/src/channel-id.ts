@@ -1,9 +1,12 @@
+/** 复合键段分隔符：双下划线；段内禁止出现它（否则无法拆分解析） */
 export const SEGMENT_SEPARATOR = "__";
 
+/** 通道标识：平台的串行/隔离单位（同通道串行、跨通道并行） */
 export type ChannelId =
-  | { kind: "business"; source: string; sessionId: string; businessId: string }
-  | { kind: "exit"; destinationId: string };
+  | { kind: "business"; source: string; sessionId: string; businessId: string } // 业务通道三维：source__sessionId__businessId
+  | { kind: "exit"; destinationId: string }; // 出口通道：投递目标标识
 
+/** channel_id 相关错误：段非法或解析格式非法时抛出 */
 export class ChannelIdError extends Error {
   constructor(message: string) {
     super(message);
@@ -31,6 +34,7 @@ export function assertSafeSegment(segment: string): void {
   }
 }
 
+/** 业务通道 id = source__sessionId__businessId；每段过 assertSafeSegment，非法抛 ChannelIdError */
 export function buildBusinessChannelId(
   source: string,
   sessionId: string,
@@ -42,6 +46,7 @@ export function buildBusinessChannelId(
   return [source, sessionId, businessId].join(SEGMENT_SEPARATOR);
 }
 
+/** 出口通道 id = "exit" + "__" + destinationId；source 枚举无 exit，前缀天然无歧义 */
 export function buildExitChannelId(destinationId: string): string {
   assertSafeSegment(destinationId);
   return ["exit", destinationId].join(SEGMENT_SEPARATOR);

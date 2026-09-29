@@ -4,19 +4,21 @@ import type { Task } from "@easemob/agent-queue";
 
 /** 挂入通道的一项：任务 + 关注者（关注者类型各循环自定，本包不解释） */
 export interface ChannelItem<T = unknown> {
-  task: Task;
-  watcher: T;
+  task: Task; // 队列任务（本体已在任务队列持久化，此处只持有引用；通道上排队的项不单独持久化）
+  watcher: T; // 关注者：入口循环 = BusinessMatch，出口循环 = ExitBinding（原样透传，本包不解释）
 }
 
 /** 通道：同通道严格串行的虚拟执行链。AsyncIterable——消化循环 for await 逐项取出。
  *  迭代器在队列空时结束（用完即焚）；之后再有 enqueue 须能重新迭代（经 onActivate 重启 drain） */
 export interface Channel extends AsyncIterable<ChannelItem> {
-  readonly key: string; // channel_id 字符串
+  readonly key: string; // channel_id 字符串（不透明，本包不解析）
+  /** 挂入 (task, 关注者)；同通道上一次消化未完结则排队。空闲通道挂入时触发 onActivate */
   enqueue(task: Task, watcher: unknown): void;
 }
 
 /** 通道池：按 channel_id 取或建（创建即落库） */
 export interface ChannelPool {
+  /** 取或建通道；同键返回同一实例（新建即落库 channels 表并刷新 last_active_at） */
   get(key: string): Channel;
   /** 通道激活回调：空闲通道挂入任务时触发（每个 ChannelPool 只注册一次） */
   onActivate(cb: (channel: Channel) => void): void;
@@ -45,10 +47,10 @@ function nowIso(): string {
 
 class ChannelImpl implements Channel {
   readonly key: string;
-  private readonly items: ChannelItem[] = [];
-  private draining = false;
-  private iteratorActive = false;
-  private wake: (() => void) | null = null;
+  private readonly items: ChannelItem[] = []; // 待消化队列（FIFO：严格按 enqueue 顺序取出，消费即弃）
+  private draining = false; // 消化标志（竞态纪律核心）：enqueue 时 !draining 才置位并触发 onActivate，防重复 drain
+  private iteratorActive = false; // 活跃迭代器标志：保证同一时刻最多一个 drain 在跑
+  private wake: (() => void) | null = null; // 迭代器"有界等待"的唤醒回调；非 null = 迭代器正在等新项
   private readonly activate: (channel: Channel) => void;
 
   constructor(key: string, activate: (channel: Channel) => void) {
@@ -58,11 +60,13 @@ class ChannelImpl implements Channel {
 
   enqueue(task: Task, watcher: unknown): void {
     this.items.push({ task, watcher });
+    // 迭代器正在"有界等待"则唤醒它（新项不丢）
     const wake = this.wake;
     if (wake !== null) {
       this.wake = null;
       wake();
     }
+    // 竞态纪律：仅空闲通道（!draining）置位并触发 onActivate；drain 进行中挂入不重复触发
     if (!this.draining) {
       this.draining = true;
       this.activate(this);
@@ -94,15 +98,16 @@ class ChannelImpl implements Channel {
     }
   }
 
+  /** 有界等待：resolve(true) = 等到新项；resolve(false) = 超时（再判一次队列空才结束） */
   private waitForItem(): Promise<boolean> {
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
         this.wake = null;
-        resolve(false);
+        resolve(false); // 超时未等到 → 由调用方判空结束迭代（用完即焚）
       }, IDLE_TIMEOUT_MS);
       this.wake = () => {
         clearTimeout(timer);
-        resolve(true);
+        resolve(true); // enqueue 唤醒 → 立即取新项
       };
     });
   }
@@ -121,11 +126,13 @@ export function createChannelPool(db: Database): ChannelPool {
       if (channel === undefined) {
         channel = new ChannelImpl(key, (ch) => activateCb?.(ch));
         channels.set(key, channel);
+        // 创建即落库（防意外丢失）；INSERT OR IGNORE：已存在则不动 created_at
         db.run(
           "INSERT OR IGNORE INTO channels (channel_id, created_at, last_active_at) VALUES (?, ?, ?)",
           [key, nowIso(), nowIso()],
         );
       }
+      // 每次取用都刷新活跃时间
       db.run("UPDATE channels SET last_active_at = ? WHERE channel_id = ?", [
         nowIso(),
         key,
@@ -134,7 +141,7 @@ export function createChannelPool(db: Database): ChannelPool {
     },
 
     onActivate(cb: (channel: Channel) => void): void {
-      activateCb = cb;
+      activateCb = cb; // 每池单注册（装配纪律）：重复调用会覆盖前回调
     },
   };
 }

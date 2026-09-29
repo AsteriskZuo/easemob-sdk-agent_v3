@@ -42,10 +42,10 @@ export function createEntryLoop(deps: {
   const semaphore: Semaphore = createSemaphore(config.task_concurrency);
   // 任务级完结计数（内存 Map）：崩溃后由 recover + at-least-once 语义兜底，不持久化
   const pending = new Map<string, number>();
-  const inflightDrains = new Set<Promise<void>>();
-  let stopped = false;
-  let started = false;
-  let ingestPromise: Promise<void> | null = null;
+  const inflightDrains = new Set<Promise<void>>(); // 在飞 drain 集合：stop() 时 await 全部落定
+  let stopped = false; // 停止标志：摄取循环下一轮退出
+  let started = false; // 启动标志：start 幂等
+  let ingestPromise: Promise<void> | null = null; // 摄取循环 promise：stop() 等它退出
 
   /** 任务级完结计数 -1；归零 → queue.complete。pending 中不存在 = 已死信/已完结，跳过（防御） */
   function settle(task: Task): void {

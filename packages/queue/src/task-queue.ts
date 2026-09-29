@@ -3,21 +3,23 @@ import { migrate } from "@easemob/agent-database";
 import type { EventEnvelope } from "@easemob/agent-contracts";
 import { newUlid, validateEnvelope } from "@easemob/agent-contracts";
 
+/** 任务消化状态：pending 待取 / processing 消化中 / done 完结 / dead 死信 */
 export type TaskStatus = "pending" | "processing" | "done" | "dead";
 
 /** 队列中的任务 = 事件 + 消化状态 */
 export interface Task {
-  task_id: string;
-  event: EventEnvelope;
-  status: TaskStatus;
-  enqueued_at: string; // ISO 8601
+  task_id: string; // 任务 id："task_" + ULID，入队时生成
+  event: EventEnvelope; // 任务携带的事件信封（落库为 JSON）
+  status: TaskStatus; // 消化状态
+  enqueued_at: string; // ISO 8601（UTC 带 Z）
   finished_at?: string; // complete/deadLetter 时写入
 }
 
+/** 控制台查询过滤条件；多条件为 AND，空 filter 返回全部 */
 export interface TaskFilter {
-  status?: TaskStatus;
-  event_id?: string;
-  correlation_id?: string;
+  status?: TaskStatus; // 按消化状态过滤
+  event_id?: string; // 按事件 id 过滤（列级）
+  correlation_id?: string; // 按信封内 correlation_id 过滤（json_extract）
 }
 
 export interface TaskQueue {
@@ -75,10 +77,12 @@ function nowIso(): string {
 /** 创建队列实例。table 由调用方命名（平台用 'entry_tasks' / 'exit_tasks'）；
  *  建表用幂等 CREATE TABLE IF NOT EXISTS */
 export function createTaskQueue(db: Database, table: string): TaskQueue {
+  // 表名将拼接进 SQL 语句，白名单校验防注入
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(table)) {
     throw new Error(`createTaskQueue: 非法表名 "${table}"`);
   }
 
+  // v1 = 建表 + (status, enqueued_at) 索引；迁移 module 用 "queue:" + table 区分入口/出口两个实例
   migrate(db, `queue:${table}`, [
     `CREATE TABLE IF NOT EXISTS ${table} (
   task_id TEXT PRIMARY KEY,
@@ -110,6 +114,7 @@ CREATE INDEX IF NOT EXISTS idx_${table}_status_enqueued_at ON ${table} (status, 
         `SELECT * FROM ${table} WHERE event_id = ?`,
         [event.event_id],
       );
+      // event_id 幂等：命中直接返回已有任务；未命中才插入（UNIQUE 约束兜底并发冲突）
       if (existing) {
         return rowToTask(existing);
       }
@@ -134,6 +139,7 @@ CREATE INDEX IF NOT EXISTS idx_${table}_status_enqueued_at ON ${table} (status, 
 
     take(): Task | null {
       return db.transaction(() => {
+        // FIFO：enqueued_at 相同毫秒时以 rowid 兜底排序；取出与置 processing 在同一事务内
         const row = db.get<TaskRow>(
           `SELECT * FROM ${table} WHERE status = 'pending' ORDER BY enqueued_at, rowid LIMIT 1`,
         );
@@ -204,6 +210,7 @@ CREATE INDEX IF NOT EXISTS idx_${table}_status_enqueued_at ON ${table} (status, 
     },
 
     purge(cutoffIso: string): number {
+      // finished_at 是统一 UTC Z 格式的 ISO 字符串，字典序即时间序
       const row = db.get<{ n: number }>(
         `SELECT COUNT(*) AS n FROM ${table} WHERE status = 'done' AND finished_at < ?`,
         [cutoffIso],

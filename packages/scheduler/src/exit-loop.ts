@@ -22,8 +22,8 @@ function errMessage(err: unknown): string {
 
 /** 任务级结算状态（内存）：剩余绑定数 + 失败累计 */
 interface ExitPending {
-  remaining: number;
-  failed: number;
+  remaining: number; // 未结算的绑定数（归零时做终态判定）
+  failed: number; // 已失败的绑定数（remaining 归零时 >0 → 死信 deliver_failed，否则完结）
 }
 
 /** 创建出口事件循环。装配纪律同入口循环（start 前 initLogger + queue.recover()；
@@ -39,17 +39,17 @@ export function createExitLoop(deps: {
   options?: SchedulerOptions;
 }): SchedulerLoop {
   const { queue, registry, channels, config, driver } = deps;
-  const pollIntervalMs = deps.options?.pollIntervalMs ?? 50;
-  const maxAttempts = deps.options?.exitRetry?.maxAttempts ?? 3;
-  const baseDelayMs = deps.options?.exitRetry?.baseDelayMs ?? 1000;
-  const maxDelayMs = deps.options?.exitRetry?.maxDelayMs ?? 10000;
+  const pollIntervalMs = deps.options?.pollIntervalMs ?? 50; // 摄取空转轮询间隔
+  const maxAttempts = deps.options?.exitRetry?.maxAttempts ?? 3; // 投递次数上限（含首次）
+  const baseDelayMs = deps.options?.exitRetry?.baseDelayMs ?? 1000; // 退避起步
+  const maxDelayMs = deps.options?.exitRetry?.maxDelayMs ?? 10000; // 退避封顶
   const log = logger.for({ module: "exit-loop" });
   const semaphore: Semaphore = createSemaphore(config.result_concurrency);
-  const pending = new Map<string, ExitPending>();
-  const inflightDrains = new Set<Promise<void>>();
-  let stopped = false;
-  let started = false;
-  let ingestPromise: Promise<void> | null = null;
+  const pending = new Map<string, ExitPending>(); // 任务级结算计数（内存，崩溃后由 recover + at-least-once 兜底）
+  const inflightDrains = new Set<Promise<void>>(); // 在飞 drain 集合：stop() 时 await 全部落定
+  let stopped = false; // 停止标志：摄取循环下一轮退出
+  let started = false; // 启动标志：start 幂等
+  let ingestPromise: Promise<void> | null = null; // 摄取循环 promise：stop() 等它退出
 
   /** 结算一个绑定：remaining-1，failed 累计；remaining 归零时 failed>0 → 死信，否则完结。
    *  pending 中不存在 = 已死信/已完结，跳过（防御） */
@@ -159,6 +159,7 @@ export function createExitLoop(deps: {
                 error: errMessage(err),
               });
             } else {
+              // 指数退避：第 n 次重试前等待 min(base*2^(n-1), max)；在通道内原地重试（同目标本该串行）
               await sleep(
                 Math.min(baseDelayMs * 2 ** (attempt - 1), maxDelayMs),
               );
@@ -203,6 +204,7 @@ export function createExitLoop(deps: {
     },
 
     async stop(): Promise<void> {
+      // 优雅停：摄取循环在当前一轮结束后退出；await 全部在飞 drain 落定（不打断在飞的 deliver）
       stopped = true;
       if (ingestPromise !== null) {
         await ingestPromise;

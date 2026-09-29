@@ -1,4 +1,6 @@
+/** 信封结构版本，当前恒为 "v1"；版本路由靠它，类型名不缀版本号（v2 到来时按值区分） */
 export const CONTRACT_VERSION = "v1" as const;
+/** 信封版本类型 = CONTRACT_VERSION 的字面量类型 */
 export type ContractVersion = typeof CONTRACT_VERSION;
 
 /** 入口来源枚举；新增来源 = 扩展此联合类型（向后兼容） */
@@ -15,19 +17,21 @@ const EVENT_SOURCES: readonly string[] = [
   "manual",
 ];
 
+/** 事件信封：平台内一切事件的统一包装（入口包装落队列，业务产出再派发） */
 export interface EventEnvelope {
-  contract_version: ContractVersion;
-  source: EventSource;
-  event_id: string;
-  event_type: string;
+  contract_version: ContractVersion; // 信封结构版本，恒为 "v1"；版本路由靠它
+  source: EventSource; // 入口来源（internal = 平台内派生事件）
+  event_id: string; // 全局唯一锚点，兼作入口幂等键（源生事件重推按它丢弃）
+  event_type: string; // 类别标签（非实例标识），业务关注匹配的键
   timestamp: string; // ISO 8601 带时区
-  session_id: string;
-  correlation_id: string;
-  hop_count: number;
-  payload: unknown;
-  producer_business_id?: string; // 仅 internal 派生事件填写
+  session_id: string; // 源生会话标识（群 id / 工单 key 等），平台视为不透明字符串
+  correlation_id: string; // 整条派生链首个任务的 event_id，全链追溯用
+  hop_count: number; // 派生转发计数（派生 +1），防循环订阅
+  payload: unknown; // 事件数据载体，结构由来源自定义；派生事件的 payload = 业务产出
+  producer_business_id?: string; // 仅 internal 派生事件填写 = 产出方业务 id，出口循环按它做归属匹配
 }
 
+/** 校验结果：ok=true 通过；ok=false 时 errors 列出全部问题（不遇第一个错误就停） */
 export type ValidationResult = { ok: true } | { ok: false; errors: string[] };
 
 const REQUIRED_FIELDS = [
@@ -47,6 +51,7 @@ const TIMEZONE_SUFFIX = /([zZ]|[+-]\d{2}:?\d{2})$/;
 
 function isPlainObject(input: unknown): input is Record<string, unknown> {
   if (typeof input !== "object" || input === null) return false;
+  // 排除数组/类实例等：原型必须是 Object.prototype 或 null
   const proto = Object.getPrototypeOf(input);
   return proto === Object.prototype || proto === null;
 }

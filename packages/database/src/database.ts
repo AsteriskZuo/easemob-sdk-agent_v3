@@ -3,6 +3,7 @@ import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { SQLInputValue } from "node:sqlite";
 
+/** 全平台唯一数据访问口：SQLite 薄封装（同步 API，刻意不做 ORM / 连接池） */
 export interface Database {
   /** 写（INSERT/UPDATE/DELETE/DDL 单语句） */
   run(sql: string, params?: unknown[]): void;
@@ -20,17 +21,18 @@ export interface Database {
 
 class SqliteDatabase implements Database {
   private readonly db: DatabaseSync;
-  private closed = false;
-  private inTransaction = false;
+  private closed = false; // close 幂等标记
+  private inTransaction = false; // 嵌套事务防护标记（嵌套直接抛错，fail-fast 暴露误用）
 
   constructor(path: string) {
     mkdirSync(dirname(path), { recursive: true });
     this.db = new DatabaseSync(path);
-    this.db.exec("PRAGMA journal_mode = WAL");
-    this.db.exec("PRAGMA busy_timeout = 5000");
+    this.db.exec("PRAGMA journal_mode = WAL"); // WAL：读写不互堵
+    this.db.exec("PRAGMA busy_timeout = 5000"); // 锁等待兜底 5 秒
   }
 
   run(sql: string, params: unknown[] = []): void {
+    // 接口上保持 unknown[]，内部适配 node:sqlite 的 SQLInputValue[]
     this.db.prepare(sql).run(...(params as SQLInputValue[]));
   }
 
