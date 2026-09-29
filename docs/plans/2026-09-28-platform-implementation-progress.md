@@ -19,8 +19,8 @@
 | T2 database | 完成 | 2026-09-29 09:59 | 92f031e |
 | T3 queue | 完成 | 2026-09-29 10:09 | 1de87fa |
 | T4 registry | 完成 | 2026-09-29 10:09 | 3b54982 |
-| T5 channel | 未开始 | — | — |
-| T6 logger | 未开始 | — | — |
+| T5 channel | 完成 | 2026-09-29 12:04 | e728f90 |
+| T6 logger | 完成 | 2026-09-29 12:04 | 5bcb85e |
 | T7 env | 未开始 | — | — |
 | T8 scheduler | 未开始 | — | — |
 | T9 exit-tools | 未开始 | — | — |
@@ -102,3 +102,25 @@
 - 备注：
   - spec 未定义行为裁决（子 agent 提出，主 agent 确认）：addMatch 对不存在 business_id 抛错（防孤儿匹配行）、removeMatch 幂等不报错、on_failure 恒输出布尔（默认 false）保证字段形状稳定；
   - 子 agent 自修一处内存视图 bug（removeMatch 视图清理遗漏），测试已覆盖。
+
+### T5 channel
+
+- 状态：完成
+- 子 agent：agent-7（与 T6 并行派发）
+- 开始：2026-09-29 11:52；完成：2026-09-29 12:04
+- 验收证据：主 agent 独立复验——channel 19 测试全过（全套根检查全绿，全仓 136 测试）；串行/竞态测试 20 连跑不 flake
+- commit：e728f90
+- 备注：
+  - spec 澄清裁决（主 agent 确认）：ChannelPool.get 每次调用刷新 last_active_at；同通道第二个活跃迭代器首次 next() 即抛错；
+  - 并行期间遇到一次对方 install 中间态导致的 dist-test 瞬时缺失（外部竞争，非本包 flake），重跑即过。
+
+### T6 logger
+
+- 状态：完成
+- 子 agent：agent-8（与 T5 并行派发）
+- 开始：2026-09-29 11:52；完成：2026-09-29 12:04
+- 验收证据：主 agent 独立复验——logger 21 测试全过、六项根检查全绿、运行时零依赖、无业务概念、规则第 2 类纪律逐条有测试
+- commit：5bcb85e
+- 备注：
+  - spec 澄清：底层与中层共享包内写口（createFileSink/shouldLog/maskSecrets，不从 index 导出）；SharedControl 作为纯类型导出（FileLoggerOptions 签名需要）；
+  - ESM 下 jest 全局不可用，测试改用 `@jest/globals` 显式导入（已加入该包 devDependencies），后续包同此模式。

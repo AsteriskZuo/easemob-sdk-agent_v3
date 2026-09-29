@@ -46,8 +46,8 @@
 | T2 | `@easemob/agent-database` | SQLite 薄封装 + 迁移原语，全平台唯一数据访问口 | T1 | [spec](../specs/2026-09-28-t2-database-spec.md) | [x] |
 | T3 | `@easemob/agent-queue` | 持久任务队列（入队/take/complete/deadLetter/query/recover/purge） | T2 | [spec](../specs/2026-09-28-t3-queue-spec.md) | [x] |
 | T4 | `@easemob/agent-registry` | 业务注册表 + 入口匹配 + 出口绑定存取 | T2 | [spec](../specs/2026-09-28-t4-registry-spec.md) | [x] |
-| T5 | `@easemob/agent-channel` | ChannelPool/Channel（异步可迭代串行链）+ ChannelStore（会话映射） | T2 T3 | [spec](../specs/2026-09-29-t5-channel-spec.md) | [ ] |
-| T6 | `@easemob/agent-logger` | ConsoleLike 底层 + 全局外观（initLogger/logger.for）+ 脱敏 + fail-fast | T1 | [spec](../specs/2026-09-29-t6-logger-spec.md) | [ ] |
+| T5 | `@easemob/agent-channel` | ChannelPool/Channel（异步可迭代串行链）+ ChannelStore（会话映射） | T2 T3 | [spec](../specs/2026-09-29-t5-channel-spec.md) | [x] |
+| T6 | `@easemob/agent-logger` | ConsoleLike 底层 + 全局外观（initLogger/logger.for）+ 脱敏 + fail-fast | T1 | [spec](../specs/2026-09-29-t6-logger-spec.md) | [x] |
 | T7 | `@easemob/agent-env` | 环境变量唯一读取口（类型解析 + 必需校验 fail-fast） | T1 | 执行前编写 | [ ] |
 | T8 | `@easemob/agent-scheduler` | 入口/出口双调度循环 + 并发闸门 + hop_count + on_failure | T3 T4 T5 | 执行前编写 | [ ] |
 | T9 | `@easemob/agent-exit-tools` | ExitTool 接口 + 企微群 webhook + 邮件 + 自定义 webhook | T1 | 执行前编写 | [ ] |
@@ -64,7 +64,7 @@
 批次1：T1                （串行，契约冻结）✅
 批次2：T2                （串行，数据访问口先行）✅
 批次3：T3 ‖ T4           ✅
-批次4：T5 ‖ T6
+批次4：T5 ‖ T6           ✅
 批次5：T7                （串行，env 小包先行——server 等后续任务依赖它）
 批次6：T8
 批次7：T9 ‖ T10
