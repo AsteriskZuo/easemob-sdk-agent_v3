@@ -124,3 +124,15 @@
 - 备注：
   - spec 澄清：底层与中层共享包内写口（createFileSink/shouldLog/maskSecrets，不从 index 导出）；SharedControl 作为纯类型导出（FileLoggerOptions 签名需要）；
   - ESM 下 jest 全局不可用，测试改用 `@jest/globals` 显式导入（已加入该包 devDependencies），后续包同此模式。
+
+### T7 env
+
+- 状态：完成
+- 子 agent：agent-9
+- 开始：2026-09-29 13:40；完成：2026-09-29 13:45
+- 验收证据：主 agent 独立复验——env 16 测试全过、六项根检查全绿（全仓 152 测试）、导出签名与 spec §5 一致、运行时零依赖
+- commit：（见本节提交记录）
+- 备注：
+  - spec 未定义行为裁决（主 agent 确认）：trim 仅用于"未设置"判定，getString 返回原始值；default 与 required 同时给时 default 优先；
+  - 类型收窄用例经独立 `tsc --noEmit --strict` 验证（重载双向正确），包 tsconfig 排除 tests 的全仓约定未动；
+  - 工程修复：`.gitignore` 的 Python venv 规则（`env/`）误伤 `packages/env/`，已加 `!packages/env/` 例外。

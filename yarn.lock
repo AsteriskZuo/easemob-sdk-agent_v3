@@ -436,6 +436,17 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@easemob/agent-env@workspace:packages/env":
+  version: 0.0.0-use.local
+  resolution: "@easemob/agent-env@workspace:packages/env"
+  dependencies:
+    "@jest/globals": "npm:^29.7.0"
+    esbuild: "npm:^0.28.1"
+    jest: "npm:^29.7.0"
+    typescript: "npm:^5.9.0"
+  languageName: unknown
+  linkType: soft
+
 "@easemob/agent-logger@workspace:packages/logger":
   version: 0.0.0-use.local
   resolution: "@easemob/agent-logger@workspace:packages/logger"

@@ -317,6 +317,9 @@ ENV/
 env.bak/
 venv.bak/
 
+# monorepo 包目录例外（上面的 Python venv 规则会误伤）
+!packages/env/
+
 # Spyder project settings
 .spyderproject
 .spyproject
