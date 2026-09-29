@@ -2,6 +2,7 @@
 
 > 本计划是实现的唯一执行入口：任务拆分、依赖关系、进度追踪都在此。任务规格（spec）在 `docs/specs/`，**spec 自包含，执行子 agent 只读 spec 与本计划**。
 > 目标：平台全部模块实现完成、全部检查（build/test/typecheck/lint/format/circular）通过。**真实业务接入与验收（如单轮审查工单）不在本计划范围**，由用户之后手动进行。
+> 所有任务遵守顶级工程规则：**依赖管理四类归宿**（`docs/designs/2026-09-14-skill-platform-spec-v3/design/dependency-rules.md`）。
 
 ## 1. 工程结构（目标形态）
 
@@ -11,11 +12,12 @@
 │   ├── database/           # SQLite 薄封装（node:sqlite），全平台唯一数据访问口
 │   ├── queue/              # 持久任务队列（entry/exit 双实例共用）
 │   ├── registry/           # 业务注册表 + 入口匹配（一对多 BusinessMatch）
-│   ├── channel/            # 通道抽象 + channel↔agent 会话映射 + 入口适配器接口
+│   ├── channel/            # ChannelPool/Channel + ChannelStore（会话映射）
+│   ├── logger/             # 日志：ConsoleLike 底层 + 全局外观（规则第 2 类）
+│   ├── env/                # 环境变量唯一读取口（规则第 1 类）
 │   ├── scheduler/          # 双调度循环 + 并发闸门 + hop_count + on_failure
 │   ├── runtime/            # Lifecycle 四步时序 + WorkflowRunner + AgentService
-│   ├── exit-tools/         # 出口工具群（统一 ExitTool 接口）
-│   └── logger/             # 四类日志（system/entry-loop/exit-loop/business）
+│   └── exit-tools/         # 出口工具群（统一 ExitTool 接口）
 ├── sdk/                    # @easemob/agent-sdk，业务 SDK（唯一面向业务用户的包）
 ├── app/
 │   ├── server/             # 后台守护进程：装配 + webhook 入口 + 管理 API
@@ -24,7 +26,7 @@
 └── docs/
 ```
 
-依赖方向单向：`contracts ← database ← queue/registry/channel；contracts ← logger；queue/registry/channel + logger ← scheduler/exit-tools ← runtime ← server`；sdk 只依赖 contracts。dpdm 强制检查。
+依赖方向单向：`contracts ← database ← queue/registry/channel；contracts ← logger/env；queue/registry/channel + logger ← scheduler/exit-tools ← runtime ← server`；sdk 只依赖 contracts。dpdm 强制检查。
 
 ## 2. 编排机制
 
@@ -41,40 +43,42 @@
 |---|------|------|------|------|------|
 | T0 | 工程骨架 | yarn 4.14.1 workspaces + tsconfig + jest/esbuild + eslint + prettier + dpdm + 根脚本 | — | [spec](../specs/2026-09-28-t0-engineering-skeleton-spec.md) | [x] |
 | T1 | `@easemob/agent-contracts` | 信封 v1 类型与校验、channel_id 编解码、ULID | T0 | [spec](../specs/2026-09-28-t1-contracts-spec.md) | [x] |
-| T2 | `@easemob/agent-database` | SQLite 薄封装（run/get/all/transaction/close），全平台唯一数据访问口 | T1 | [spec](../specs/2026-09-28-t2-database-spec.md) | [x] |
-| T3 | `@easemob/agent-queue` | 持久任务队列（入队/take/complete/deadLetter/query/recover） | T2 | [spec](../specs/2026-09-28-t3-queue-spec.md) | [x] |
+| T2 | `@easemob/agent-database` | SQLite 薄封装 + 迁移原语，全平台唯一数据访问口 | T1 | [spec](../specs/2026-09-28-t2-database-spec.md) | [x] |
+| T3 | `@easemob/agent-queue` | 持久任务队列（入队/take/complete/deadLetter/query/recover/purge） | T2 | [spec](../specs/2026-09-28-t3-queue-spec.md) | [x] |
 | T4 | `@easemob/agent-registry` | 业务注册表 + 入口匹配 + 出口绑定存取 | T2 | [spec](../specs/2026-09-28-t4-registry-spec.md) | [x] |
-| T5 | `@easemob/agent-channel` | 通道抽象 + channel↔agent 会话映射 + 入口适配器接口 | T2 | 执行前编写 | [ ] |
-| T6 | `@easemob/agent-logger` | 四类日志 + 启动自检 fail-fast | T1 | 执行前编写 | [ ] |
-| T7 | `@easemob/agent-scheduler` | 入口/出口双调度循环 + 并发闸门 + hop_count + on_failure | T3 T4 T5 | 执行前编写 | [ ] |
-| T8 | `@easemob/agent-exit-tools` | ExitTool 接口 + 企微群 webhook + 邮件 + 自定义 webhook | T1 | 执行前编写 | [ ] |
-| T9 | WorkflowRunner + `@easemob/agent-sdk` | 业务子进程契约两侧同批实现（含 stdin/stdout 契约补入 contracts） | T1 T6 | 执行前编写 | [ ] |
-| T10 | AgentService（runtime 包内） | unix socket + 一次性 token + spawn pi + 配额 + 审计落盘 | T9 | 执行前编写 | [ ] |
-| T11 | `app/server` | 平台装配 + webhook 入口适配器 + 启动自检 | T7 T8 T10 | 执行前编写 | [ ] |
-| T12 | 管理 API | server 侧 console 接口（契约补入 contracts） | T11 | 执行前编写 | [ ] |
-| T13 | `app/console` | React + Vite SPA，调管理 API | T12 | 执行前编写 | [ ] |
+| T5 | `@easemob/agent-channel` | ChannelPool/Channel（异步可迭代串行链）+ ChannelStore（会话映射） | T2 T3 | [spec](../specs/2026-09-29-t5-channel-spec.md) | [ ] |
+| T6 | `@easemob/agent-logger` | ConsoleLike 底层 + 全局外观（initLogger/logger.for）+ 脱敏 + fail-fast | T1 | [spec](../specs/2026-09-29-t6-logger-spec.md) | [ ] |
+| T7 | `@easemob/agent-env` | 环境变量唯一读取口（类型解析 + 必需校验 fail-fast） | T1 | 执行前编写 | [ ] |
+| T8 | `@easemob/agent-scheduler` | 入口/出口双调度循环 + 并发闸门 + hop_count + on_failure | T3 T4 T5 | 执行前编写 | [ ] |
+| T9 | `@easemob/agent-exit-tools` | ExitTool 接口 + 企微群 webhook + 邮件 + 自定义 webhook | T1 | 执行前编写 | [ ] |
+| T10 | WorkflowRunner + `@easemob/agent-sdk` | 业务子进程契约两侧同批实现（含 stdin/stdout 契约补入 contracts） | T1 T6 | 执行前编写 | [ ] |
+| T11 | AgentService（runtime 包内） | unix socket + 一次性 token + spawn pi + 配额 + 审计落盘 | T10 | 执行前编写 | [ ] |
+| T12 | `app/server` | 平台装配 + EntryAdapter 接口 + webhook 入口适配器 + 启动自检 | T7 T8 T9 T11 | 执行前编写 | [ ] |
+| T13 | 管理 API | server 侧 console 接口（契约补入 contracts） | T12 | 执行前编写 | [ ] |
+| T14 | `app/console` | React + Vite SPA，调管理 API | T13 | 执行前编写 | [ ] |
 
 ## 4. 执行批次（并发 ≤2）
 
 ```text
 批次0：T0                （串行，骨架先行）✅
 批次1：T1                （串行，契约冻结）✅
-批次2：T2                （串行，数据访问口先行——queue/registry/channel 都依赖它）
-批次3：T3 ‖ T4
+批次2：T2                （串行，数据访问口先行）✅
+批次3：T3 ‖ T4           ✅
 批次4：T5 ‖ T6
-批次5：T7
-批次6：T8 ‖ T9
-批次7：T10
+批次5：T7                （串行，env 小包先行——server 等后续任务依赖它）
+批次6：T8
+批次7：T9 ‖ T10
 批次8：T11
 批次9：T12
 批次10：T13
+批次11：T14
 ```
 
 ## 5. 验证策略
 
 - **每任务验收**：该包（或 app）的 `build` / `test` / `typecheck` / `lint` / `format:check` 全绿 + spec 验收标准逐条过；包级测试覆盖该任务 spec 的测试清单。
 - **整体完成**：根目录一键 `yarn build && yarn test && yarn typecheck && yarn lint && yarn format:check && yarn circular` 全绿。
-- T11 的集成验证用内存 fixture（假业务流程程序、假出口），属单元/集成测试范畴，**不接真实业务**。
+- T12 的集成验证用内存 fixture（假业务流程程序、假出口），属单元/集成测试范畴，**不接真实业务**。
 
 ## 6. 范围外（本计划不做）
 
@@ -88,16 +92,17 @@
 - T0：无依赖
 - T1 ← T0
 - T2 ← T1
-- T3 ← T2；T4 ← T2；T5 ← T2
-- T6 ← T1
-- T7 ← T3, T4, T5
-- T8 ← T1
-- T9 ← T1, T6
-- T10 ← T9
-- T11 ← T7, T8, T10
-- T12 ← T11
+- T3 ← T2；T4 ← T2；T5 ← T2, T3
+- T6 ← T1；T7 ← T1
+- T8 ← T3, T4, T5
+- T9 ← T1
+- T10 ← T1, T6
+- T11 ← T10
+- T12 ← T7, T8, T9, T11
 - T13 ← T12
+- T14 ← T13
 
 ## 变更记录
 
 - 2026-09-28：插入 T2 database（core-modules §4.7「SQLite 薄封装、全平台唯一数据访问口」的落地——queue/registry/channel 都需要持久化，不允许各自直接用 node:sqlite），原 T2–T12 顺延为 T3–T13。
+- 2026-09-29：T5 依赖补 T3（Channel 迭代项携带 Task 类型）；EntryAdapter 接口从 T5 移到 T12（装配层接口）；顶级规则「依赖管理四类归宿」定稿（design/dependency-rules.md + AGENTS.md #11）；插入 T7 env（环境变量唯一读取口，规则第 1 类落地），原 T7–T13 顺延为 T8–T14；T6 logger 由 hub 注入改为全局外观（规则第 2 类落地）。

@@ -237,28 +237,9 @@ interface EnvProvider {
 
 ### 4.6 日志模块 Logger
 
-四类日志（系统级 / 入口事件循环 / 出口事件循环 / 业务），error/warn/info 契约性必打，脱敏内建（`design/logging.md`）。业务日志不在本接口内——由流程执行器捕获业务进程 stderr 采集（logging.md §1）。
+四类日志（系统级 / 入口事件循环 / 出口事件循环 / 业务），error/warn/info 契约性必打，脱敏内建（`design/logging.md`）。业务日志不在平台日志接口内——业务经 SDK 的 log API 写 stderr，由流程执行器捕获采集（logging.md §1）。
 
-```ts
-type LogLevel = 'error' | 'warn' | 'info' | 'debug';
-
-/** 关联键即检索键：模块标记决定进哪类日志，关联键用于跨日志互跳 */
-interface LogContext {
-  module: string;            // 必带：system / entry-loop / exit-loop / queue / console / lifecycle …
-  event_id?: string;
-  lifecycle_id?: string;
-  channel_id?: ChannelId;    // 业务通道 source__session_id__business_id；出口通道 exit__destination_id
-  correlation_id?: string;
-}
-
-/** 兼容 console.log 调用习惯的简单封装；脱敏内建于实现，各模块不用各自处理 */
-interface Logger {
-  error(message: string, ctx: LogContext): void;  // 契约性必打：无法继续执行
-  warn(message: string, ctx: LogContext): void;   // 契约性必打：有问题但可继续
-  info(message: string, ctx: LogContext): void;   // 契约性必打：关键节点
-  debug(message: string, ctx: LogContext): void;  // 可选，生产默认关
-}
-```
+落地形态：**全局共享外观**（`design/dependency-rules.md` 第 2 类）——装配根启动时 `initLogger()` 一次（等级等配置初始化后不可变）；各模块 `logger.for({ module, ...固定字段 })` 取绑定式分类日志器，调用只传消息 + 增量自由字段；关联键（event_id / lifecycle_id / channel_id / correlation_id）是保留字段名约定而非类型；脱敏注册表只增不改（例外条款）。接口细节以实现 spec 为准（docs/specs/ T6）。
 
 ### 4.7 基础设施与工具类
 

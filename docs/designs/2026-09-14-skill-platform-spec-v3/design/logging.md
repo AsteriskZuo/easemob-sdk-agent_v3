@@ -18,7 +18,7 @@
 | 能力 | 约定 |
 |------|------|
 | 开关 | 支持全局开启/关闭日志 |
-| 等级 | `error / warn / info / debug`，运行时可配置输出级别 |
+| 等级 | `error / warn / info / debug`，**启动时由环境变量确定，初始化后不可变**（依赖管理规则，见 `design/dependency-rules.md`） |
 | 模块标记 | 每条日志必带模块标识（system / entry-loop / exit-loop / queue / console / lifecycle …） |
 | 时间戳 | 每条日志必带（ISO 8601，带时区） |
 | 封装形态 | 简单封装、**兼容 `console.log` 调用习惯**（Node + TypeScript 技术栈），替换成本为零 |

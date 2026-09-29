@@ -21,15 +21,17 @@
 | T4 registry | 完成 | 2026-09-29 10:09 | 3b54982 |
 | T5 channel | 未开始 | — | — |
 | T6 logger | 未开始 | — | — |
-| T7 scheduler | 未开始 | — | — |
-| T8 exit-tools | 未开始 | — | — |
-| T9 WorkflowRunner + SDK | 未开始 | — | — |
-| T10 AgentService | 未开始 | — | — |
-| T11 server | 未开始 | — | — |
-| T12 管理 API | 未开始 | — | — |
-| T13 console | 未开始 | — | — |
+| T7 env | 未开始 | — | — |
+| T8 scheduler | 未开始 | — | — |
+| T9 exit-tools | 未开始 | — | — |
+| T10 WorkflowRunner + SDK | 未开始 | — | — |
+| T11 AgentService | 未开始 | — | — |
+| T12 server | 未开始 | — | — |
+| T13 管理 API | 未开始 | — | — |
+| T14 console | 未开始 | — | — |
 
 > 2026-09-28 计划变更：插入 T2 database（core-modules §4.7 唯一数据访问口的落地），原 T2–T12 顺延为 T3–T13。
+> 2026-09-29 计划变更：「依赖管理四类归宿」顶级规则定稿；插入 T7 env，原 T7–T13 顺延为 T8–T14；T6 logger 改为全局外观形态。
 
 ## 任务记录
 
