@@ -20,7 +20,7 @@
 | entry-loop | 入口循环的机械流水（取出→匹配→挂通道→闸门→spawn→完结/扇出） | `{logsDir}/entry-loop.log` |
 | exit-loop | 出口投递流水（归属匹配→绑定→目标→投递结果/重试/死信） | `{logsDir}/exit-loop.log` |
 
-- **业务日志不归本包上层管**：业务流程程序通过业务 SDK 的 log API 记录（SDK → 业务进程 stderr → WorkflowRunner 捕获），T9 追加到 `businesses/{session_id}/{business_id}/logs/{run_id}.log` 时直接使用本包**底层**的 `createFileLogger`（通用单文件写口，不需要任何业务特殊化 API）。
+- **业务日志不归本包上层管**：业务流程程序通过业务 SDK 的 log API 记录（SDK → 业务进程 stderr → WorkflowRunner 捕获），T9 追加到 `businesses/{source}/{session_id}/{business_id}/logs/{run_id}.log`（三维与 channel_id 对齐）时直接使用本包**底层**的 `createFileLogger`（通用单文件写口，不需要任何业务特殊化 API）。
 - **依赖管理规则（必须遵守）**：平台日志外观属第 2 类「全局共享」——模块级单例外观（包内内部实例 + 导出委托，不用 class static）；装配根 init 一次；**未初始化就调用 = 抛错**；**初始化后配置不可变**；提供 `resetForTests()`。唯一例外：脱敏注册表**只增不改**（业务密钥运行期才出现，只能运行时登记；append-only 无行为分叉）。
 - **关联键是命名约定，不是类型**：`event_id` / `lifecycle_id` / `channel_id` / `correlation_id` 是保留字段名（有就用这些名字，保证跨日志互跳的检索一致性），任何模块都可附加自由字段。
 - **纪律**：error/warn/info 三级契约性必打（调用方职责），debug 可选；脱敏内建（注册敏感值，输出前子串替换为 `***`）；写盘异常降级 console 兜底，**日志管道自身永不使平台崩溃**；文件分割不做（交 logrotate）。
@@ -58,7 +58,8 @@ packages/logger/
 
 ```ts
 /** 与 Node console 对应方法签名严格一致——console.debug(...) 与 fileLogger.debug(...)
- *  可无脑互相替换；可移植到任何 Node 项目独立使用 */
+ *  可无脑互相替换；可移植到任何 Node 项目独立使用。四个方法语义与 console 完全对齐：
+ *  多参数 util.format 拼接、占位符 %s/%d/%j、对象 inspect */
 export interface ConsoleLike {
   error(...args: unknown[]): void;
   warn(...args: unknown[]): void;
@@ -96,6 +97,7 @@ export type LogFields = Record<string, unknown>;
 
 /** 中层：绑定固定上下文的分类日志器。调用只传消息 + 本次增量字段 */
 export interface CategoryLogger {
+  /** 四级方法与 console 级别语义一致；message 为主消息，fields 为本次增量字段（与绑定字段合并，同名覆盖） */
   error(message: string, fields?: LogFields): void;
   warn(message: string, fields?: LogFields): void;
   info(message: string, fields?: LogFields): void;
@@ -106,10 +108,10 @@ export interface CategoryLogger {
 }
 
 export interface LoggerInitOptions {
-  logsDir: string;
+  logsDir: string;                       // 平台日志目录（system/entry-loop/exit-loop 三个文件写在这里）
   level?: LogLevel;                    // 默认 'info'；初始化后不可变
   enabled?: boolean;                   // 默认 true；初始化后不可变
-  secrets?: readonly string[];
+  secrets?: readonly string[];         // 初始脱敏值列表；运行期新增走 logger.addSecrets
 }
 
 /** 全局外观初始化：仅装配根启动时调用一次；重复调用抛错。

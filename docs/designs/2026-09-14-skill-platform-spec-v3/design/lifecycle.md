@@ -22,7 +22,7 @@
 
 业务流程程序与 agent 调用一律在独立子进程中执行。稳定性目标与四道机械防线（子进程隔离、超时强杀、输出上限、agent 配额）的唯一定义处：`design/business-workflow.md` §6。
 
-- **任务级 workspace 隔离**：每次执行使用独立运行目录（`businesses/{session_id}/{business_id}/runs/{run_id}/`，见 `design/console-design.md` §6）；
+- **任务级 workspace 隔离**：每次执行使用独立运行目录（`businesses/{source}/{session_id}/{business_id}/runs/{run_id}/`，见 `design/console-design.md` §6）；
 - **冷启动**：按需唤起有启动开销——常用程序可热池预热。
 
 ## 4. 超时

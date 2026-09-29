@@ -75,15 +75,15 @@ export type EventSource =
   | 'wecom' | 'jira' | 'github' | 'webhook' | 'cron' | 'internal' | 'manual';
 
 export interface EventEnvelope {
-  contract_version: ContractVersion;
-  source: EventSource;
-  event_id: string;
-  event_type: string;
+  contract_version: ContractVersion; // 信封结构版本，恒为 'v1'；版本路由靠它，类型名不缀版本号
+  source: EventSource;               // 入口来源（internal = 平台内派生事件）
+  event_id: string;                  // 全局唯一锚点，兼作入口幂等键（源生事件重推按它丢弃）
+  event_type: string;                // 类别标签（非实例标识），业务关注匹配的键
   timestamp: string;             // ISO 8601 带时区
-  session_id: string;
-  correlation_id: string;
-  hop_count: number;
-  payload: unknown;
+  session_id: string;                // 源生会话标识（群 id / 工单 key 等），不透明字符串
+  correlation_id: string;            // 整条派生链首个任务的 event_id，全链追溯用
+  hop_count: number;                 // 派生转发计数（派生 +1），防循环订阅
+  payload: unknown;                  // 事件数据载体，结构由来源自定义；派生事件的 payload = 业务产出
   producer_business_id?: string; // 仅 internal 派生事件填写
 }
 
@@ -109,8 +109,8 @@ export function validateEnvelope(input: unknown): ValidationResult;
 export const SEGMENT_SEPARATOR = '__';
 
 export type ChannelId =
-  | { kind: 'business'; source: string; sessionId: string; businessId: string }
-  | { kind: 'exit'; destinationId: string };
+  | { kind: 'business'; source: string; sessionId: string; businessId: string } // 业务通道三维
+  | { kind: 'exit'; destinationId: string }; // 出口通道：投递目标标识
 
 /** 段合法性：非空、不含 '__'、不含 '/' '\\' ':' 及控制字符；非法抛 ChannelIdError */
 export function assertSafeSegment(segment: string): void;

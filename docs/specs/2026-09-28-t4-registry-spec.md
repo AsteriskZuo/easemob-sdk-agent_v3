@@ -61,25 +61,26 @@ export interface BusinessMatch {
 
 /** 出口绑定：业务配置的一部分。config 只存非机密项 */
 export interface ExitBinding {
-  business_id: string;
+  business_id: string;       // 归属业务 = 出口循环的归属匹配键
   tool: string;               // 出口工具 kind
   config: Record<string, string>;
 }
 
 /** 业务级字段补丁（行级字段 source/event_type 不可 patch——改匹配 = 增删行） */
 export interface BusinessPatch {
-  business_name?: string;
-  on_failure?: boolean;
+  business_name?: string;          // 展示名
+  on_failure?: boolean;            // 失败也扇出开关
   exit_bindings?: ExitBinding[];   // 全量替换该业务的出口绑定
 }
 
+/** 创建业务输入（含首个匹配行） */
 export interface CreateBusinessInput {
-  business_name: string;
-  creator_id: string;
+  business_name: string;      // 展示名，可修改
+  creator_id: string;         // 创建者账号 id，不可修改（权限归属判定用）
   source: EventSource;        // 首个匹配行
   event_type: string;
-  on_failure?: boolean;
-  exit_bindings?: Array<{ tool: string; config: Record<string, string> }>;
+  on_failure?: boolean;       // 缺省 false
+  exit_bindings?: Array<{ tool: string; config: Record<string, string> }>; // 缺省无绑定
 }
 
 export interface BusinessRegistry {

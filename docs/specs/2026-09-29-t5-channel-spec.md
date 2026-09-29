@@ -51,34 +51,40 @@ import type { Task } from '@easemob/agent-queue';
 
 /** 挂入通道的一项：任务 + 关注者（关注者类型各循环自定，本包不解释） */
 export interface ChannelItem<T = unknown> {
-  task: Task;
-  watcher: T;
+  task: Task;      // 队列任务（本体已在任务队列持久化，此处只持有引用）
+  watcher: T;      // 关注者：入口循环 = BusinessMatch，出口循环 = ExitBinding
 }
 
 /** 通道：同通道严格串行的虚拟执行链。AsyncIterable——消化循环 for await 逐项取出。
  *  迭代器在队列空时结束（用完即焚）；之后再有 enqueue 须能重新迭代（经 onActivate 重启 drain） */
 export interface Channel extends AsyncIterable<ChannelItem> {
   readonly key: string;      // channel_id 字符串
+  /** 挂入 (task, 关注者)；同通道上一次消化未完结则排队。空闲通道挂入时触发 onActivate */
   enqueue(task: Task, watcher: unknown): void;
 }
 
 /** 通道池：按 channel_id 取或建（创建即落库） */
 export interface ChannelPool {
+  /** 取或建通道；同键返回同一实例 */
   get(key: string): Channel;
   /** 通道激活回调：空闲通道挂入任务时触发（每个 ChannelPool 只注册一次） */
   onActivate(cb: (channel: Channel) => void): void;
 }
 
+/** 创建通道池。db 为全平台唯一数据访问口（@easemob/agent-database） */
 export function createChannelPool(db: Database): ChannelPool;
 
 /** 业务通道 channel_id ↔ agent-cli 会话 id 映射。只管业务通道（exit__ 前缀的键调用即抛错） */
 export interface ChannelStore {
+  /** 绑定/重绑：INSERT OR REPLACE 语义 */
   bindAgentSession(channelId: string, agentSessionId: string): void;
+  /** 查映射；未命中返回 undefined */
   getAgentSession(channelId: string): string | undefined;
   /** 清空：解除映射；下次触发即重绑新会话（通道标识不变，历史按时间追溯） */
   clear(channelId: string): void;
 }
 
+/** 创建映射存储。与 ChannelPool 共用 module 'channel' 的同一份迁移 */
 export function createChannelStore(db: Database): ChannelStore;
 ```
 

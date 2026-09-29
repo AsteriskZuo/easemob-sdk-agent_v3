@@ -51,17 +51,18 @@ export type TaskStatus = 'pending' | 'processing' | 'done' | 'dead';
 
 /** 队列中的任务 = 事件 + 消化状态 */
 export interface Task {
-  task_id: string;
-  event: EventEnvelope;
+  task_id: string;           // 任务 id：'task_' + ULID，入队时生成
+  event: EventEnvelope;      // 任务携带的事件信封（落库为 JSON）
   status: TaskStatus;
   enqueued_at: string;   // ISO 8601
   finished_at?: string;  // complete/deadLetter 时写入
 }
 
+/** 控制台查询过滤条件；多条件为 AND，空 filter 返回全部 */
 export interface TaskFilter {
   status?: TaskStatus;
   event_id?: string;
-  correlation_id?: string;
+  correlation_id?: string;   // 按信封内 correlation_id 过滤（json_extract）
 }
 
 export interface TaskQueue {
