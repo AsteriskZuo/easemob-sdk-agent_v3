@@ -447,6 +447,19 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@easemob/agent-exit-tools@workspace:packages/exit-tools":
+  version: 0.0.0-use.local
+  resolution: "@easemob/agent-exit-tools@workspace:packages/exit-tools"
+  dependencies:
+    "@jest/globals": "npm:^29.7.0"
+    "@types/nodemailer": "npm:^8.0.2"
+    esbuild: "npm:^0.28.1"
+    jest: "npm:^29.7.0"
+    nodemailer: "npm:^10.0.12"
+    typescript: "npm:^5.9.0"
+  languageName: unknown
+  linkType: soft
+
 "@easemob/agent-logger@npm:0.1.0, @easemob/agent-logger@workspace:packages/logger":
   version: 0.0.0-use.local
   resolution: "@easemob/agent-logger@workspace:packages/logger"
@@ -492,6 +505,30 @@ __metadata:
     "@easemob/agent-logger": "npm:0.1.0"
     "@easemob/agent-queue": "npm:0.1.0"
     "@easemob/agent-registry": "npm:0.1.0"
+    "@jest/globals": "npm:^29.7.0"
+    esbuild: "npm:^0.28.1"
+    jest: "npm:^29.7.0"
+    typescript: "npm:^5.9.0"
+  languageName: unknown
+  linkType: soft
+
+"@easemob/agent-sdk@workspace:packages/sdk":
+  version: 0.0.0-use.local
+  resolution: "@easemob/agent-sdk@workspace:packages/sdk"
+  dependencies:
+    "@jest/globals": "npm:^29.7.0"
+    esbuild: "npm:^0.28.1"
+    jest: "npm:^29.7.0"
+    typescript: "npm:^5.9.0"
+  languageName: unknown
+  linkType: soft
+
+"@easemob/agent-workflow-runner@workspace:packages/workflow-runner":
+  version: 0.0.0-use.local
+  resolution: "@easemob/agent-workflow-runner@workspace:packages/workflow-runner"
+  dependencies:
+    "@easemob/agent-contracts": "npm:0.1.0"
+    "@easemob/agent-logger": "npm:0.1.0"
     "@jest/globals": "npm:^29.7.0"
     esbuild: "npm:^0.28.1"
     jest: "npm:^29.7.0"
@@ -1254,6 +1291,15 @@ __metadata:
   dependencies:
     undici-types: "npm:>=7.24.0 <7.24.7"
   checksum: 10c0/f38afca05eb323a01243aa06a4cb8e69ef3423e1115e4464a211c6556156c024bb80fadeb7e3691802a247e7e653b70bad8c528b291153e4f48fccecc6159735
+  languageName: node
+  linkType: hard
+
+"@types/nodemailer@npm:^8.0.2":
+  version: 8.0.2
+  resolution: "@types/nodemailer@npm:8.0.2"
+  dependencies:
+    "@types/node": "npm:*"
+  checksum: 10c0/1ad3f83ac130cf9af65ce9eb7985b08b27b4723316c2be621522effc31c63d7d2d76880815490499fbe8b1aff3da889d24b54b3db892526d1166b12702404ff0
   languageName: node
   linkType: hard
 
@@ -3484,6 +3530,13 @@ __metadata:
   version: 2.0.57
   resolution: "node-releases@npm:2.0.57"
   checksum: 10c0/fe5b68fba1fef524243b54828a118f13a4a40db08bb42c0b92680c3ca5c246f4ae6f139515071d46b9a3a9195945f5ac78064f5b7674c4dcc3dd6bfe933ff9e8
+  languageName: node
+  linkType: hard
+
+"nodemailer@npm:^10.0.12":
+  version: 10.0.12
+  resolution: "nodemailer@npm:10.0.12"
+  checksum: 10c0/1d816272d9b611f3dde6b9b25cb69a54dba558cc4655b60c620d96fee6bedda3c30ae1c002a30c6e45690559324f06a35b7e585d18ae64c303dc2eebc5e6a184
   languageName: node
   linkType: hard
 
