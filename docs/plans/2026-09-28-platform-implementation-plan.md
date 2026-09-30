@@ -16,7 +16,8 @@
 │   ├── logger/             # 日志：ConsoleLike 底层 + 全局外观（规则第 2 类）
 │   ├── env/                # 环境变量唯一读取口（规则第 1 类）
 │   ├── scheduler/          # 双调度循环 + 并发闸门 + hop_count + on_failure
-│   ├── runtime/            # Lifecycle 四步时序 + WorkflowRunner + AgentService
+│   ├── runtime/            # Lifecycle 四步时序 + ContextLoader（业务上下文组装）
+│   ├── package-registry/   # 程序包注册表：登记/清单校验/物化/名解析
 │   └── exit-tools/         # 出口工具群（统一 ExitTool 接口）
 ├── sdk/                    # @easemob/agent-sdk，业务 SDK（唯一面向业务用户的包）
 ├── app/
@@ -53,10 +54,12 @@
 | T9 | `@easemob/agent-exit-tools` | ExitTool 接口 + 3 实现（企微群 webhook/邮件/自定义 webhook）+ 4 占位 | T1 | [spec](../specs/2026-09-29-t9-exit-tools-spec.md) | [x] |
 | T10 | WorkflowRunner + `@easemob/agent-sdk` | 业务子进程契约两侧同批实现（socket wire 协议唯一定义） | T1 T6 | [spec](../specs/2026-09-29-t10-workflow-runner-sdk-spec.md) | [x] |
 | T11 | AgentService（packages/agent-service） | unix socket + 一次性 token + spawn pi + 配额 + 审计落盘 | T10 | 2026-09-29-t11-agent-service-spec.md | [x] |
-| T12 | `app/server` | 平台装配 + EntryAdapter 接口 + webhook 入口适配器 + 启动自检 | T7 T8 T9 T11 | 执行前编写 | [ ] |
+| T15 | 程序包模板 | `templates/agent-package/`：拷贝即用的包骨架（清单 + sdk 依赖 + lint/test/format/circular 同平台 + 示例 program/skill） | T10 | 2026-09-29-t15-package-template-spec.md | [x] |
+| T16 | `@easemob/agent-package-registry` | 程序包注册表：登记（git/上传双模）+ 清单机械校验 + 物化 + 名解析纯函数 | T2 | [spec](../specs/2026-09-30-t16-package-registry-spec.md) | [ ] |
+| T17 | `@easemob/agent-runtime` | Lifecycle 四步时序 + ContextLoader；顺带扩 registry 业务资料字段（prompt/model/package_bindings/quota/入口配置） | T4 T10 T11 T16 | 执行前编写 | [ ] |
+| T12 | `app/server` | 平台装配 + EntryAdapter 接口 + webhook 入口适配器 + 启动自检 | T7 T8 T9 T17 | 执行前编写 | [ ] |
 | T13 | 管理 API | server 侧 console 接口（契约补入 contracts） | T12 | 执行前编写 | [ ] |
 | T14 | `app/console` | React + Vite SPA，调管理 API | T13 | 执行前编写 | [ ] |
-| T15 | 程序包模板 | `templates/agent-package/`：拷贝即用的包骨架（清单 + sdk 依赖 + lint/test/format/circular 同平台 + 示例 program/skill） | T10 | 2026-09-29-t15-package-template-spec.md | [x] |
 
 ## 4. 执行批次（并发 ≤2）
 
@@ -70,9 +73,11 @@
 批次6：T8
 批次7：T9 ‖ T10
 批次8：T11 ‖ T15
-批次9：T12
-批次10：T13
-批次11：T14
+批次9：T16
+批次10：T17
+批次11：T12
+批次12：T13
+批次13：T14
 ```
 
 ## 5. 验证策略
@@ -99,13 +104,16 @@
 - T9 ← T1
 - T10 ← T1, T6
 - T11 ← T10
-- T12 ← T7, T8, T9, T11
+- T15 ← T10
+- T16 ← T2
+- T17 ← T4, T10, T11, T16
+- T12 ← T7, T8, T9, T17
 - T13 ← T12
 - T14 ← T13
-- T15 ← T10
 
 ## 变更记录
 
 - 2026-09-28：插入 T2 database（core-modules §4.7「SQLite 薄封装、全平台唯一数据访问口」的落地——queue/registry/channel 都需要持久化，不允许各自直接用 node:sqlite），原 T2–T12 顺延为 T3–T13。
 - 2026-09-29：T5 依赖补 T3（Channel 迭代项携带 Task 类型）；EntryAdapter 接口从 T5 移到 T12（装配层接口）；顶级规则「依赖管理四类归宿」定稿（design/dependency-rules.md + AGENTS.md #11）；插入 T7 env（环境变量唯一读取口，规则第 1 类落地），原 T7–T13 顺延为 T8–T14；T6 logger 由 hub 注入改为全局外观（规则第 2 类落地）。
 - 2026-09-29：七类数据分类定稿（console-design §6 重写，businesses/ 目录消解为 config.json + data/ + content/ + cache/ + runs/ + logs/）；资产单元从 skill 更正为程序包（skill-package.md → package-model.md 重写为模型+作者指南）；SDK 迁 packages/sdk/ 并允许依赖零依赖纯包；插入 T15 程序包模板（批次8 与 T11 并行）。
+- 2026-09-30：补三个计划缺口——① 插入 T16 package-registry（core-modules §4.4 定义了 PackageRegistry、工程树画了它，任务表无人认领）；② 插入 T17 runtime（Lifecycle 四步时序 + ContextLoader 悬空：WorkflowRunner/AgentService 已独立成包，core-modules §4.1 的 ContextLoader 与 §4.2 的四步时序无人落地；T17 顺带扩 registry 业务资料字段——prompt/model/package_bindings/quota/入口配置，消费方最清楚要什么故并入而非单开任务）；③ T12 依赖改为 T7 T8 T9 T17。批次 9-13 顺延。
