@@ -1,6 +1,7 @@
 # 平台实现总计划
 
 > 本计划是实现的唯一执行入口：任务拆分、依赖关系、进度追踪都在此。任务规格（spec）在 `docs/specs/`，**spec 自包含，执行子 agent 只读 spec 与本计划**。
+> **接手者先读**：[交接说明](./2026-09-30-handoff.md)（当前快照、剩余工作、工作模式、交互习惯）。
 > 目标：平台全部模块实现完成、全部检查（build/test/typecheck/lint/format/circular）通过。**真实业务接入与验收（如单轮审查工单）不在本计划范围**，由用户之后手动进行。
 > 所有任务遵守顶级工程规则：**依赖管理四类归宿**（`docs/designs/2026-09-14-skill-platform-spec-v3/design/dependency-rules.md`）。
 
