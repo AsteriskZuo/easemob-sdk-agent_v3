@@ -214,3 +214,4 @@
 - commit：10d8b66
 - 设计修订随附（前置提交 7f47c02）：私有仓库凭据机制定案——`is_private` + `credential_key`（只存名字不存值）、凭据按**操作者维度**由调用方解析传入、进程内临时改写 https url 注入 + 错误脱敏、ssh url 不支持注入；平台不建读写权限模型（token 即权限）；总纲提示词补入组成公式（业务资料字段、不是资产、不共享）；AGENTS.md 沉淀「主动补全细节」核心原则（6f78da0）。
 - 子代理合理裁决（主 agent 确认）：`commit` 是 SQLite 保留字，列名加双引号建表（列名不变）；`git ls-remote` 需同时传 `<ref>` 与 `<ref>^{}` 两个 pattern 才能拿到注解 tag 剥离行。
+- 后续修订（commit 56f5590，用户审出）：`requires` 收为 **package 专属字段**——工具是叶子组件（机械能力、零 token），tool 清单出现 requires 即 `validation_failed`（防误配，也避免传递依赖解析与循环防判的复杂度）；AssetManifest 判别联合随之拆为 package/tool/skill 三支。asset-model §5.1 / T16 spec / T17 spec 同步。
