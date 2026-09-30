@@ -25,11 +25,12 @@
 | T8 scheduler | 完成 | 2026-09-29 14:45 | 9175cef |
 | T9 exit-tools | 完成 | 2026-09-29 | 27eea75 |
 | T10 WorkflowRunner + SDK | 完成 | 2026-09-29 | 84f0d77 |
-| T11 AgentService | 未开始 | — | — |
+| T11 AgentService | 完成 | 2026-09-29 | 7aa0105 |
 | T12 server | 未开始 | — | — |
 | T13 管理 API | 未开始 | — | — |
 | T14 console | 未开始 | — | — |
-| T15 程序包模板 | 未开始 | — | — |
+| T15 程序包模板 | 完成 | 2026-09-29 | 728488b |
+| T16 asset-registry | 完成 | 2026-09-30 22:31 | 10d8b66 |
 
 > 2026-09-28 计划变更：插入 T2 database（core-modules §4.7 唯一数据访问口的落地），原 T2–T12 顺延为 T3–T13。
 > 2026-09-29 计划变更：「依赖管理四类归宿」顶级规则定稿；插入 T7 env，原 T7–T13 顺延为 T8–T14；T6 logger 改为全局外观形态。
@@ -203,3 +204,13 @@
 - commit：4618117（设计文档）
 - 内容：资产单元从单一程序包演进为三族——包（业务代码单位，不共享）/ 工具（可复用代码组件）/ skill（可复用提示词组件）；git 三元组（url+commit+子路径）标识、属主 + 共享标记（创建时定、不可改）；EnvProvider 三类并为普通/安全两桶；平台不再内置资产（无 public/packages/、无 content/ 母本树）。`package-model.md` 删除，`asset-model.md` 全新编写；glossary 新增「核心组成关系」整体说明；core-modules/console-design/accounts/scheduler-loop-contracts/security/business-workflow/骨架同步。
 - 影响：T16 spec 重写为 asset-registry（原 package-registry spec 作废，spec 文件改名 2026-09-30-t16-asset-registry-spec.md）；T17 描述同步（EnvProvider 两桶 + 资产绑定三族纳入）；T15 模板需小幅修订（清单删 skills、删内嵌示例 skill、main.ts 示例注释），随 T16 批次一并处理；T1–T11 已提交代码零改动（grep 证实 packages/ 内无可见性/services/资产相关代码）。
+
+### T16 asset-registry
+
+- 状态：完成
+- 子 agent：agent-18（单发）
+- 开始/完成：2026-09-30 22:31
+- 验收证据：主 agent 独立复验——asset-registry 38 测试全过（2 套件，覆盖 spec §6 全部条目：ref 解析含注解 tag、幂等/属主维度唯一性、私有凭据流程、脱敏哨兵、ssh 拒绝、materialize 幂等与补拉、四类 validation_failed、持久化重开）、根六连全绿（build/test/typecheck/lint/format:check/circular）
+- commit：10d8b66
+- 设计修订随附（前置提交 7f47c02）：私有仓库凭据机制定案——`is_private` + `credential_key`（只存名字不存值）、凭据按**操作者维度**由调用方解析传入、进程内临时改写 https url 注入 + 错误脱敏、ssh url 不支持注入；平台不建读写权限模型（token 即权限）；总纲提示词补入组成公式（业务资料字段、不是资产、不共享）；AGENTS.md 沉淀「主动补全细节」核心原则（6f78da0）。
+- 子代理合理裁决（主 agent 确认）：`commit` 是 SQLite 保留字，列名加双引号建表（列名不变）；`git ls-remote` 需同时传 `<ref>` 与 `<ref>^{}` 两个 pattern 才能拿到注解 tag 剥离行。
