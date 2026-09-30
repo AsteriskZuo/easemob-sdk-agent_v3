@@ -523,6 +523,18 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@easemob/agent-service@workspace:packages/agent-service":
+  version: 0.0.0-use.local
+  resolution: "@easemob/agent-service@workspace:packages/agent-service"
+  dependencies:
+    "@easemob/agent-logger": "npm:0.1.0"
+    "@jest/globals": "npm:^29.7.0"
+    esbuild: "npm:^0.28.1"
+    jest: "npm:^29.7.0"
+    typescript: "npm:^5.9.0"
+  languageName: unknown
+  linkType: soft
+
 "@easemob/agent-workflow-runner@workspace:packages/workflow-runner":
   version: 0.0.0-use.local
   resolution: "@easemob/agent-workflow-runner@workspace:packages/workflow-runner"
