@@ -148,7 +148,7 @@ interface BusinessContext {
   skills: SkillObject[];      // 本业务选用的 skill：sdk.agent() 的白名单校验依据
   agent: AgentCliObject;      // agent 内核引用 + 配置（MVP 仅 pi）
   model: ModelObject;         // 大模型选择
-  env: EnvConfig;             // 环境/安全/专用配置，按业务隔离注入业务进程
+  env: EnvConfig;             // 普通/安全两桶 key-value，按业务隔离注入业务进程
   channel: ChannelRef;        // 通道映射引用：agent 服务据此恢复/绑定会话
   workspace: string;          // run 隔离目录 runs/{source}/{session_id}/{business_id}/{run_id}/
   endpoint: ServiceEndpoint;  // agent 调用服务端点：unix socket + 一次性 token
@@ -160,11 +160,11 @@ interface PromptObject {
   content: string;
 }
 
-/** skill 最小视图（完整模型见 design/package-model.md §6/§7） */
+/** skill 最小视图（完整模型见 design/asset-model.md §5.2/§6） */
 interface SkillObject {
-  skill_id: string;           // 所在包的 asset_id + 包内路径（名解析规则见 package-model §7）
-  name: string;               // sdk.agent 请求里的引用名（白名单校验键）
-  path: string;               // 物化后的包内 skill 绝对路径：agent 调用时经 --skill 白名单注入（机制见 package-model §10）
+  skill_id: string;           // 所属 skill 资产的 asset_id + 资产内路径（名解析规则见 asset-model §6）
+  name: string;               // sdk.agent 请求里的引用名（白名单校验键；= 集合内目录名）
+  path: string;               // 物化后的 skill 目录绝对路径：agent 调用时经 --skill 白名单注入（机制见 asset-model §10）
 }
 
 /** agent 内核最小视图（pi 为唯一内核，见 design/lifecycle.md §5） */
@@ -179,11 +179,10 @@ interface ModelObject {
   params?: Record<string, unknown>;
 }
 
-/** 环境配置对象：控制台 key-value 的运行时读取面 */
+/** 环境配置对象：控制台 key-value 的运行时读取面——普通/安全两桶（github/jira 等账号凭证本质也是 key-value，不设第三类） */
 interface EnvConfig {
-  vars: Record<string, string>;          // 环境变量
-  secrets: Record<string, string>;       // 安全变量：运行时注入，不落盘不进日志
-  services: Record<string, Record<string, string>>; // 专用配置：github / wecom / jira
+  vars: Record<string, string>;          // 普通桶：环境变量
+  secrets: Record<string, string>;       // 安全桶：运行时注入，不落盘不进日志
 }
 
 /** 通道映射引用（四操作归通道模块，循环只持有引用并注入 agent 调用） */
@@ -534,7 +533,7 @@ declare function deriveEvent(e: Event, bm: BusinessMatch, result: ExecutionResul
 /** 生命周期创建：生成 lifecycle_id，打标 created（归生命周期模块） */
 declare function createLifecycle(business_id: string, task: Task): Lifecycle;
 
-/** 出口配置解析：绑定配置与 EnvProvider 专用配置中的机密项合并（实现归环境配置模块） */
+/** 出口配置解析：绑定配置与 EnvProvider 安全桶中对应机密项（`exit.{tool}.` 前缀 key）合并（实现归环境配置模块） */
 declare function resolveExitConfig(binding: ExitBinding): Record<string, string>;
 ```
 

@@ -1,6 +1,6 @@
 # 核心模块与接口
 
-> 日期：2026-09-15（2026-09-26 修订：双循环、出口工具群、出口绑定。2026-09-27 修订：代码即流程——AgentSlot 拆解为 WorkflowRunner + AgentService，新增业务 SDK）
+> 日期：2026-09-15（2026-09-26 修订：双循环、出口工具群、出口绑定。2026-09-27 修订：代码即流程——AgentSlot 拆解为 WorkflowRunner + AgentService，新增业务 SDK。2026-09-30 修订：资产三族（包/工具/skill），PackageRegistry → AssetRegistry；EnvProvider 三类并为普通/安全两桶；平台不再内置资产）
 > 状态：定稿
 > 范围：**核心模块清单 + 各模块公开接口（TS）+ 工程结构**。已在《调度循环契约》《设置模块契约》中定义的接口（Event、TaskQueue、BusinessRegistry、ProcessingChain、BusinessContext、Lifecycle、ExitTool、Exit、ExitBinding、ExitRegistry、Channel/ChannelPool、Semaphore、PlatformConfig、ConfigStore）此处只引用不重复。
 > 依据：骨架 `skill-platform-spec-v3.md` §2 架构分层 + `design/` 各节点文档 + 调度循环契约与设置契约。
@@ -34,12 +34,12 @@ easemob-agent（模块化单体）
 │   ├── 生命周期     Lifecycle          # 单次执行 = spawn 业务流程程序，跑完即销毁
 │   ├── 流程执行器   WorkflowRunner     # spawn 业务流程程序的薄原语（子进程契约、超时、输出上限）
 │   └── agent 服务   AgentService       # sdk.agent() 的另一端：socket 服务 + pi 子进程执行
-├── 程序包仓（动态加载）
-│   └── 程序包注册表 PackageRegistry  # 公共/账号/业务三级可见；引用或上传双模；asset_id 兼任编号
+├── 资产仓（git 登记，物化执行）
+│   └── 资产注册表 AssetRegistry    # 三族资产（包/工具/skill）：git 三元组标识；共享标记仅工具/skill
 ├── 平台公共模块
 │   ├── 通道模块     ChannelStore     # 业务通道 channel_id↔agent 会话映射 + 四操作的平台侧部分
 │   ├── 出口注册表   ExitRegistry     # 内置出口工具菜单的登记与取用
-│   ├── 环境配置     EnvProvider      # 通用/专用 key-value，业务级优先
+│   ├── 环境配置     EnvProvider      # 普通/安全两桶 key-value，业务级优先
 │   ├── 设置模块     ConfigStore      # 全局/业务设置，含权限校验
 │   └── 日志模块     Logger           # 四类日志（系统/入口循环/出口循环），脱敏内建
 ├── 基础设施与工具                   # 被所有模块依赖，不反向依赖任何业务模块
@@ -50,7 +50,7 @@ easemob-agent（模块化单体）
     └── 账号体系（`design/accounts.md`）
 ```
 
-说明：**出口与入口对称**（已定决策）——出口 = 出口事件循环 + 出口工具群（内置投递器模块，不是 skill）。业务结果无脑扇出到两个队列：入口队列由关注业务消化（订阅匹配），出口队列由产出方业务的出口绑定消化（归属匹配，不过 LLM、毫秒级）。注意区分两类「触达能力」：**结果投递**归出口工具；**执行内调用**（如审查过程中读写 Jira）以公共程序包内的 skill/子程序由程序包仓提供。
+说明：**出口与入口对称**（已定决策）——出口 = 出口事件循环 + 出口工具群（内置投递器模块，不是 skill）。业务结果无脑扇出到两个队列：入口队列由关注业务消化（订阅匹配），出口队列由产出方业务的出口绑定消化（归属匹配，不过 LLM、毫秒级）。注意区分两类「触达能力」：**结果投递**归出口工具（平台内置模块）；**执行内调用**（如审查过程中读写 Jira）归工具资产（git 仓库登记，`sdk.run` 按名调用，见 `design/asset-model.md`）。
 
 模块明细：
 
@@ -69,8 +69,8 @@ easemob-agent（模块化单体）
 | 11 | agent 服务 AgentService | 内核 | sdk.agent() 的另一端：per-run socket + pi 子进程执行 + 配额与审计 | `AgentService`（§4.2） | 业务流程程序（经 socket，非 import） |
 | 12 | 通道模块 ChannelStore | 公共 | 业务通道 channel_id↔agent 会话映射 + 四操作中的平台侧部分 | `ChannelStore`（§4.3） | 业务组装器、agent 服务 |
 | 13 | 出口注册表 ExitRegistry | 公共 | 内置出口工具菜单的登记与取用 | `ExitRegistry`（循环契约 §6） | 出口循环、控制台 |
-| 14 | 程序包注册表 PackageRegistry | 程序包仓 | 登记/列表/取用/物化程序包，asset_id 兼任 id | `PackageRegistry`（§4.4） | 控制台、业务组装器 |
-| 15 | 环境配置 EnvProvider | 公共 | 按业务合并通用/专用 key-value，运行时注入 | `EnvProvider`（§4.5） | 业务组装器、出口循环（出口凭证解析）、控制台 |
+| 14 | 资产注册表 AssetRegistry | 资产仓 | 登记/列表/取用/物化三族资产（包/工具/skill），asset_id = 属主+git 三元组编码 | `AssetRegistry`（§4.4） | 控制台、业务组装器 |
+| 15 | 环境配置 EnvProvider | 公共 | 普通/安全两桶 key-value 按业务合并，运行时注入 | `EnvProvider`（§4.5） | 业务组装器、出口循环（出口凭证解析）、控制台 |
 | 16 | 设置模块 ConfigStore | 公共 | 全局/业务设置统一读写（含权限校验） | `ConfigStore`（设置契约） | 控制台、内核各模块（只读） |
 | 17 | 日志模块 Logger | 公共 | 四类日志（系统/入口循环/出口循环；业务日志由执行器采集）、四级契约性输出、脱敏内建 | `Logger`（§4.6） | 全部模块 |
 | 18 | 数据库 Database | 基础设施 | SQLite 薄封装：全平台唯一数据访问口，保薄抽象 | `Database`（§4.7） | 全部持久化模块 |
@@ -86,7 +86,7 @@ easemob-agent（模块化单体）
 入口群 ──▶ TaskQueue(入口) / Logger   # 会话标识直接从事件提取（channel-model §4），入口不再需要会话存储
 入口循环 ──▶ TaskQueue(入口/出口) / BusinessRegistry / ContextLoader / Lifecycle / ChannelPool / PlatformConfig / Logger
 出口循环 ──▶ TaskQueue(出口) / BusinessRegistry(出口绑定) / ExitRegistry / ChannelPool / EnvProvider / PlatformConfig / Logger
-ContextLoader ──▶ BusinessRegistry / PackageRegistry / EnvProvider / ChannelStore
+ContextLoader ──▶ BusinessRegistry / AssetRegistry / EnvProvider / ChannelStore
 Lifecycle ──▶ WorkflowRunner / Logger
 WorkflowRunner ──▶ Logger                      # spawn 业务流程程序（子进程，非 import）
 AgentService ──▶ ChannelStore / Logger          # 经 socket 服务业务进程（非 import）；内部 spawn pi 子进程
@@ -123,7 +123,7 @@ Console ──▶ 全部公开接口（只经接口，不碰内部存储；与�
 匹配、依赖、门禁、闸门全部通过之后才调用——没通过的检查不触发任何重数据加载。
 
 ```ts
-/** 按业务 id 组装可执行上下文：注册表取组合体声明 → PackageRegistry 物化绑定包并取清单 →
+/** 按业务 id 组装可执行上下文：注册表取组合体声明 → AssetRegistry 物化绑定资产并取清单 →
  *  EnvProvider 取环境配置 → ChannelStore 取通道映射引用 → PlatformConfig 取超时 */
 interface ContextLoader {
   load(business_id: string, channel_id: ChannelId): BusinessContext;
@@ -186,39 +186,42 @@ interface ChannelStore {
 - **压缩**不占接口：由用户消息（如企微斜杠命令）原样透传给 agent-cli 执行，平台不翻译、不主动调用；
 - 各来源会话标识规则定义在 `design/channel-model.md` §4（wecom=群/用户 id，jira=工单 key，github 按事件种类细分，internal 继承上游源生标识，cron/manual 业务级兜底）。
 
-### 4.4 程序包注册表 PackageRegistry
+### 4.4 资产注册表 AssetRegistry
 
-程序包是平台管理的唯一资产单元：内含子程序、skill、自有资源；skill 遵循公开规范、不为本平台适配。提供方式、清单契约、子程序约束、名解析规则的唯一定义处：`design/package-model.md`。
+资产三族（包 / 工具 / skill）是平台管理的全部资产：包 = 业务代码单位（不共享）；工具 = 可复用代码组件；skill = 可复用提示词组件。唯一来源 = git 仓库；身份 = (url, commit, 子路径) 三元组；共享标记仅工具/skill 可有、登记时定不可改。提供方式、清单契约、绑定与名解析规则的唯一定义处：`design/asset-model.md`。
 
 ```ts
-interface PackageRegistry {
-  /** 登记：引用模式记 git 地址（url+ref+子路径）、上传模式收字节存母本；
-   *  asset_id 规则（引用描述符 hash / 内容 hash）见 package-model §4；附元数据，不改写包内容 */
-  register(input: PackageInput): PackageMeta;
+interface AssetRegistry {
+  /** 登记：记录 git 三元组（分支/tag 登记时解析成 commit 存定）+ 元数据，不下载；
+   *  同（属主+三元组）重复登记 = 幂等返回；asset_id 规则见 asset-model §3 */
+  register(input: AssetInput): AssetMeta;
 
-  /** 控制台列表：公共全部可见；账号/业务级按归属过滤（权限规则见 package-model §2） */
-  list(filter: { visibility?: 'public' | 'account' | 'business'; owner_id?: string }): PackageMeta[];
+  /** 控制台列表：按 kind / owner_id / shared 过滤；权限过滤（自己 + 他人共享；admin 全部只读）归调用方 */
+  list(filter: { kind?: AssetKind; owner_id?: string; shared?: boolean }): AssetMeta[];
 
-  /** 取用：清单解析结果（programs/skills）+ 元数据 */
-  get(asset_id: string): PackageObject;
+  /** 取用：清单解析结果（programs/requires 或 skills）+ 元数据 */
+  get(asset_id: string): AssetObject;
 
-  /** 物化：确保包内容在本地可用，返回本地路径（引用模式拉进 cache，幂等；缺失补拉） */
+  /** 物化：确保资产内容在本地可用（clone 到 cache，幂等；缺失补拉），返回资产根绝对路径 */
   materialize(asset_id: string): string;
 }
 
-interface PackageInput {
-  source:                        // 提供方式（package-model §3）
-    | { type: 'git'; url: string; ref: string; subpath?: string }  // 引用模式
-    | { type: 'upload'; path: string };                            // 上传模式（已落 content/ 的字节）
-  visibility: 'public' | 'account' | 'business';
-  owner_id: string;                      // 创建者账号：读写权限判定（admin 兜底）
-  business_id?: string;                  // visibility='business' 时必填
+type AssetKind = 'package' | 'tool' | 'skill';
+
+interface AssetInput {
+  kind: AssetKind;
+  url: string;                           // git 仓库地址
+  ref: string;                           // 分支/tag/commit，登记时解析成 commit 存定
+  subpath?: string;                      // 资产根在仓库内的子路径（monorepo 粒度）
+  shared?: boolean;                      // 仅 kind 为 tool/skill 有意义，缺省 false，设置后不可修改
+  owner_id: string;                      // 属主账号（创建者）
 }
 
-interface PackageMeta {
-  asset_id: string;                      // 兼任内部编号（短哈希展示）
-  visibility: 'public' | 'account' | 'business';
+interface AssetMeta {
+  asset_id: string;                      // 属主 + 三元组的紧凑编码（短哈希展示）
+  kind: AssetKind;
   owner_id: string;
+  shared: boolean;
   created_at: string;
   modified_at: string;
 }
@@ -226,7 +229,7 @@ interface PackageMeta {
 
 ### 4.5 环境配置 EnvProvider
 
-通用 key-value 与专用 key-value（github/wecom/jira）按业务隔离合并；**业务级优先于通用级**（与超时同一优先级规则）。
+业务级 key-value 配置，**只有两桶**：普通桶（vars）与安全桶（secrets）——区别只在存储与回显（安全桶只写不读明文、掩码显示、不落盘不进日志），使用方式完全相同：包/工具在文档里声明需要的 key，业务创建者按 key 填，代码经 `sdk.config()` / `sdk.secret(name)` 取用。github / jira 等账号凭证本质也是 key-value（仓库地址进普通桶、token 进安全桶），不设第三类。**业务级优先于通用级**（与超时同一优先级规则）。
 
 ```ts
 interface EnvProvider {
@@ -234,13 +237,13 @@ interface EnvProvider {
   getFor(business_id: string): EnvConfig;
 
   /** 控制台写入：按业务隔离；secrets 只写不读明文 */
-  set(business_id: string | null, category: 'vars' | 'secrets' | 'services',
+  set(business_id: string | null, bucket: 'vars' | 'secrets',
       key: string, value: string, actor: User): void;
 }
 // business_id = null 表示通用层
 ```
 
-与 ConfigStore 的分工：EnvProvider 管**执行环境**（环境变量、密钥、外部服务凭证），ConfigStore 管**运行参数**（超时、阈值、并发数）。密钥安全纪律见 `design/security.md`。出口绑定配置中的机密项（webhook 密钥、账号 token）同样经本模块解析，bind 时注入出口实例、只活内存（见循环契约 §9.3 `resolveExitConfig`）。
+与 ConfigStore 的分工：EnvProvider 管**执行环境**（key-value、密钥、外部服务凭证），ConfigStore 管**运行参数**（超时、阈值、并发数）。密钥安全纪律见 `design/security.md`。出口绑定配置中的机密项（webhook 密钥、账号 token）同样走两桶：configSchema 标注机密字段，控制台将值存进该业务安全桶（key 加 `exit.{tool}.` 前缀），bind 时合并回填、只活内存（见循环契约 §9.3 `resolveExitConfig`）。
 
 ### 4.6 日志模块 Logger
 
@@ -313,14 +316,12 @@ easemob-sdk-agent_v3/
 ├── package.json      # 单包起步；packageManager: yarn@4.14.1（corepack）
 ├── tsconfig.json     # TypeScript 5.x，strict
 ├── .gitignore        # 运行时数据（workspace、runs/、日志、*.sqlite）不入库
-├── public/
-│   └── packages/     # 内置公共程序包发布物（jira 工具 / github 操作 / 企微工具…），随仓库发布
 ├── tests/            # 跨模块端到端测试（M3 起）；模块单测与源码同处（*.test.ts）
 ├── docs/             # 设计文档
 └── src/              # 平台本体，见下
 ```
 
-内置工具（github / jira / confluence / 邮件 / 企微等）的载体统一为**工具实现文件**：`src/tools/` 下**一个工具一个 TypeScript 文件**，独立、可复用、不含账号凭证。它有两种封装：**执行内调用**——收进内置公共程序包（`public/packages/` 发布、首启由 PackageRegistry 登记/同步进 workspace 与注册表，供 LLM 在业务执行中调用或业务经 `sdk.run` 调用，与用户上传的公共包同规则）；**结果投递**——包装为出口工具（`src/exits/`，随平台发布、由 ExitRegistry 登记，平台直接调用）。两种封装复用同一份工具实现。此外还有**监听/接收类**（各源 webhook 监听、企微机器人收消息）——是 `src/entries/` 的入口适配器代码模块，不基于工具实现。凭证一律走 EnvProvider 专用 key-value（services），按业务隔离，业务创建者在控制台填自己的账号即可用。
+两类「触达能力」的载体：**结果投递**——出口工具（`src/exits/`，平台内置模块，随平台发布、由 ExitRegistry 登记，平台直接调用）；**执行内调用**（如审查过程中读写 Jira）——git 上的**工具资产**（asset-model §1，官方工具仓库是普通 git 仓库，成员登记即用、共享后全平台可绑定，平台不内置任何资产）。同名目的地（如 jira）的两类实现各自独立演化，不复用。此外还有**监听/接收类**（各源 webhook 监听、企微机器人收消息）——是 `src/entries/` 的入口适配器代码模块。凭证一律走 EnvProvider 安全桶，按业务隔离，业务创建者在控制台填自己的账号即可用。
 
 `src/`：
 
@@ -329,10 +330,9 @@ easemob-sdk-agent_v3/
 ├── infra/        # 基础设施与工具：database.ts / id-gen.ts / clock.ts；不依赖任何业务模块
 ├── entries/      # 入口模块群：wecom.ts / jira.ts / github.ts / webhook.ts / cron.ts / manual.ts（新事件源 = 新文件）
 ├── exits/        # 出口工具群：wecom-bot.ts / wecom-webhook.ts / mail.ts / webhook.ts / jira.ts / confluence.ts / github.ts（新目的地 = 新文件，出口封装）
-├── tools/        # 工具实现：一个工具一个 TS 文件（github / jira / confluence / mail …），程序包内 skill 与出口工具复用同一实现
 ├── kernel/       # 编排内核：scheduler-loop（入口循环）/ exit-loop（出口循环）/ task-queue / business-registry / context-loader / lifecycle / workflow-runner / agent-service / channel
 ├── sdk/          # 业务 SDK 发布物（业务程序的唯一依赖；API 唯一定义见 design/business-workflow.md §3）
-├── packages/     # PackageRegistry 与程序包加载/物化（清单校验、cache 物化）
+├── packages/     # AssetRegistry 与资产物化（清单校验、cache 物化）
 ├── platform/     # 平台公共模块：channel-store / exit-registry / env-provider / config-store / logger
 ├── console/      # 控制台服务与 UI（前后端同构，共享 contracts/ 类型）
 └── main.ts       # 组装根：依赖注入的唯一地点，唯一允许 import 全部模块的文件
@@ -356,8 +356,8 @@ easemob-sdk-agent_v3/
 | 通道（channels） | ChannelPool | 两个循环共用一张表，channel_id 前缀区分域（业务通道三维 / 出口通道 `exit__`）；创建即落库，完成只做状态变更 |
 | 业务配置（businesses） | BusinessRegistry | 含 business_id（不可改）、business_name（可改）、creator_id、匹配字段、依赖、on_failure、**出口绑定**（business_id + 工具 kind + 配置） |
 | 通道映射（channels_sessions） | ChannelStore | 业务通道 channel_id ↔ agent 会话 id 一张表（出口通道不在此表） |
-| 程序包元数据 | PackageRegistry | 母本/物化在文件树（`content/` 与 `cache/packages/`），库中只存登记记录 |
-| 身份目录（identity_links） | 后续模块（本版只定归属） | jira↔github↔邮箱↔企微账号映射；可见性三级同程序包 |
+| 资产元数据 | AssetRegistry | 登记记录（kind/属主/共享标记/git 三元组）在库中；内容物化在 `cache/assets/`，可清可重拉 |
+| 身份目录（identity_links） | 后续模块（本版只定归属） | jira↔github↔邮箱↔企微账号映射；全局一份，admin 维护 |
 | 环境配置（含 secrets） | EnvProvider | 按业务隔离 |
 | 设置（config） | ConfigStore | 只存覆盖值，默认值在键注册表 |
 | 日志 | Logger | 文件，不进 SQLite；分割交 logrotate |
