@@ -137,7 +137,13 @@ description: 审查 jira 工单并给出通过/驳回结论与理由
 }
 ```
 
-读法（SDK）：`sdk.input()` → `{ event, workspace }`；`sdk.config()` / `sdk.secret(name)`；子程序被 `sdk.run` 调用时用 `sdk.runInput()` → `{ input, config }`。**本地离线调试**：`echo '{"contract_version":"v1","input":{...},"workspace":"/tmp/x"}' | node dist/programs/xxx.js`。
+读法（SDK）：`sdk.input()` → `{ event, workspace }`；`sdk.config()` / `sdk.secret(name)`；子程序被 `sdk.run` 调用时用 `sdk.runInput()` → `{ input, config }`。**本地离线调试**：`echo '{"contract_version":"v1","input":{...},"workspace":"/tmp/x"}' | node dist/programs/xxx.js`——工具的「可独立运行」就是这个含义：dist 自包含、node 直接跑，输入走 stdin 契约。
+
+**平台→流程程序 与 sdk.run→子程序的注入差异**（机制强制，不是约定）：
+
+- sdk.run 的子程序**拿不到 `secrets` 和 `endpoint`**——物理上调不了 `sdk.agent`（无 endpoint 直接抛错）、摸不到业务安全桶。「工具不碰大模型、机械零 token」由此物理成立，不靠自觉；
+- 工具需要的 token / 参数由**调用方显式传递**：包的胶水代码 `sdk.secret('jira_token')` 读出后放进 `sdk.run` 的 `config`——显式传递是刻意的：共享工具会被很多业务用，自动灌入全部 secrets 泄漏面就失控了，给什么由包作者决定；
+- **依赖的两个层面**：代码级依赖（npm 包、多文件）工具自己解决——repo 内 build 出自包含的 dist，平台物化后不跑 npm install；平台资产级引用（按名字引用别的工具/skill）只有包能声明（§5.1 requires），工具不能。
 
 ### 7.2 输出：stdout 一段 JSON（只认第一个合法结果）
 
