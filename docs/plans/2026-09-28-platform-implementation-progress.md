@@ -196,3 +196,10 @@
 - 备注：
   - spec §4 回写 prettier 实际格式（package.json engines、eslint.config.js、main.test.ts 三处折行，无语义变化）；
   - README 按 §4.10 提纲成文，内容均取自 spec 既定表述。
+
+### 资产模型定案（设计修订，非任务）
+
+- 日期：2026-09-30
+- commit：4618117（设计文档）
+- 内容：资产单元从单一程序包演进为三族——包（业务代码单位，不共享）/ 工具（可复用代码组件）/ skill（可复用提示词组件）；git 三元组（url+commit+子路径）标识、属主 + 共享标记（创建时定、不可改）；EnvProvider 三类并为普通/安全两桶；平台不再内置资产（无 public/packages/、无 content/ 母本树）。`package-model.md` 删除，`asset-model.md` 全新编写；glossary 新增「核心组成关系」整体说明；core-modules/console-design/accounts/scheduler-loop-contracts/security/business-workflow/骨架同步。
+- 影响：T16 spec 重写为 asset-registry（原 package-registry spec 作废，spec 文件改名 2026-09-30-t16-asset-registry-spec.md）；T17 描述同步（EnvProvider 两桶 + 资产绑定三族纳入）；T15 模板需小幅修订（清单删 skills、删内嵌示例 skill、main.ts 示例注释），随 T16 批次一并处理；T1–T11 已提交代码零改动（grep 证实 packages/ 内无可见性/services/资产相关代码）。
