@@ -4,5 +4,8 @@
   "programs": {
     "main": "dist/programs/main.js"
   },
-  "skills": ["skills/example"]
+  "requires": {
+    "tools": [],
+    "skills": ["your-skill"]
+  }
 }

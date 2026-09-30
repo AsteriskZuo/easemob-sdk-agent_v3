@@ -12,9 +12,9 @@ if (!payload?.text) {
   sdk.fail("检查未通过：缺少 payload.text");
 }
 
-// 2. 取数/脱敏：sdk.run('your-fetch', { input: ... }) —— 调本包或绑定包的其他子程序，按需启用
-// 3. 大模型：skills 须在包清单 skills 内（可多个、可跨绑定包）；模型凭据平台持有
-const answer = await sdk.agent({ skills: ["example"], input: payload.text });
+// 2. 取数/脱敏：sdk.run('your-fetch', { input: ... }) —— 调本包或业务绑定工具资产的子程序，按需启用
+// 3. 大模型：skills 来自业务绑定的 skill 集合（可多个、可跨集合），清单 requires.skills 声明、控制台配置期校验；模型凭据平台持有
+const answer = await sdk.agent({ skills: ["your-skill"], input: payload.text });
 
 // 4. 门禁：机械校验结果，不合格 = 失败（不重做）
 if (typeof answer !== "string" || answer.length === 0) {
