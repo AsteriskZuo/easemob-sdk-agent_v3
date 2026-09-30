@@ -4,10 +4,11 @@ import path from "node:path";
 /** 资产三族：package（业务代码单位）/ tool（可复用代码组件）/ skill（可复用提示词组件集合） */
 export type AssetKind = "package" | "tool" | "skill";
 
-/** 清单解析结果：package/tool 来自 agent-package.json；skill 来自集合扫描 */
+/** 清单解析结果：package/tool 来自 agent-package.json；skill 来自集合扫描。
+ *  requires 是 package 专属字段（工具是叶子组件，组合归包的胶水代码） */
 export type AssetManifest =
   | {
-      kind: "package" | "tool";
+      kind: "package";
       /** 清单 name（非空） */
       name: string;
       /** 清单 version（可选） */
@@ -16,6 +17,15 @@ export type AssetManifest =
       programs: Record<string, string>;
       /** 依赖声明；清单缺省时归一为 { tools: [], skills: [] } */
       requires: { tools: string[]; skills: string[] };
+    }
+  | {
+      kind: "tool";
+      /** 清单 name（非空） */
+      name: string;
+      /** 清单 version（可选） */
+      version?: string;
+      /** 子程序名 → 入口文件（相对资产根）；清单缺省时归一为 {} */
+      programs: Record<string, string>;
     }
   | {
       kind: "skill";
@@ -100,8 +110,14 @@ function validatePackageLike(
     }
   }
 
+  // requires 是 package 专属字段：工具是叶子组件（机械能力、零 token），
+  // 需要组合时由包的胶水代码编排；tool 清单出现 requires 即失败（防误配，作者立刻知道）
+  if (kind === "tool" && manifest.requires !== undefined) {
+    fail("tool 清单不支持 requires（requires 是 package 专属字段）");
+  }
+
   const requires = { tools: [] as string[], skills: [] as string[] };
-  if (manifest.requires !== undefined) {
+  if (kind === "package" && manifest.requires !== undefined) {
     if (!isPlainObject(manifest.requires)) {
       fail("requires 必须是对象");
     }
@@ -120,13 +136,15 @@ function validatePackageLike(
     }
   }
 
-  return {
-    kind,
+  const base = {
     name: manifest.name,
     ...(manifest.version !== undefined ? { version: manifest.version } : {}),
     programs,
-    requires,
   };
+  if (kind === "tool") {
+    return { kind, ...base };
+  }
+  return { kind, ...base, requires };
 }
 
 function validateSkill(assetRoot: string): AssetManifest {

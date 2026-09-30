@@ -339,7 +339,7 @@ describe("get", () => {
     });
   });
 
-  it("get tool → programs/requires 缺省归一", () => {
+  it("get tool → programs 缺省归一（manifest 无 requires）", () => {
     const repo = makeRepo({
       "agent-package.json": JSON.stringify({ name: "bare-tool" }),
     });
@@ -349,8 +349,18 @@ describe("get", () => {
       kind: "tool",
       name: "bare-tool",
       programs: {},
-      requires: { tools: [], skills: [] },
     });
+  });
+
+  it("tool 清单含 requires → validation_failed（requires 是 package 专属字段）", () => {
+    const repo = makeRepo({
+      "agent-package.json": JSON.stringify({
+        name: "bad-tool",
+        requires: { tools: ["x"] },
+      }),
+    });
+    const meta = registry.register(pkgInput(repo.dir, { kind: "tool" }));
+    expect(() => registry.get(meta.asset_id)).toThrow(/validation_failed/);
   });
 
   it("get skill → skills 为集合扫描结果（字典序）", () => {

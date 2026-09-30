@@ -18,7 +18,8 @@
 - **asset_id** = (属主 + 三元组) 的紧凑编码：唯一性按属主维度——同一三元组不同属主 = 不同资产行，各自管理；同（属主+三元组）重复登记 = 幂等返回。
 - **共享标记**：仅 tool/skill 可有，`shared` 缺省 false，**设置后不可修改**（本包不提供任何修改入口）。绑定规则（自己的 + 他人共享的）与 admin 只读全部，都是调用方（控制台）的过滤逻辑，本包只存字段。
 - **清单机械校验**（物化时执行）：
-  - package/tool：资产根下 `agent-package.json` 存在且合法；`name` 非空；`programs` 每条路径在资产内真实存在且是文件；`requires`（可选）形状合法；
+  - package/tool：资产根下 `agent-package.json` 存在且合法；`name` 非空；`programs` 每条路径在资产内真实存在且是文件；
+  - `requires` 是 **package 专属**字段（名字级依赖声明）：package 清单里可选、形状合法即可；**tool 清单出现 `requires` 字段即校验失败**（工具是叶子组件，组合归包的胶水代码；防误配——静默忽略会让作者误以为声明生效）；
   - skill：资产根下至少一个直接子目录含 `SKILL.md` 文件。
 - **名解析**：消费方是 T17 ContextLoader（组白名单）与 T11 AgentService（skill 注入）。`sdk.run` 的作用域 = 本包 programs ∪ 绑定工具；`sdk.agent` 的白名单 = 绑定 skill 集合的技能并集。**名唯一性由控制台在绑定配置期查重保证**，运行时解析按名唯一命中，无优先级、无限定写法。本包提供解析纯函数，绑定关系的存取不在本包（归 registry 包，T17 扩列）。
 - **工作目录布局**：物化 `{workspace}/cache/assets/{asset_id}/`。本包通过工厂参数拿物化根，不读环境变量。
@@ -109,14 +110,21 @@ export interface AssetMeta {
   modified_at: string;      // 本版无修改操作，恒等于 created_at
 }
 
-/** 清单解析结果：package/tool 来自 agent-package.json；skill 来自集合扫描 */
+/** 清单解析结果：package/tool 来自 agent-package.json；skill 来自集合扫描。
+ *  requires 是 package 专属字段（工具是叶子组件，组合归包的胶水代码） */
 export type AssetManifest =
   | {
-      kind: 'package' | 'tool';
+      kind: 'package';
       name: string;                       // 清单 name
       version?: string;
       programs: Record<string, string>;   // 子程序名 → 入口文件（相对资产根）
       requires: { tools: string[]; skills: string[] };  // 缺省归一为两个空数组
+    }
+  | {
+      kind: 'tool';
+      name: string;
+      version?: string;
+      programs: Record<string, string>;   // 无 requires
     }
   | { kind: 'skill'; skills: string[] };  // 技能名列表（= 含 SKILL.md 的直接子目录名，按字典序）
 
@@ -177,7 +185,7 @@ export function createAssetRegistry(
 1. `{assetRoot}/agent-package.json` 存在、是合法 JSON、是对象；
 2. `name`：非空 string；`version`：可选 string；
 3. `programs`：可选 object，键非空、值 string；缺省归一为 `{}`；每条值：相对路径、不含 `..` 段、`path.resolve(assetRoot, p)` 仍在 assetRoot 内、真实存在且是文件；
-4. `requires`：可选 object，`tools`/`skills` 可选 string 数组；缺省归一为 `{ tools: [], skills: [] }`。
+4. `requires`（**仅 package**）：可选 object，`tools`/`skills` 可选 string 数组；缺省归一为 `{ tools: [], skills: [] }`。**tool 清单出现 `requires` 字段 → `validation_failed: tool 清单不支持 requires`**。
 
 **skill**：
 
@@ -260,7 +268,7 @@ export function resolveResource(
 - 脱敏：带 credential 对不可达 url 物化 → `materialize_failed` 且错误信息不含 `SECRET_TOKEN_xyz`（出现处为 `***`）；
 - ssh 形式 url（如 `git@host:org/repo.git`）+ `is_private` + credential → `credential_unsupported`；
 - list：无过滤返回全部；按 kind / owner_id / shared 各自过滤；
-- get package/tool → manifest 解析正确（programs / requires 归一）；get skill → skills 为集合扫描结果（字典序）；未登记 asset_id → `asset_not_found`；
+- get package → manifest 解析正确（programs / requires 归一）；get tool → programs 归一、manifest 无 requires；tool 清单含 requires → `validation_failed`；get skill → skills 为集合扫描结果（字典序）；未登记 asset_id → `asset_not_found`；
 - materialize → clone 成功、返回路径正确（带 subpath 时返回子路径）、`.git` 已删除、marker 存在；二次调用幂等（删掉源仓库后仍能返回，证明未重拉）；
 - 物化时内容校验：package 清单缺失/路径不存在/路径含 `..` → `validation_failed`、target 无 marker；skill 仓库无任何 SKILL.md → `validation_failed`；
 - url 不存在 → `materialize_failed`；
@@ -285,6 +293,6 @@ export function resolveResource(
 2. **登记时解析 ref→commit（`git ls-remote`）**：分支会移动，存 commit 才钉版本；代价是登记时需可达 git 仓库——登记是控制台操作，合理。40 位 commit 原样存定（ls-remote 查不到任意 SHA，存在性留给物化 checkout 检验）。
 3. **名解析无优先级、无限定写法**：名唯一性由控制台在绑定配置期机械查重保证（asset-model §6），运行时按名唯一命中；纯函数按传入顺序首个命中只是确定性兜底，不是优先级机制。
 4. **skill 集合无清单文件**：`SKILL.md` 目录扫描即可机械判定，不发明新格式；技能名 = 目录名（与 pi 的 `--skill <路径>` 注入形态一致）。
-5. **package/tool 机械完全同构**：同一份清单契约、同一条物化校验路径，只差 kind 与消费方；`shared` 对 package 无意义（传 true 直接报错，防误配）。
+5. **package/tool 共用清单契约，但 requires 是 package 专属**：同一清单文件、同一套字段校验，只差 kind 与消费路径；`requires`（名字级依赖声明）仅 package 可有——工具是叶子组件（机械能力、零 token），需要组合时由包的胶水代码编排；tool 清单出现 requires 即 `validation_failed`（防误配，也好过引入传递依赖解析与循环防判的复杂度）。`shared` 对 package 无意义（传 true 直接报错，防误配）。
 6. **`modified_at` 保留但本版恒等于 `created_at`**：本版无修改操作（更新 = 新资产行），无写入路径。
 7. **凭据按操作者维度传入、只存名字不存值**：资产行的 `credential_key` 只是 key 名，值由调用方从**操作者**安全桶解析后作可选参数传入（谁触发物化用谁的凭据，使用者之间互不相干）——本包因此不依赖配置模块、不接触安全桶（deps 仍只有 database）。注入采用进程内临时改写 https url + 错误脱敏：凭据不落盘、不入库、不进日志。ssh 形式 url 不支持注入（统一走 https，减少机制分叉）。
