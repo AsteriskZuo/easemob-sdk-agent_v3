@@ -403,6 +403,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@easemob/agent-asset-registry@workspace:packages/asset-registry":
+  version: 0.0.0-use.local
+  resolution: "@easemob/agent-asset-registry@workspace:packages/asset-registry"
+  dependencies:
+    "@easemob/agent-database": "npm:0.1.0"
+    "@jest/globals": "npm:^29.7.0"
+    esbuild: "npm:^0.28.1"
+    jest: "npm:^29.7.0"
+    typescript: "npm:^5.9.0"
+  languageName: unknown
+  linkType: soft
+
 "@easemob/agent-channel@npm:0.1.0, @easemob/agent-channel@workspace:packages/channel":
   version: 0.0.0-use.local
   resolution: "@easemob/agent-channel@workspace:packages/channel"
