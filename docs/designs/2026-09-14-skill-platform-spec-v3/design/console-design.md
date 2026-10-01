@@ -96,7 +96,9 @@
 │   └── platform.db                 # 状态（全部 sqlite 表，含资产登记记录）
 ├── cache/                          # 可清（删除不丢正确性）
 │   ├── assets/{asset_id}/          # 资产物化（git clone，可重拉）
-│   ├── repos/{source}/{session_id}/{business_id}/          # GitHub 克隆：同通道串行 ⇒ 无并发写
+│   ├── repos/{host}/{source}/{session_id}/{business_id}/   # 工作仓库克隆（可变工作区）：host = github.com/gitee.com 等，
+│   │                                                       # 同一仓库在不同托管的克隆各自独立（从属关系使用者自负，平台不管）；
+│   │                                                       # 同通道串行 ⇒ 无并发写
 │   └── agent-sessions/{source}/{session_id}/{business_id}/ # pi 会话存储（--session-dir 指向）
 ├── runs/{source}/{session_id}/{business_id}/{run_id}/      # 业务执行产生的临时数据
 └── logs/                           # 日志
