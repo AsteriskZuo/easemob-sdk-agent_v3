@@ -31,6 +31,7 @@
 | T14 console | 未开始 | — | — |
 | T15 程序包模板 | 完成 | 2026-09-29 | 728488b |
 | T16 asset-registry | 完成 | 2026-09-30 22:31 | 10d8b66 |
+| T17 runtime | 完成 | 2026-10-02 09:07 | e8e16ee |
 
 > 2026-09-28 计划变更：插入 T2 database（core-modules §4.7 唯一数据访问口的落地），原 T2–T12 顺延为 T3–T13。
 > 2026-09-29 计划变更：「依赖管理四类归宿」顶级规则定稿；插入 T7 env，原 T7–T13 顺延为 T8–T14；T6 logger 改为全局外观形态。
@@ -215,3 +216,14 @@
 - 设计修订随附（前置提交 7f47c02）：私有仓库凭据机制定案——`is_private` + `credential_key`（只存名字不存值）、凭据按**操作者维度**由调用方解析传入、进程内临时改写 https url 注入 + 错误脱敏、ssh url 不支持注入；平台不建读写权限模型（token 即权限）；总纲提示词补入组成公式（业务资料字段、不是资产、不共享）；AGENTS.md 沉淀「主动补全细节」核心原则（6f78da0）。
 - 子代理合理裁决（主 agent 确认）：`commit` 是 SQLite 保留字，列名加双引号建表（列名不变）；`git ls-remote` 需同时传 `<ref>` 与 `<ref>^{}` 两个 pattern 才能拿到注解 tag 剥离行。
 - 后续修订（commit 56f5590，用户审出）：`requires` 收为 **package 专属字段**——工具是叶子组件（机械能力、零 token），tool 清单出现 requires 即 `validation_failed`（防误配，也避免传递依赖解析与循环防判的复杂度）；AssetManifest 判别联合随之拆为 package/tool/skill 三支。asset-model §5.1 / T16 spec / T17 spec 同步。
+
+### T17 runtime
+
+- 状态：完成
+- 子 agent：agent-19（单发）
+- 开始/完成：2026-10-02 09:07
+- 验收证据：主 agent 独立复验——runtime 25 测试全过（env-provider 8 / context-loader 9 / lifecycle 8）、registry 24 过（原 16 零改动 + 新 8）、workflow-runner 13 过（原 11 零改动 + 新 2）、根六连全绿、dpdm 无环（scheduler 仅 import type）
+- commit：e8e16ee
+- 设计要点（spec 决策点，用户已审）：channel_id 本包用 buildBusinessChannelId 自算（scheduler 零改动）；ContextLoader 不碰 ChannelStore（agent-service 自持 mapping）；RunRequest 加可选 run_id（四步时序要求 serve 先于 runner 且共知 workspace）；lifecycle_id 即 run_id；secrets 第一版明文存 platform.db；ExecutionResult.usage 暂不填；全局配额默认走工厂参数（ConfigStore 未实现）。
+- 子代理合理裁决（主 agent 确认）：两表迁移常量放 env-provider.ts（spec §5.2 同节），lifecycle-store 复用；lifecycle 测试的 Task 类型经 `Parameters<EntryDriver["execute"]>[0]` 取，避免引入 spec 依赖清单外的 agent-queue。
+- 同批前置修订（设计讨论沉淀，commits 1fb7e38 / 74ad373）：asset-model §7.1 补「注入差异」（sdk.run 子程序拿不到 secrets/endpoint、token 显式传递、依赖两层面）与「路径纪律」（跨资产禁相对路径）；console-design §6 repos 缓存路径加 host 维度（github/gitee 克隆各自独立）。
