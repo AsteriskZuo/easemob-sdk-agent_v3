@@ -184,4 +184,27 @@ describe("WorkflowRunner", () => {
       "program 不存在或不可读",
     );
   });
+
+  it("11. 传入 run_id → 跳过内部生成，workspace/业务日志按传入值派生", async () => {
+    const { root, runner } = setup();
+    const runId = "run_0123456789ABCDEFGHJKMNPQRS";
+    const outcome = await runner.run(makeReq("biz-log.js", { run_id: runId }));
+    expect(outcome.status).toBe("success");
+    expect(existsSync(join(runsRootOf(root), runId))).toBe(true);
+    expect(existsSync(join(logsRootOf(root), `${runId}.log`))).toBe(true);
+  });
+
+  it("12. 非法 run_id 形 → 抛错（平台自身错误），不建目录", async () => {
+    const { root, runner } = setup();
+    await expect(
+      runner.run(makeReq("success.js", { run_id: "not-a-run-id" })),
+    ).rejects.toThrow(/^invalid run_id: not-a-run-id$/);
+    // 小写/含排除字符/长度不符同样非法
+    await expect(
+      runner.run(
+        makeReq("success.js", { run_id: "run_0123456789abcdefghijklmnop" }),
+      ),
+    ).rejects.toThrow(/^invalid run_id/);
+    expect(existsSync(join(root, "runs"))).toBe(false);
+  });
 });

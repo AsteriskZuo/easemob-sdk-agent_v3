@@ -403,7 +403,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@easemob/agent-asset-registry@workspace:packages/asset-registry":
+"@easemob/agent-asset-registry@npm:0.1.0, @easemob/agent-asset-registry@workspace:packages/asset-registry":
   version: 0.0.0-use.local
   resolution: "@easemob/agent-asset-registry@workspace:packages/asset-registry"
   dependencies:
@@ -507,7 +507,25 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@easemob/agent-scheduler@workspace:packages/scheduler":
+"@easemob/agent-runtime@workspace:packages/runtime":
+  version: 0.0.0-use.local
+  resolution: "@easemob/agent-runtime@workspace:packages/runtime"
+  dependencies:
+    "@easemob/agent-asset-registry": "npm:0.1.0"
+    "@easemob/agent-contracts": "npm:0.1.0"
+    "@easemob/agent-database": "npm:0.1.0"
+    "@easemob/agent-logger": "npm:0.1.0"
+    "@easemob/agent-registry": "npm:0.1.0"
+    "@easemob/agent-scheduler": "npm:0.1.0"
+    "@easemob/agent-service": "npm:0.1.0"
+    "@easemob/agent-workflow-runner": "npm:0.1.0"
+    esbuild: "npm:^0.28.1"
+    jest: "npm:^29.7.0"
+    typescript: "npm:^5.9.0"
+  languageName: unknown
+  linkType: soft
+
+"@easemob/agent-scheduler@npm:0.1.0, @easemob/agent-scheduler@workspace:packages/scheduler":
   version: 0.0.0-use.local
   resolution: "@easemob/agent-scheduler@workspace:packages/scheduler"
   dependencies:
@@ -535,7 +553,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@easemob/agent-service@workspace:packages/agent-service":
+"@easemob/agent-service@npm:0.1.0, @easemob/agent-service@workspace:packages/agent-service":
   version: 0.0.0-use.local
   resolution: "@easemob/agent-service@workspace:packages/agent-service"
   dependencies:
@@ -547,7 +565,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@easemob/agent-workflow-runner@workspace:packages/workflow-runner":
+"@easemob/agent-workflow-runner@npm:0.1.0, @easemob/agent-workflow-runner@workspace:packages/workflow-runner":
   version: 0.0.0-use.local
   resolution: "@easemob/agent-workflow-runner@workspace:packages/workflow-runner"
   dependencies:

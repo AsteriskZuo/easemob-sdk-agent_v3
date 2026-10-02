@@ -21,6 +21,7 @@ export interface RunRequest {
   secrets: Record<string, string>; // 业务安全变量（可空对象）
   endpoint: { socket_path: string; token: string }; // AgentService 开的 per-run 端点（T11）
   quota: { timeout_minutes: number }; // wall-clock 超时；agent 调用次数配额归 T11 服务端
+  run_id?: string; // 可选：调用方指定 run_id（缺省内部生成 run_${ulid}）；workspace/日志路径按它派生。须匹配 run_ + 26 位 ulid，不符 → 抛错（平台自身错误）
 }
 
 /** run 结果。与 scheduler 的 ExecutionResult 的映射归装配根，本包不依赖 scheduler */
@@ -47,6 +48,8 @@ export interface WorkflowRunnerOptions {
 
 const DEFAULT_MAX_OUTPUT_BYTES = 1_048_576;
 const DEFAULT_KILL_GRACE_MS = 5000;
+// 调用方指定 run_id 的合法形：run_ + 26 位 Crockford base32 ulid（与 newUlid 产出同形）
+const RUN_ID_PATTERN = /^run_[0-9A-HJKMNP-TV-Z]{26}$/;
 
 export function createWorkflowRunner(
   opts: WorkflowRunnerOptions,
@@ -70,7 +73,11 @@ export function createWorkflowRunner(
       throw new Error(`program 不存在或不可读: ${req.program}`);
     }
 
-    const runId = `run_${newUlid()}`;
+    const runId = req.run_id ?? `run_${newUlid()}`;
+    // 调用方指定的 run_id 须为 ulid 形（防路径注入/目录串号）；非法 = 平台自身错误 → 抛错
+    if (!RUN_ID_PATTERN.test(runId)) {
+      throw new Error(`invalid run_id: ${req.run_id}`);
+    }
     // 数据分类布局（console-design §6）：run 工作区 = 业务执行产生的临时数据（runs/ 根，TTL 清理）；
     // 业务日志 = 日志类（logs/businesses/...，轮转可删）。三维键与 channel_id 对齐
     const channelKey = [
