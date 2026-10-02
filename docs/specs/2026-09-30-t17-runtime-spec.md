@@ -235,19 +235,19 @@ registry / workflow-runner 的扩展在原包内完成（各自的迁移与测�
 ```ts
 /** 业务资料（业务级字段的完整读面；匹配视图 BusinessMatch 保持轻量不变） */
 export interface BusinessProfile {
-  business_id: string;
-  business_name: string;
-  creator_id: string;
-  on_failure: boolean;
+  business_id: string;          // 创建时生成（'b'+ulid）、不可修改，一切内部引用的锚
+  business_name: string;        // 展示名，可修改，不参与匹配
+  creator_id: string;           // 创建者账号 id（权限归属判定用）
+  on_failure: boolean;          // 失败也扇出开关
   prompt: string;               // 提示词总纲（可空串）
-  model: string;
-  agent_kind: string;
-  package_asset_id?: string;    // 未绑定 = undefined
-  entry_program?: string;
-  tool_asset_ids: string[];     // 缺省 []
-  skill_asset_ids: string[];    // 缺省 []
-  timeout_minutes?: number;
-  max_agent_calls?: number;
+  model: string;                // 大模型选择（MVP 仅 qwen3.8max）
+  agent_kind: string;           // agent 内核（MVP 仅 pi）
+  package_asset_id?: string;    // 绑定的包资产；未绑定 = undefined
+  entry_program?: string;       // 流程程序入口名（包清单 programs 的键）
+  tool_asset_ids: string[];     // 绑定的工具资产 id 列表，缺省 []
+  skill_asset_ids: string[];    // 绑定的 skill 集合资产 id 列表，缺省 []
+  timeout_minutes?: number;     // run 超时覆盖；undefined = 用全局默认
+  max_agent_calls?: number;     // agent 调用次数配额覆盖；undefined = 用全局默认
 }
 
 // BusinessRegistry 追加：
@@ -265,8 +265,8 @@ getProfile(business_id: string): BusinessProfile | undefined;
 ```ts
 /** 两桶环境配置（与 scheduler-loop-contracts §4 EnvConfig 同形） */
 export interface EnvConfig {
-  vars: Record<string, string>;
-  secrets: Record<string, string>;
+  vars: Record<string, string>;     // 普通桶：明文键值
+  secrets: Record<string, string>;  // 安全桶：运行时注入内存，不明文回显、不进日志
 }
 
 export interface EnvProvider {
@@ -335,8 +335,8 @@ export interface ContextLoader {
 
 export function createContextLoader(deps: {
   registry: BusinessRegistry;       // 扩展后的（含 getProfile）
-  assets: AssetRegistry;
-  env: EnvProvider;
+  assets: AssetRegistry;            // 物化闭包与名解析（get / materialize / resolveResource）
+  env: EnvProvider;                 // 两桶配置（先取：凭据解析与注入都要用）
   defaults: { task_timeout_minutes: number; max_agent_calls: number }; // 全局默认（装配根注入）
 }): ContextLoader;
 ```
@@ -356,9 +356,9 @@ load 步骤（顺序固定）：
 
 ```ts
 export interface LifecycleDeps {
-  loader: ContextLoader;
-  runner: WorkflowRunner;
-  agentService: AgentService;
+  loader: ContextLoader;       // 第①步：组装 RunContext
+  runner: WorkflowRunner;      // 第③步：spawn 业务流程程序
+  agentService: AgentService;  // 第②/④步：per-run socket 服务（serve / close）
   workspaceRoot: string;   // 平台工作目录 {workspace}（其下 runs/ cache/ logs/ 布局与 runner 对齐）
   db: Database;            // 打标表（lifecycles，§5.2 迁移）
 }
@@ -373,9 +373,13 @@ export interface LifecycleStore {
   get(lifecycle_id: string): LifecycleRecord | undefined;
 }
 export interface LifecycleRecord {
-  lifecycle_id: string; business_id: string; event_id: string; channel_id: string;
-  status: 'created' | 'running' | 'success' | 'failed' | 'timeout';
-  created_at: string; finished_at?: string;
+  lifecycle_id: string;  // = run_id（决策点 5）
+  business_id: string;   // 归属业务
+  event_id: string;      // 触发事件（关联键，回溯用）
+  channel_id: string;    // 业务通道（关联键）
+  status: 'created' | 'running' | 'success' | 'failed' | 'timeout';  // 业务标记
+  created_at: string;    // 执行开始（ISO）
+  finished_at?: string;  // 执行完结（ISO；running 时无）
 }
 ```
 

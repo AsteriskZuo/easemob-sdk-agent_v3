@@ -111,6 +111,9 @@ export interface RunRequest {
   secrets: Record<string, string>;       // 业务安全变量（可空对象）
   endpoint: { socket_path: string; token: string }; // AgentService 开的 per-run 端点（T11）
   quota: { timeout_minutes: number };    // wall-clock 超时；agent 调用次数配额归 T11 服务端
+  run_id?: string;                       // 可选（T17 起）：调用方指定 run_id，缺省内部生成 `run_${ulid}`；
+                                         // workspace 与业务日志路径按它派生（规则不变）。
+                                         // 传入值须匹配 /^run_[0-9A-HJKMNP-TV-Z]{26}$/，不符 → 抛错（平台自身错误类）
 }
 
 /** run 结果。与 scheduler 的 ExecutionResult 的映射归装配根，本包不依赖 scheduler */
