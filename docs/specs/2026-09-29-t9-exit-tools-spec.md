@@ -136,6 +136,7 @@ export function postJson(
 - configSchema：`url`（required，群机器人 Webhook 地址，形如 `https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=<key>`）。
 - `destinationOf`：从 url 的 query 提取 `key` 段（key 天然唯一标识一个群；它本就出现在 channel_id/日志中，属非机密）。url 非法或无 key → 抛错。
 - `deliver`：POST 企微消息体 `{"msgtype":"markdown","markdown":{"content": <文本>}}`。文本生成：`result` 为字符串直接用，否则 `` ```json `` 围栏包裹的 `JSON.stringify(result, null, 2)`；**超长截断**：企微 markdown 上限 4096 字节，按 UTF-8 字节截到 4000 并追加 `\n…(已截断)`。响应 JSON 的 `errcode !== 0` → 抛错（含 errmsg）。
+- **@人**（2026-10-03 增补）：payload 为 `{ content: string | object, mentions?: string[] }` 时走结构化投递——content 按上述规则渲染后，末尾追加 `\n` + 企微 markdown 的 @ 语法 `<@userid>`（多人空格分隔，非字符串/空串忽略）；无 `content` 字段的对象维持原样（整体 json 围栏，不解析 mentions）。
 
 ### 5.4 邮件（mail.ts，kind = `'mail'`，name = `邮件通知`）
 

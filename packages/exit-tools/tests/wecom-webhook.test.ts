@@ -152,4 +152,68 @@ describe("wecom-webhook deliver", () => {
       await srv.close();
     }
   });
+
+  it("mentions → content 末尾追加 <@userid>", async () => {
+    let captured = "";
+    const srv = await startServer((body, res) => {
+      captured = body;
+      okResponder(body, res);
+    });
+    try {
+      const exit = tool.bind({ url: srv.url });
+      await exit.deliver({ content: "构建失败", mentions: ["zhangsan"] });
+      const parsed = JSON.parse(captured);
+      expect(parsed.markdown.content).toBe("构建失败\n<@zhangsan>");
+    } finally {
+      await srv.close();
+    }
+  });
+
+  it("mentions 多人 → 空格分隔；content 为对象时先渲染再追加", async () => {
+    let captured = "";
+    const srv = await startServer((body, res) => {
+      captured = body;
+      okResponder(body, res);
+    });
+    try {
+      const exit = tool.bind({ url: srv.url });
+      await exit.deliver({
+        content: { status: "fail" },
+        mentions: ["zhangsan", "lisi"],
+      });
+      const parsed = JSON.parse(captured);
+      const content: string = parsed.markdown.content;
+      expect(content.startsWith("```json\n")).toBe(true);
+      expect(content.endsWith("\n<@zhangsan> <@lisi>")).toBe(true);
+    } finally {
+      await srv.close();
+    }
+  });
+
+  it("mentions 忽略非字符串与空串；无 content 字段的对象不触发结构化分支", async () => {
+    let captured = "";
+    const srv = await startServer((body, res) => {
+      captured = body;
+      okResponder(body, res);
+    });
+    try {
+      const exit = tool.bind({ url: srv.url });
+      await exit.deliver({
+        text: "hi",
+        mentions: ["zhangsan", "", 42, null],
+      });
+      const parsed = JSON.parse(captured);
+      expect(parsed.markdown.content).toBe(
+        "```json\n" +
+          JSON.stringify(
+            { text: "hi", mentions: ["zhangsan", "", 42, null] },
+            null,
+            2,
+          ) +
+          "\n```",
+      );
+    } finally {
+      await srv.close();
+    }
+  });
 });

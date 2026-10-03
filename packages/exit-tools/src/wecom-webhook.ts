@@ -50,7 +50,28 @@ function truncateToBytes(text: string, maxBytes: number): string {
 }
 
 function buildContent(result: unknown): string {
-  const text = resultToText(result);
+  let text: string;
+  let mentions: string[] = [];
+  if (
+    result !== null &&
+    typeof result === "object" &&
+    "content" in (result as Record<string, unknown>)
+  ) {
+    // 结构化投递：{ content: string | object, mentions?: string[] }
+    const payload = result as { content: unknown; mentions?: unknown };
+    text = resultToText(payload.content);
+    if (Array.isArray(payload.mentions)) {
+      mentions = payload.mentions.filter(
+        (m): m is string => typeof m === "string" && m.trim() !== "",
+      );
+    }
+  } else {
+    text = resultToText(result);
+  }
+  if (mentions.length > 0) {
+    // 企微 markdown 的 @ 语法：内容内嵌 <@userid>
+    text += "\n" + mentions.map((m) => `<@${m.trim()}>`).join(" ");
+  }
   if (Buffer.byteLength(text, "utf8") <= MAX_CONTENT_BYTES) return text;
   return truncateToBytes(text, MAX_CONTENT_BYTES) + TRUNCATED_SUFFIX;
 }
