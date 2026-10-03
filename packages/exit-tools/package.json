@@ -12,6 +12,7 @@
     }
   },
   "dependencies": {
+    "@actions/github": "^9.1.1",
     "nodemailer": "^10.0.12"
   },
   "devDependencies": {

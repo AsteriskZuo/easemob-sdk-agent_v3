@@ -5,7 +5,12 @@ export { createWecomWebhookExitTool } from "./wecom-webhook.js";
 export { createMailExitTool } from "./mail.js";
 export { createWebhookExitTool } from "./webhook.js";
 export { createWecomAibotExitTool, type AibotSender } from "./wecom-aibot.js";
-export { createGithubExitTool, GhCli, type GhRunner } from "./github.js";
+export {
+  createGithubExitTool,
+  GithubClient,
+  type GithubClientOptions,
+  type OctokitLike,
+} from "./github.js";
 export {
   createJiraExitTool,
   JiraClient,

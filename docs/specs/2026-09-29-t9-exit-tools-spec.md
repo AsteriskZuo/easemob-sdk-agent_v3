@@ -26,7 +26,7 @@
 
 - **配置分两半**：`ExitBinding.config` 存非机密项（registry 包已落库）；机密项（密码、token）由装配根（T12）从 EnvProvider 解析后**合并进 config 再调 bind**——本包 bind 收到的就是完整配置，不感知来源。
 - **失败语义**：deliver 抛错 = 投递失败，调度循环按有界重试处置（重试逻辑在 T8，本包只管"成功返回 / 失败抛错"，工具内不做重试——confluence 409 版本冲突、github 无幂等键导致的重复，均交给调度循环语义，工具不兜）。
-- 运行时环境：Node 24，全局 `fetch` 可用；github 工具依赖宿主机 `gh` CLI（≥ 2.x 已登录）。
+- 运行时环境：Node 24，全局 `fetch` 可用；github 工具经 `@actions/github`（Octokit REST 客户端）直连 API，token 为必需配置项（secret），无宿主机外部工具依赖。
 - **统一工具类模式**（2026-10-03 裁决，四工具一致）：各工具底层是**无业务知识的工具类**——构造注入、类内零 `process.env`、零全局单例、调用方（装配根）控生命周期、可在别的程序/平台直接复用；**每绑定一实例**（jira/confluence 是用户登录，不同业务可能用不同用户，这是不做跨业务单例的原因之一）。包内 `ExitTool` 实现只做薄适配：`bind(config)` 建工具类实例，`deliver(payload)` 按 op 翻译为工具类调用。
 
 ## 3. 范围与不做清单
@@ -37,7 +37,7 @@
 
 - 投递重试、死信、日志（归调度循环）；凭证解析（归装配根）；控制台 UI（T14 消费 configSchema）；
 - wecom-aibot 的 SDK 连接属主（`AibotConnector`）——本包只定义 `AibotSender` 发送外观，由装配根注入；
-- github 的 `gh` 安装与登录（宿主机/部署环境职责，bind 时 `assertUsable` 前置报错）。
+- github 的 token 签发与续期（部署环境职责，bind 时校验 required，`assertUsable` 首次投递前前置报错）。
 
 ## 4. 包结构
 
@@ -54,7 +54,7 @@ packages/exit-tools/
 │   ├── mail.ts             # 实现
 │   ├── webhook.ts          # 实现
 │   ├── wecom-aibot.ts      # 实现（AibotSender 注入）
-│   ├── github.ts           # 实现（GhCli，gh 子进程）
+│   ├── github.ts           # 实现（GithubClient，@actions/github REST）
 │   ├── jira.ts             # 实现（JiraClient）
 │   └── confluence.ts       # 实现（ConfluenceClient）
 └── tests/
@@ -68,7 +68,7 @@ packages/exit-tools/
     └── confluence.test.ts
 ```
 
-工程约定同 T0 spec §4。`dependencies`：`nodemailer`（SMTP 发送，见 §9-B）；devDependencies 另加 `@types/nodemailer`。不依赖任何 workspace 包；wecom-aibot 不依赖 `@wecom/aibot-node-sdk`（发送能力经注入）。
+工程约定同 T0 spec §4。`dependencies`：`nodemailer`（SMTP 发送，见 §9-B）、`@actions/github`（GitHub REST 客户端，见 §5.7；devDependencies 另加其传递类型所需无）；devDependencies 另加 `@types/nodemailer`。不依赖任何 workspace 包；wecom-aibot 不依赖 `@wecom/aibot-node-sdk`（发送能力经注入）。
 
 ## 5. 详细规格
 
@@ -175,42 +175,57 @@ export function createWecomAibotExitTool(options?: {
 
 ### 5.7 GitHub 操作（github.ts，kind = `'github'`，name = `GitHub 操作`）
 
-- **通道裁决**（2026-10-03）：经 **`gh` CLI 子进程**操作，不直接调 REST API。已实测 gh 2.83.2 + 登录态全链路可用（repo view / clone / issue create+comment+close / pr create+comment+close+删分支，见 `docs/researches/github-exit/`）。服务化/容器化部署需注入 `GH_TOKEN`（未登录时 gh 会走交互授权挂起）。
+- **通道裁决**（2026-10-03，最终）：经 **`@actions/github`（Octokit REST 客户端）**直连 REST API，无子进程。2026-10-03 早期版本曾用 `gh` CLI 子进程并真实验证四链路（记录见 `docs/researches/github-exit/`，已判 obsolete）；按 dependency-rules §5「子进程非必要不使用」标准替换为进程内 REST 客户端，替换前已完成 `repos.get` / tarball 下载 / issue+comment+close / PR+comment+close 四链路真实验证（`octokit-exit-verify.mjs`）。
 - 类型与工具类：
 
 ```ts
-/** gh 子进程抽象：非零退出抛错（含 stderr 片段）；resolve 值为 stdout */
-export type GhRunner = (
-  args: string[],
-  options?: { cwd?: string; env?: Record<string, string> },
-) => Promise<string>;
-
-/** 无业务知识工具类：构造注入 runner/repo/env（如 GH_TOKEN），类内零 process.env */
-export class GhCli {
-  constructor(options: { runner: GhRunner; repo: string /* owner/repo 形态 */; env?: Record<string, string> });
-  assertUsable(): Promise<void>;        // gh --version + gh auth status（bind 后首次 deliver 前惰性执行一次）
-  createIssue(title: string, body?: string): Promise<void>;
-  addComment(number: number, body: string): Promise<void>;   // issue/PR 同端点
-  createPullRequest(title: string, body?: string, options?: { head?: string; base?: string }): Promise<void>;
-  cloneRepo(dir: string): Promise<void>;
+/** 构造配置：token/repo 必填，baseUrl 为 GHES 实例地址（缺省 github.com） */
+export interface GithubClientOptions {
+  token: string;                    // REST 必需，无宿主机 keyring 可依赖
+  repo: string;                     // owner/repo 形态（调用方经 parseRepo 归一化）
+  baseUrl?: string;                 // GHES 实例地址，缺省 github.com
 }
 
-/** 工厂：createRunner 可注入（测试用假 runner，不发真实子进程）；缺省 execFile 实现
- *  统一注入 GH_PROMPT_DISABLED/NO_COLOR/GH_NO_UPDATE_NOTIFIER=1 防交互挂起 */
+/** Octokit 最小表面（结构化类型，不 import @octokit 类型，避免版本耦合）；
+ *  真实 getOctokit 返回值天然满足 */
+export interface OctokitLike {
+  rest: {
+    repos: { get(...) };
+    issues: { create(...): Promise<{ data: { number: number } }>;
+              createComment(...); update(...) };
+    pulls: { create(...): Promise<{ data: { number: number } }>; update(...) };
+  };
+  request?(route, params?): Promise<unknown>;   // 未封装端点逃生门
+}
+
+/** 无业务知识工具类：构造注入 options + 可选 deps { octokit?, fetchImpl? }，
+ *  类内零 process.env；api getter 透传底层 octokit 作为逃生门
+ *  （新需求优先走这里或扩展调用方，不再加固化方法） */
+export class GithubClient {
+  constructor(options: GithubClientOptions, deps?: { octokit?: OctokitLike; fetchImpl?: typeof fetch });
+  assertUsable(): Promise<void>;      // rest.repos.get 探测（凭证/权限），失败抛错含提示
+  createIssue(title: string, body?: string): Promise<number>;   // rest.issues.create
+  addComment(number: number, body: string): Promise<void>;      // rest.issues.createComment（issue/PR 同端点）
+  createPullRequest(options: { title: string; body?: string; head?: string; base?: string }): Promise<number>; // rest.pulls.create
+  downloadCode(filePath: string, ref?: string): Promise<number>; // GET /repos/{owner}/{repo}/tarball/{ref}（follow 302），写入 filePath，返回字节数
+  get api(): OctokitLike;             // 底层实例透传（未封装端点逃生门）
+}
+
+/** 工厂：createClient 可注入（测试用假 client）；缺省 new GithubClient
+ *  （经 getOctokit(token, { baseUrl? }) 构造） */
 export function createGithubExitTool(options?: {
-  createRunner?: (env?: Record<string, string>) => GhRunner;
-  ghPath?: string;
+  createClient?: (config: Record<string, string>) => GithubClient;
 }): ExitTool;
 ```
 
-- configSchema：`repo`（required，仓库地址，支持 https / `ssh://` / scp 语法 `git@host:owner/repo` / `owner/repo` 简写）、`token`（可选、**secret**，注入子进程环境 `GH_TOKEN`）。
+- configSchema：`repo`（required，仓库地址，支持 https / `ssh://` / scp 语法 `git@host:owner/repo` / `owner/repo` 简写）、`base_url`（可选，GHES 实例地址）、`token`（required、**secret**——REST 必需，无宿主机 keyring 可依赖）。
 - `destinationOf`：仓库地址归一化（算法见 §2 表），输出 `host_owner_repo`；非法形态（单段、不支持协议）抛错。
-- `bind`：校验 repo；token → env；构造 GhCli（assertUsable 惰性挂首次 deliver）。
+- `bind`：校验 required 项（repo/token）；构造 GithubClient（assertUsable 惰性挂首次 deliver，实例外 flag 控一次性）。
 - `deliver` payload（op 判别，缺一即抛错并列出合法形态）：
   - `{ op: 'issue', title, body? }` → 建 issue；
   - `{ op: 'comment', number, body }` → 评论（issue/PR 通用）；
   - `{ op: 'pr', title, body?, head?, base? }` → 建 PR（分支须已推送）；
-  - `{ op: 'clone', dir? }` → 下载代码到 dir（缺省 repo 末段名）。
+  - `{ op: 'clone', path, ref? }` → 下载 tarball 到 path（保存文件路径，必填；ref 缺省默认分支）。
   - body 为对象时渲染为 json 围栏文本。注意 github 无幂等键，重试可能重复建 issue——payload 应带稳定 dedupe key 写入 body（业务侧约定，工具不强制）。
 
 ### 5.8 Jira 操作（jira.ts，kind = `'jira'`，name = `Jira 操作`）
@@ -283,7 +298,7 @@ export function createConfluenceExitTool(options?: {
 
 ## 6. 测试清单
 
-HTTP 类用例用 `node:http` 起本地服务器断言请求，不发真实外部请求；mail 用注入的假 transport；wecom-aibot 用注入的假 sender；github 用注入的假 runner（零真实子进程）。
+HTTP 类用例用 `node:http` 起本地服务器断言请求，不发真实外部请求；mail 用注入的假 transport；wecom-aibot 用注入的假 sender；github 用注入的假 octokit（OctokitLike 最小对象，记录调用）与假 fetchImpl（tarball 场景），零真实网络。
 
 **registry.test.ts**：list 返回七个工具且全部 `implemented: true`；get 命中；get 未知 kind 抛错。
 
@@ -291,7 +306,7 @@ HTTP 类用例用 `node:http` 起本地服务器断言请求，不发真实外�
 
 **wecom-aibot.test.ts**（13 用例）：destinationOf 三段拼接与缺段抛错；bind 立即解析 sender（bot_id 正确）、缺省 resolveSender 抛错、解析器抛错透出；deliver 字符串原样 / 对象 json 围栏；>20480 字节截断（多字节中文不切断）且含「已截断」；sender 拒绝 → deliver 抛错。
 
-**github.test.ts**（20 用例）：destinationOf 四形态归一化（https/ssh/scp/简写、大写、`.git`、尾斜杠）与非法抛错；bind 缺 repo 抛错；token → runner env.GH_TOKEN；四 op 的 gh args 数组精确匹配；body 对象 json 围栏；未知 op / 缺字段抛错；runner 非零退出透传；assertUsable 仅首次 deliver 前执行一次。
+**github.test.ts**：destinationOf 四形态归一化（https/ssh/scp/简写、大写、`.git`、尾斜杠）与非法抛错；bind 缺 repo/token 抛错；createClient 收到绑定配置（含 base_url）；四 op 的 octokit 调用参数精确匹配；body 对象 json 围栏；未知 op / 缺字段抛错；octokit 抛错（422）透传；downloadCode 的 URL/头（Bearer、Accept）/302 跟随/写入内容/非 2xx 抛错；assertUsable 仅首次 deliver 前执行一次、失败不置 flag 可重试。
 
 **jira.test.ts**（21 用例）：destinationOf host+key/project 与缺项抛错；deliver comment 路径与 body 渲染（字符串/对象）；create 的 fields 组装（project.key/summary/extra 透传）；登录失败抛错；REST 401 一次后自愈重登成功；服务器 500 抛错；注入假 createClient 验证 bind 传参映射（含 redirect_*）。
 
@@ -301,7 +316,7 @@ HTTP 类用例用 `node:http` 起本地服务器断言请求，不发真实外�
 
 1. 包级 `build`/`test` 与根级六项检查全绿；
 2. §6 测试清单全覆盖；测试不发真实外部网络请求、不 spawn 真实 `gh`；
-3. 导出签名与本文 §5/§8 一致；除 nodemailer 外无其他运行时依赖（`gh` 为宿主机外部工具，非 npm 依赖）；
+3. 导出签名与本文 §5/§8 一致；运行时依赖仅 `nodemailer` 与 `@actions/github`，无宿主机外部工具依赖（gh CLI 已判 obsolete，见 `docs/researches/github-exit/`）；
 4. 全包无 `process.env`、无全局单例。
 
 ## 8. 导出清单（index.ts）
@@ -309,7 +324,7 @@ HTTP 类用例用 `node:http` 起本地服务器断言请求，不发真实外�
 - 值：`createExitRegistry`、`postJson`
 - 类型：`ConfigField`、`ExitTool`、`Exit`、`ExitRegistry`
 - 已实现工具工厂（供定制/测试注入）：`createWecomWebhookExitTool`、`createMailExitTool`、`createWebhookExitTool`、`createWecomAibotExitTool`、`createGithubExitTool`、`createJiraExitTool`、`createConfluenceExitTool`
-- 工具类（可复用，无业务知识）：`JiraClient`（+`JiraClientOptions`）、`ConfluenceClient`（+`ConfluenceClientOptions`、`PageRef`）、`GhCli`（+`GhRunner`）
+- 工具类（可复用，无业务知识）：`JiraClient`（+`JiraClientOptions`）、`ConfluenceClient`（+`ConfluenceClientOptions`、`PageRef`）、`GithubClient`（+`GithubClientOptions`、`OctokitLike`）
 - 工具类接口：`AibotSender`
 
 ## 9. 本规格的裁决点（设计文档未覆盖，主 agent 已定）
@@ -322,5 +337,5 @@ HTTP 类用例用 `node:http` 起本地服务器断言请求，不发真实外�
 - **F. 统一工具类模式**（2026-10-03，四工具）：无业务知识、构造注入、零 process.env、零全局单例、每绑定一实例、装配根控生命周期、可跨程序复用；出口侧仅薄适配。jira/confluence 是用户登录，不同业务可能用不同用户，是不做跨业务单例的原因之一。
 - **G. jira 创建型 destination 适配**（2026-10-03）：spec §2 原契约「站点+工单 key」对「创建新工单」无 key 可用，落地为 `issue_key ?? project`——有 key 同工单串行，无 key 同项目串行（粒度变粗不影响正确性）。
 - **H. confluence 创建型 destination 与 get-or-create**（2026-10-03）：以 `space_key + page_title` 定页面（页面 id 创建前不存在）；deliver 走「按标题查页 → 无则建 / 有则 version+1 更新」，更新遇 409 抛错不重试（归调度循环）。
-- **I. github 走 gh CLI 而非 REST**（2026-10-03）：owner 指定 `gh` 为操作通道，已真实验证四链路（下载代码/提 PR/评论/建 issue）；token 经 GH_TOKEN 注入子进程；容器化部署需处理 gh 登录态。幂等仍无保证，业务 payload 应带 dedupe key 写入 body。
+- **I. github 走 @actions/github（Octokit REST）而非子进程**（2026-10-03，最终）：owner 已定 dependency-rules §5 标准「子进程非必要不使用」；替换前经 `octokit-exit-verify.mjs` 真实验证四链路（repos.get 探测 / tarball 下载 / issue+comment+close / PR+comment+close）全部通过。token 为必需 secret 配置（REST 必需，无宿主机 keyring 可依赖）；base_url 支持 GHES。幂等仍无保证，业务 payload 应带 dedupe key 写入 body。gh CLI 方案完成历史使命（记录保留在 `docs/researches/github-exit/`）。
 - **J. wecom-aibot 不持连接、发送外观注入**（2026-10-03）：企微单连接互踢已实测（`single-connection-verify.mjs`），入口/出口必须共享同一 SDK 实例；本包只定义 `AibotSender` 外观，连接属主 `AibotConnector`（按 botId 单实例）归装配根，实现见后续装配任务。截断阈值 20480 字节（aibot sendMessage markdown 上限，实测调研确认，非 webhook 的 4096）。

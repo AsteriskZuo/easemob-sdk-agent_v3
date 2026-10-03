@@ -1,17 +1,81 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { writeFile } from "node:fs/promises";
+import { getOctokit } from "@actions/github";
 import type { ConfigField, Exit, ExitTool } from "./types.js";
 
 const KIND = "github";
+const DEFAULT_API_BASE = "https://api.github.com";
 
-const execFileAsync = promisify(execFile);
+/** Octokit 最小表面（结构化类型，不 import @octokit 类型以避免版本耦合）：
+ *  真实 @actions/github 的 getOctokit 返回值天然满足本接口 */
+export interface OctokitLike {
+  rest: {
+    repos: {
+      /** 仓库探测：GET /repos/{owner}/{repo}（assertUsable 用） */
+      get(params: { owner: string; repo: string }): Promise<unknown>;
+    };
+    issues: {
+      /** 建 issue：POST /repos/{owner}/{repo}/issues；返回 data.number */
+      create(params: {
+        owner: string;
+        repo: string;
+        title: string;
+        body?: string;
+      }): Promise<{ data: { number: number } }>;
+      /** 评论（issue/PR 同端点）：POST /repos/{owner}/{repo}/issues/{number}/comments */
+      createComment(params: {
+        owner: string;
+        repo: string;
+        issue_number: number;
+        body: string;
+      }): Promise<unknown>;
+      /** 关闭 issue（state=closed） */
+      update(params: {
+        owner: string;
+        repo: string;
+        issue_number: number;
+        state: string;
+      }): Promise<unknown>;
+    };
+    pulls: {
+      /** 建 PR：POST /repos/{owner}/{repo}/pulls；返回 data.number */
+      create(params: {
+        owner: string;
+        repo: string;
+        title: string;
+        body?: string;
+        head?: string;
+        base?: string;
+      }): Promise<{ data: { number: number } }>;
+      /** 关闭 PR（state=closed） */
+      update(params: {
+        owner: string;
+        repo: string;
+        pull_number: number;
+        state: string;
+      }): Promise<unknown>;
+    };
+  };
+  /** 未封装端点的逃生门（octokit.request，调用方可自行扩展任意 REST 端点） */
+  request?(route: string, params?: Record<string, unknown>): Promise<unknown>;
+}
 
-/** gh 子进程抽象：args 为 gh 命令行参数（无 shell 拼接）；非零退出抛错（消息含 stderr 片段），
- *  resolve 值为 stdout。由 createGithubExitTool 的 createRunner 注入，测试用假实现 */
-export type GhRunner = (
-  args: string[],
-  options?: { cwd?: string; env?: Record<string, string> },
-) => Promise<string>;
+/** GithubClient 构造配置：token/repo 必填，baseUrl 为 GHES 实例地址（缺省 github.com） */
+export interface GithubClientOptions {
+  /** REST 认证 token（Bearer）；GitHub 出口无可依赖的宿主机 keyring，必填 */
+  token: string;
+  /** 仓库，owner/repo 形态（调用方经 parseRepo 归一化） */
+  repo: string;
+  /** GHES 实例地址（如 https://ghes.example.com），缺省 github.com */
+  baseUrl?: string;
+}
+
+/** 构造可选依赖注入（测试用假 octokit / fetch，零真实网络） */
+export interface GithubClientDeps {
+  /** 缺省经 getOctokit(token, { baseUrl }) 构造 */
+  octokit?: OctokitLike;
+  /** 缺省全局 fetch；仅 downloadCode 使用 */
+  fetchImpl?: typeof fetch;
+}
 
 const configSchema: ConfigField[] = [
   {
@@ -22,8 +86,13 @@ const configSchema: ConfigField[] = [
       "https://github.com/owner/repo 或 git@github.com:owner/repo 或 owner/repo",
   },
   {
+    key: "base_url",
+    label: "GitHub 实例地址（GHES 时填，缺省 github.com）",
+  },
+  {
     key: "token",
-    label: "GitHub Token（缺省用宿主机 gh 登录态）",
+    label: "GitHub Token（REST 必需，无宿主机 keyring 可依赖）",
+    required: true,
     secret: true,
   },
 ];
@@ -116,135 +185,158 @@ function requireStringField(
   return value;
 }
 
-/** 无业务知识的 gh CLI 工具类：构造注入 runner/repo/env，零 process.env 读取、零全局状态 */
-export class GhCli {
-  private readonly runner: GhRunner;
-  readonly repo: string;
-  private readonly env?: Record<string, string>;
+/** 无业务知识的 GitHub REST 工具类：构造注入 options + 可选 octokit/fetch，
+ *  类内零 process.env 读取、零全局状态。新端点需求优先经 api 逃生门或扩展调用方，
+ *  不再为本类加固化方法。 */
+export class GithubClient {
+  private readonly octokit: OctokitLike;
+  private readonly fetchImpl: typeof fetch;
+  private readonly token: string;
+  private readonly owner: string;
+  private readonly repo: string;
+  private readonly apiBase: string;
 
-  /** repo 须为规范化后的 owner/repo 形态（调用方经 parseRepo 归一化） */
-  constructor(options: {
-    runner: GhRunner;
-    repo: string;
-    env?: Record<string, string>;
-  }) {
-    this.runner = options.runner;
-    this.repo = options.repo;
-    this.env = options.env;
+  constructor(options: GithubClientOptions, deps?: GithubClientDeps) {
+    const segments = options.repo.split("/");
+    if (segments.length !== 2 || segments.some((s) => !s)) {
+      throw new Error(
+        `GithubClient 构造参数非法：repo='${options.repo}' 须为 owner/repo 形态`,
+      );
+    }
+    this.owner = segments[0];
+    this.repo = segments[1];
+    this.token = options.token;
+    this.apiBase = options.baseUrl
+      ? `${options.baseUrl.replace(/\/+$/, "")}/api/v3`
+      : DEFAULT_API_BASE;
+    this.octokit =
+      deps?.octokit ??
+      (getOctokit(options.token, octokitBaseUrl(options)) as OctokitLike);
+    this.fetchImpl = deps?.fetchImpl ?? fetch;
   }
 
-  private run(args: string[]): Promise<string> {
-    return this.runner(args, this.env ? { env: this.env } : undefined);
+  /** 底层 octokit 实例透传：未封装端点的逃生门。
+   *  新需求优先走这里（octokit.request）或在调用方扩展，不再加固化方法。 */
+  get api(): OctokitLike {
+    return this.octokit;
   }
 
-  /** 前置校验：gh 可执行且已认证（gh --version + gh auth status）。
-   *  失败抛错（消息提示检查 gh 安装/登录），把配置错误前置到首次投递 */
+  /** 前置校验：rest.repos.get 探测（凭证有效性 + 仓库权限）。
+   *  失败抛错（含权限/凭证提示；私有仓库无权限返回 404 而非 403），
+   *  把配置错误前置到首次投递（由调用方做惰性一次性调度） */
   async assertUsable(): Promise<void> {
     try {
-      await this.run(["--version"]);
-      await this.run(["auth", "status"]);
+      await this.octokit.rest.repos.get({
+        owner: this.owner,
+        repo: this.repo,
+      });
     } catch (err) {
       throw new Error(
-        `gh CLI 不可用或未登录：${(err as Error).message}（请检查 gh 是否安装、已 gh auth login，或配置 token）`,
+        `GitHub 凭证或仓库权限校验失败：${(err as Error).message}（请检查 token 有效性、scopes 与目标仓库权限）`,
       );
     }
   }
 
-  /** gh issue create -R <repo> --title <t> [--body <b>] */
-  async createIssue(title: string, body?: string): Promise<void> {
-    await this.run([
-      "issue",
-      "create",
-      "--repo",
-      this.repo,
-      "--title",
+  /** 建 issue（rest.issues.create）；返回 issue number */
+  async createIssue(title: string, body?: string): Promise<number> {
+    const response = await this.octokit.rest.issues.create({
+      owner: this.owner,
+      repo: this.repo,
       title,
-      ...(body !== undefined ? ["--body", body] : []),
-    ]);
+      ...(body !== undefined ? { body } : {}),
+    });
+    return response.data.number;
   }
 
-  /** gh issue comment <n> -R <repo> --body <b>（issue/PR 同端点） */
+  /** 评论（rest.issues.createComment，issue/PR 同端点） */
   async addComment(number: number, body: string): Promise<void> {
-    await this.run([
-      "issue",
-      "comment",
-      String(number),
-      "--repo",
-      this.repo,
-      "--body",
+    await this.octokit.rest.issues.createComment({
+      owner: this.owner,
+      repo: this.repo,
+      issue_number: number,
       body,
-    ]);
+    });
   }
 
-  /** gh pr create -R <repo> --title <t> [--body <b>] [--head <h>] [--base <b>] */
-  async createPullRequest(
-    title: string,
-    body?: string,
-    options?: { head?: string; base?: string },
-  ): Promise<void> {
-    await this.run([
-      "pr",
-      "create",
-      "--repo",
-      this.repo,
-      "--title",
-      title,
-      ...(body !== undefined ? ["--body", body] : []),
-      ...(options?.head ? ["--head", options.head] : []),
-      ...(options?.base ? ["--base", options.base] : []),
-    ]);
+  /** 建 PR（rest.pulls.create；head 分支须已推送）；返回 PR number */
+  async createPullRequest(options: {
+    title: string;
+    body?: string;
+    head?: string;
+    base?: string;
+  }): Promise<number> {
+    const response = await this.octokit.rest.pulls.create({
+      owner: this.owner,
+      repo: this.repo,
+      title: options.title,
+      ...(options.body !== undefined ? { body: options.body } : {}),
+      ...(options.head ? { head: options.head } : {}),
+      ...(options.base ? { base: options.base } : {}),
+    });
+    return response.data.number;
   }
 
-  /** gh repo clone <repo> <dir> */
-  async cloneRepo(dir: string): Promise<void> {
-    await this.run(["repo", "clone", this.repo, dir]);
+  /** 下载仓库 tarball（GET /repos/{owner}/{repo}/tarball/{ref}，跟随 302 到 codeload）
+   *  写入 filePath；返回字节数。非 2xx 抛错 */
+  async downloadCode(filePath: string, ref?: string): Promise<number> {
+    const suffix = ref ? `/${encodeURIComponent(ref)}` : "";
+    const url = `${this.apiBase}/repos/${this.owner}/${this.repo}/tarball${suffix}`;
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url, {
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `Bearer ${this.token}`,
+        },
+        redirect: "follow",
+      });
+    } catch (err) {
+      throw new Error(
+        `GitHub tarball 下载失败：无法连接（${err instanceof Error ? err.message : String(err)}）`,
+      );
+    }
+    if (!response.ok) {
+      const detail = (await response.text().catch(() => "")).slice(0, 200);
+      throw new Error(
+        `GitHub tarball 下载失败：HTTP ${response.status}${detail ? `，响应片段：${detail}` : ""}`,
+      );
+    }
+    const buffer = Buffer.from(await response.arrayBuffer());
+    await writeFile(filePath, buffer);
+    return buffer.byteLength;
   }
 }
 
-/** 缺省 runner 工厂（ghPath 缺省 'gh'）：execFile 包装；统一注入防交互挂起/日志噪声的环境变量；
- *  非零退出抛错（消息含 stderr 片段） */
-function defaultCreateRunner(ghPath: string) {
-  return (env?: Record<string, string>): GhRunner => {
-    return async (args, options) => {
-      try {
-        const { stdout } = await execFileAsync(ghPath, args, {
-          cwd: options?.cwd,
-          env: {
-            ...process.env,
-            ...env,
-            ...options?.env,
-            GH_PROMPT_DISABLED: "1",
-            NO_COLOR: "1",
-            GH_NO_UPDATE_NOTIFIER: "1",
-          },
-          maxBuffer: 4 * 1024 * 1024,
-        });
-        return stdout;
-      } catch (err) {
-        const e = err as Error & { stderr?: string };
-        const stderr = typeof e.stderr === "string" ? e.stderr.trim() : "";
-        const detail = (stderr || e.message || String(err)).slice(0, 500);
-        throw new Error(
-          `gh 命令执行失败（${ghPath} ${args.join(" ")}）：${detail}`,
-        );
-      }
-    };
-  };
+/** getOctokit 的 baseUrl 参数：GHES 为 {baseUrl}/api/v3，github.com 缺省不传 */
+function octokitBaseUrl(options: GithubClientOptions): {
+  baseUrl?: string;
+} {
+  return options.baseUrl
+    ? { baseUrl: `${options.baseUrl.replace(/\/+$/, "")}/api/v3` }
+    : {};
+}
+
+/** 缺省 client 工厂：把绑定配置（snake_case 键）映射为 GithubClientOptions */
+function defaultCreateClient(config: Record<string, string>): GithubClient {
+  const parsed = parseRepo(config.repo ?? "");
+  return new GithubClient({
+    token: config.token,
+    repo: `${parsed.owner}/${parsed.repo}`,
+    ...(config.base_url ? { baseUrl: config.base_url } : {}),
+  });
 }
 
 const LEGAL_FORMS =
   "{ op: 'issue', title, body? } | { op: 'comment', number, body } | " +
-  "{ op: 'pr', title, body?, head?, base? } | { op: 'clone', dir? }";
+  "{ op: 'pr', title, body?, head?, base? } | { op: 'clone', path, ref? }";
 
 /** GitHub 出口工具（kind = 'github'，name = 'GitHub 操作'）。
- *  经 gh CLI 子进程操作仓库；createRunner 可注入（测试用），缺省为真实 spawn 实现 */
+ *  经 @actions/github（Octokit REST 客户端）操作仓库，无子进程；
+ *  createClient 可注入（测试用假 client），缺省直接 new GithubClient */
 export function createGithubExitTool(options?: {
-  createRunner?: (env?: Record<string, string>) => GhRunner;
-  ghPath?: string;
+  createClient?: (config: Record<string, string>) => GithubClient;
 }): ExitTool {
-  const createRunner =
-    options?.createRunner ?? defaultCreateRunner(options?.ghPath ?? "gh");
-
+  const createClient = options?.createClient ?? defaultCreateClient;
   return {
     kind: KIND,
     name: "GitHub 操作",
@@ -256,21 +348,20 @@ export function createGithubExitTool(options?: {
       return `${parsed.host}_${parsed.owner}_${parsed.repo}`;
     },
     bind(config): Exit {
-      const parsed = parseRepo(config.repo ?? "");
-      const token = config.token?.trim();
-      const env = token ? { GH_TOKEN: token } : undefined;
-      const cli = new GhCli({
-        runner: createRunner(env),
-        repo: `${parsed.owner}/${parsed.repo}`,
-        env,
-      });
-      const defaultCloneDir = parsed.repo;
+      // parseRepo 先做地址合法性校验（缺 repo/非法形态在此抛错）
+      parseRepo(config.repo ?? "");
+      for (const field of configSchema) {
+        if (field.required && !config[field.key]?.trim()) {
+          throw new Error(`出口工具 '${KIND}' 缺少必需配置项 '${field.key}'`);
+        }
+      }
+      const client = createClient({ ...config });
       let usableChecked = false;
       return {
         async deliver(result): Promise<void> {
-          // bind 为同步签名：可用性校验惰性放到首次投递前
+          // bind 为同步签名：可用性校验惰性放到首次投递前，成功后仅执行一次
           if (!usableChecked) {
-            await cli.assertUsable();
+            await client.assertUsable();
             usableChecked = true;
           }
           if (typeof result !== "object" || result === null) {
@@ -282,7 +373,7 @@ export function createGithubExitTool(options?: {
           switch (payload.op) {
             case "issue": {
               const title = requireStringField(payload, "title", LEGAL_FORMS);
-              await cli.createIssue(title, renderBody(payload.body));
+              await client.createIssue(title, renderBody(payload.body));
               return;
             }
             case "comment": {
@@ -302,7 +393,7 @@ export function createGithubExitTool(options?: {
                   `出口工具 '${KIND}' 投递 payload 非法：字段 'body' 缺失。合法形态：${LEGAL_FORMS}`,
                 );
               }
-              await cli.addComment(number, body);
+              await client.addComment(number, body);
               return;
             }
             case "pr": {
@@ -315,18 +406,21 @@ export function createGithubExitTool(options?: {
                 typeof payload.base === "string" && payload.base
                   ? payload.base
                   : undefined;
-              await cli.createPullRequest(title, renderBody(payload.body), {
+              await client.createPullRequest({
+                title,
+                body: renderBody(payload.body),
                 head,
                 base,
               });
               return;
             }
             case "clone": {
-              const dir =
-                typeof payload.dir === "string" && payload.dir
-                  ? payload.dir
-                  : defaultCloneDir;
-              await cli.cloneRepo(dir);
+              const filePath = requireStringField(payload, "path", LEGAL_FORMS);
+              const ref =
+                typeof payload.ref === "string" && payload.ref
+                  ? payload.ref
+                  : undefined;
+              await client.downloadCode(filePath, ref);
               return;
             }
             default:

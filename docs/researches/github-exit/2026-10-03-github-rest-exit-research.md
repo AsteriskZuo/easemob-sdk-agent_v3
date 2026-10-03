@@ -1,11 +1,13 @@
 # GitHub 出口工具技术调研
 
+> **状态（2026-10-03 更新）**：本文所述 gh CLI 方案已由 owner 判 **obsolete**——gh 方案真实验证有效（见下文记录），但按 `docs/designs/2026-09-14-skill-platform-spec-v3/design/dependency-rules.md` §5「子进程非必要不使用」标准，落地实现替换为 `@actions/github`（Octokit REST 客户端）进程内直连。替换决策与 Octokit 方案验证记录见文末「2026-10-03 替换决策」章节。
+
 调研日期：2026-10-03（gh CLI 方案已完成真实端到端验证）
 调研目的：为「出口工具」GitHub 目的地（下载代码 clone / 提交 PR / 提交评论 / 提交 issue）确认技术可行性，为 spec 与工具类实现提供依据。
 
-**方向裁决（owner 已定，2026-10-03）**：出口工具通过 GitHub 官方 CLI（`gh`）操作，**不直接调 REST API**。这些能力写成**工具类模式**：无业务知识、构造注入、零 `process.env`、零全局单例、调用方控生命周期，可在其他程序和平台直接复用；GitHub 侧无进程内状态，不需要实例（工具类退化为纯函数/薄封装也合理），认证态由 gh/宿主机托管。
+**方向裁决（owner 已定，2026-10-03，已被文末替换决策取代）**：出口工具通过 GitHub 官方 CLI（`gh`）操作，**不直接调 REST API**。这些能力写成**工具类模式**：无业务知识、构造注入、零 `process.env`、零全局单例、调用方控生命周期，可在其他程序和平台直接复用；GitHub 侧无进程内状态，不需要实例（工具类退化为纯函数/薄封装也合理），认证态由 gh/宿主机托管。
 
-## 结论（先说结果）
+## 结论（先说结果，gh 方案历史记录，obsolete）
 
 **gh CLI 方案已真实验证，全链路可用。** 2026-10-03 使用本机 gh 2.83.2（/opt/homebrew/bin/gh）+ 已登录账号 AsteriskZuo（对 `AsteriskZuo/easemob-sdk-agent_v3` 权限 ADMIN），实测通过四条链路：
 
@@ -14,9 +16,9 @@
 3. **PR 链路**：推临时分支（空提交）→ `gh pr create -B v3` → PR #2 → `gh pr comment` → `gh pr close` → 远端分支删除，无残留；
 4. **登录态/权限校验**：`gh auth status`、`gh repo view --json viewerPermission,defaultBranch` 成功。
 
-`gh` 本身就是 REST API 的官方客户端，能力一一对应且可经 `gh api` 兜底任意端点；直接 REST API 方案保留为备选（见「REST API 底册」一节）。可随时用 `gh-exit-verify.mjs` 复跑验证。
+`gh` 本身就是 REST API 的官方客户端，能力一一对应且可经 `gh api` 兜底任意端点；直接 REST API 方案保留为备选（见「REST API 底册」一节）。（原 `gh-exit-verify.mjs` 复跑脚本已随替换删除，Octokit 方案验证见文末「2026-10-03 替换决策」章节。）
 
-## gh CLI 方案（选定通道）
+## gh CLI 方案（历史记录，obsolete）
 
 ### 1. 认证模型
 
@@ -60,7 +62,7 @@ gh 的认证态由宿主机托管，token 存于系统 keyring，与出口工具
 | issue | `gh issue create`（#1）→ `gh issue comment` → `gh issue close` | ✅ 全通；issue 不可删除，#1 已关闭留档 |
 | PR | 空提交推临时分支 → `gh pr create -B v3`（#2）→ `gh pr comment` → `gh pr close` → 删远端分支 | ✅ 全通，无残留；#2 已关闭留档 |
 
-复跑方式：`node docs/researches/github-exit/gh-exit-verify.mjs`（只读）/ `--write`（写链路，标题带「[验证]」前缀）。
+复跑方式（历史记录）：~~`node docs/researches/github-exit/gh-exit-verify.mjs`~~ 脚本已删除，替换为 Octokit 版 `octokit-exit-verify.mjs`（见文末替换决策章节）。
 
 ## 对出口工具实现的建议（工具类模式）
 
@@ -152,3 +154,34 @@ GitHub 不支持幂等键，非安全方法不支持条件请求；「请求已�
 6. **404 歧义**：私有仓库无权限时 GitHub 返回 404，错误提示需涵盖「权限不足或仓库不存在」。
 7. **GHES 未实测**：gh 支持 GHES（`GH_HOST`/`GH_ENTERPRISE_TOKEN`），但未对具体 GHES 版本验证；fine-grained PAT 需 GHES 3.9+。
 8. **issue/PR 不可删除**：验证产生的 #1/#2 只能关闭留档；生产投递同样「只增不改（除 close）」，误投递靠 close + 评论补救。
+
+## 2026-10-03 替换决策：gh CLI → @actions/github（Octokit REST）
+
+### 决策
+
+owner 已定：github 出口工具落地实现**经 `@actions/github`（Octokit REST 客户端）进程内直连 REST API**，替换「gh CLI 子进程」实现（GhCli / GhRunner / execFile / 防挂起 env 全部删除）。依据 `docs/designs/2026-09-14-skill-platform-spec-v3/design/dependency-rules.md` §5：进程内已有等效 REST 客户端时，子进程非必要不使用。gh CLI 方案完成历史使命——本文 gh 侧记录保留作为 REST 事实底册与决策溯源。
+
+### 落地形态（与 spec §5.7 一致）
+
+- 工具类 `GithubClient`（无业务知识）：构造注入 `GithubClientOptions { token, repo /* owner/repo */, baseUrl? /* GHES */ }` + 可选 deps `{ octokit?: OctokitLike, fetchImpl?: typeof fetch }`，类内零 `process.env`。
+- `OctokitLike` 为结构化最小表面（`rest.repos.get` / `rest.issues.create|createComment|update` / `rest.pulls.create|update` / `request?`），不 import @octokit 类型，避免版本耦合；真实 `getOctokit()` 返回值天然满足。
+- `assertUsable()`（rest.repos.get 探测）惰性挂首次 deliver；`downloadCode` 走 `GET /repos/{owner}/{repo}/tarball/{ref}`（Bearer token、Accept `application/vnd.github+json`、`redirect: 'follow'`），写入调用方给定文件路径；`api` getter 透传底层 octokit 作未封装端点逃生门。
+- configSchema：`repo`（required）、`base_url`（可选，GHES）、`token`（required、secret——REST 必需，无宿主机 keyring 可依赖）。clone op 从「克隆到目录」改为「下载 tarball 到指定文件路径」：`{ op: 'clone', path, ref? }`。
+- 验证脚本 `gh-exit-verify.mjs` 替换为 `octokit-exit-verify.mjs`（token 从 `gh auth token` 子进程或 GH_TOKEN 获取、不打印；分支推送仍用 git 命令，S2 经典命令允许）。
+
+### Octokit 方案真实验证记录（2026-10-03，替换前完成）
+
+环境：`@actions/github` 9.1.1（getOctokit 构造），token 复用宿主机 gh 登录态；目标仓库 `AsteriskZuo/easemob-sdk-agent_v3`（push 权限，default branch v3）。
+
+| 链路 | 调用序列 | 结果 |
+| --- | --- | --- |
+| 凭证/权限探测 | `rest.repos.get` | ✅ 返回仓库信息，push 权限确认 |
+| tarball 下载 | `GET /api.github.com/repos/{owner}/{repo}/tarball`（fetch，follow 302） | ✅ 391 KB gzip 落盘，魔数 `1f8b` 校验通过，临时文件已删 |
+| issue | `rest.issues.create`（#3）→ `createComment` → `update(state=closed)` | ✅ 全通；#3 已关闭留档 |
+| PR | git 推临时分支（空提交）→ `rest.pulls.create`（#4）→ `createComment` → `rest.pulls.update(state=closed)` → 删远端分支 | ✅ 全通，无残留；#4 已关闭留档，分支已清理 |
+
+复跑方式：`node docs/researches/github-exit/octokit-exit-verify.mjs`（只读）/ `--write`（写链路，标题带「[验证]」前缀）。
+
+### gh 方案结论（历史记录，obsolete）
+
+**gh CLI 方案曾真实验证，全链路可用。** 2026-10-03 使用本机 gh 2.83.2（/opt/homebrew/bin/gh）+ 已登录账号 AsteriskZuo（对 `AsteriskZuo/easemob-sdk-agent_v3` 权限 ADMIN），实测通过四条链路：
