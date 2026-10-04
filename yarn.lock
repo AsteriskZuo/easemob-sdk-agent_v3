@@ -473,7 +473,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@easemob/agent-env@workspace:packages/env":
+"@easemob/agent-env@npm:0.1.0, @easemob/agent-env@workspace:packages/env":
   version: 0.0.0-use.local
   resolution: "@easemob/agent-env@workspace:packages/env"
   dependencies:
@@ -484,7 +484,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@easemob/agent-exit-tools@workspace:packages/exit-tools":
+"@easemob/agent-exit-tools@npm:0.1.0, @easemob/agent-exit-tools@workspace:packages/exit-tools":
   version: 0.0.0-use.local
   resolution: "@easemob/agent-exit-tools@workspace:packages/exit-tools"
   dependencies:
@@ -533,7 +533,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@easemob/agent-runtime@workspace:packages/runtime":
+"@easemob/agent-runtime@npm:0.1.0, @easemob/agent-runtime@workspace:packages/runtime":
   version: 0.0.0-use.local
   resolution: "@easemob/agent-runtime@workspace:packages/runtime"
   dependencies:
@@ -573,6 +573,29 @@ __metadata:
   resolution: "@easemob/agent-sdk@workspace:packages/sdk"
   dependencies:
     "@jest/globals": "npm:^29.7.0"
+    esbuild: "npm:^0.28.1"
+    jest: "npm:^29.7.0"
+    typescript: "npm:^5.9.0"
+  languageName: unknown
+  linkType: soft
+
+"@easemob/agent-server@workspace:app/server":
+  version: 0.0.0-use.local
+  resolution: "@easemob/agent-server@workspace:app/server"
+  dependencies:
+    "@easemob/agent-asset-registry": "npm:0.1.0"
+    "@easemob/agent-channel": "npm:0.1.0"
+    "@easemob/agent-contracts": "npm:0.1.0"
+    "@easemob/agent-database": "npm:0.1.0"
+    "@easemob/agent-env": "npm:0.1.0"
+    "@easemob/agent-exit-tools": "npm:0.1.0"
+    "@easemob/agent-logger": "npm:0.1.0"
+    "@easemob/agent-queue": "npm:0.1.0"
+    "@easemob/agent-registry": "npm:0.1.0"
+    "@easemob/agent-runtime": "npm:0.1.0"
+    "@easemob/agent-scheduler": "npm:0.1.0"
+    "@easemob/agent-service": "npm:0.1.0"
+    "@easemob/agent-workflow-runner": "npm:0.1.0"
     esbuild: "npm:^0.28.1"
     jest: "npm:^29.7.0"
     typescript: "npm:^5.9.0"
