@@ -26,12 +26,13 @@
 | T9 exit-tools | 完成 | 2026-09-29 | 27eea75 |
 | T10 WorkflowRunner + SDK | 完成 | 2026-09-29 | 84f0d77 |
 | T11 AgentService | 完成 | 2026-09-29 | 7aa0105 |
-| T12 server | 未开始 | — | — |
+| T12 server | 完成 | 2026-10-04 | 2dbb911 |
 | T13 管理 API | 未开始 | — | — |
 | T14 console | 未开始 | — | — |
 | T15 程序包模板 | 完成 | 2026-09-29 | 728488b |
 | T16 asset-registry | 完成 | 2026-09-30 22:31 | 10d8b66 |
 | T17 runtime | 完成 | 2026-10-02 09:07 | e8e16ee |
+| T18 webhook 入口 | 未开始 | — | — |
 
 > 2026-09-28 计划变更：插入 T2 database（core-modules §4.7 唯一数据访问口的落地），原 T2–T12 顺延为 T3–T13。
 > 2026-09-29 计划变更：「依赖管理四类归宿」顶级规则定稿；插入 T7 env，原 T7–T13 顺延为 T8–T14；T6 logger 改为全局外观形态。
@@ -227,3 +228,14 @@
 - 设计要点（spec 决策点，用户已审）：channel_id 本包用 buildBusinessChannelId 自算（scheduler 零改动）；ContextLoader 不碰 ChannelStore（agent-service 自持 mapping）；RunRequest 加可选 run_id（四步时序要求 serve 先于 runner 且共知 workspace）；lifecycle_id 即 run_id；secrets 第一版明文存 platform.db；ExecutionResult.usage 暂不填；全局配额默认走工厂参数（ConfigStore 未实现）。
 - 子代理合理裁决（主 agent 确认）：两表迁移常量放 env-provider.ts（spec §5.2 同节），lifecycle-store 复用；lifecycle 测试的 Task 类型经 `Parameters<EntryDriver["execute"]>[0]` 取，避免引入 spec 依赖清单外的 agent-queue。
 - 同批前置修订（设计讨论沉淀，commits 1fb7e38 / 74ad373）：asset-model §7.1 补「注入差异」（sdk.run 子程序拿不到 secrets/endpoint、token 显式传递、依赖两层面）与「路径纪律」（跨资产禁相对路径）；console-design §6 repos 缓存路径加 host 维度（github/gitee 克隆各自独立）。
+
+### T12 server
+
+- 状态：完成
+- 子 agent：agent-20（单发）
+- 开始/完成：2026-10-04
+- 验收证据：主 agent 独立复验——server 20 测试全过（config 5 / self-check 7 / exit-driver 6 / integration 2）、根六连全绿（build/test/typecheck/lint/format:check/circular）、spec §7.5 smoke（缺 AGENT_WORKSPACE 退出码 1；fixture 环境启动 → SIGTERM 优雅停 exit 0）、集成测试连跑 10 次全过
+- commit：2dbb911（spec 与设计对账前置提交 35e589c）
+- spec 两轮修订要点（用户已审）：webhook 入口适配器后移 T18（外部业务推送形态复杂，验签/会话标识/幂等随 T18 单独设计）；AibotConnector 维持归企微入口任务；入口流量与管理 API 各自独立 HTTP 服务；集成验证入口 = 直接落队（等价入口适配器的本质动作）；自检覆盖 git（asset-registry 的 git 子进程依赖）、node 不查（runner 用 process.execPath 恒真）；server 是空平台、console 是配置唯一生产入口。
+- 同批设计对账（commit 35e589c）：core-modules §1/§2/§4.7/§5 对账 monorepo（补装配层、IdGen/Clock 收敛为 contracts 纯函数、ContextLoader 不碰 ChannelStore、§5 布局以 T0 spec 为准）；骨架 §2 总体架构图补装配层；新增模块组织图双格式源 `design/architecture-overview.puml/.mmd`（一循环一队列、通道池两池、通道池保序 vs 闸门限流）；AGENTS.md 新增核心原则 9「重大变更先确认」。
+- 子代理合理裁决（主 agent 确认）：① config.ts 对单键做「保存→设置→调用→恢复」桥接以委托 env 包解析（env 包只读 process.env 的既定边界不变，config.ts 本就是 spec 允许的触点）；② git 自检测试改为真实子进程置空 PATH（jest ESM realm 改 process.env 不传播到 spawn 子进程）；③ 集成 fixture 程序写一行 stderr（runner 业务日志首行写入时才懒建文件）；④ server 包 test 脚本前缀全量 build（jest 跑编译产物需上游 dist 就绪）。
