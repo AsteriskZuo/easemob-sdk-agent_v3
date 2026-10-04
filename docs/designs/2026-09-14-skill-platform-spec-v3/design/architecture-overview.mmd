@@ -1,0 +1,72 @@
+%% 平台模块组织图（Mermaid 版，与 architecture-overview.puml / 骨架 §2 内容一致）
+%% 视图目标：整体 → 层 → 模块；箭头 = 允许依赖方向（core-modules §2），不画单次调用
+%% 数据流视图（一次任务的生命周期）见 docs/specs/2026-10-03-t12-server-spec.md §2 装配总览
+%% 语义备注：通道池管顺序（同通道串行、跨通道并行）；并发上限另由闸门 Semaphore 控制
+%%           （入口 task_concurrency 保护 LLM 执行进程 / 出口 result_concurrency 管投递）；
+%%           两条队列是 platform.db 中的表，此处为表达「一个循环配一个队列」单独画出
+flowchart TB
+  subgraph CONSOLE["控制台层"]
+    SPA["app/console（T14）<br/>React SPA · 开关与仪表盘 · 无业务逻辑"]
+  end
+
+  subgraph SERVER["装配层（进程本体）"]
+    MAIN["app/server（T12）<br/>main 组装根：配置解析 · 启动自检 · 依赖接线"]
+    API["管理 API（T13）<br/>独立 HTTP 端口"]
+    ASM["EntryAdapter 接口<br/>ExitDriver（机密回填）"]
+  end
+
+  subgraph ENTRIES["入口模块群（每事件源一个小模块）"]
+    WH["Webhook 入口（T18）"]
+    OT["企微 / jira / github / cron / manual<br/>（后续任务）"]
+  end
+
+  subgraph EXITS["出口工具群 exit-tools（每目的地一个投递器）"]
+    TOOLS["企微群webhook · 邮件 · webhook<br/>企微aibot · jira · confluence · github"]
+  end
+
+  subgraph KERNEL["编排内核（心脏：一副机械，两个循环）"]
+    EL["入口事件循环<br/>match → 业务通道 → 闸门"]
+    Q1[("entry_tasks<br/>入口队列")]
+    XL["出口事件循环<br/>归属匹配 → 出口通道 → 有界重试"]
+    Q2[("exit_tasks<br/>出口队列")]
+    REG["registry<br/>匹配视图 · 业务资料 · 出口绑定"]
+    RT["runtime（T17 粘合层）<br/>ContextLoader · Lifecycle · EnvProvider 两桶"]
+    WR["WorkflowRunner<br/>spawn 业务流程程序"]
+    ASVC["AgentService<br/>per-run socket · spawn pi · 配额/审计"]
+  end
+
+  subgraph ASSETS["资产仓 asset-registry"]
+    AR["三族资产：包 / 工具 / skill<br/>git 三元组登记 · 物化 · 名解析（平台不内置资产）"]
+  end
+
+  subgraph COMMON["平台公共模块"]
+    CHE["入口通道池 ChannelPool<br/>（入口循环专用：同通道串行）"]
+    CHX["出口通道池 ChannelPool<br/>（出口循环专用：同目标串行）"]
+    CHS["会话映射 ChannelStore<br/>channel_id ↔ pi 会话"]
+    LOG["logger<br/>四类日志 · 脱敏 · 全局外观"]
+  end
+
+  subgraph INFRA["基础设施（不反向依赖）"]
+    DB[("platform.db<br/>database 唯一数据口")]
+    CT["contracts<br/>信封 / id / channel_id 纯函数"]
+    ENV["env<br/>环境变量唯一读取口"]
+  end
+
+  SPA -.->|"HTTP"| API
+  MAIN -->|"装配注入"| EL
+  MAIN --> XL
+  MAIN -->|"start(EntryDeps)"| WH
+  WH -->|"验签·包信封·落队"| Q1
+  OT --> Q1
+  EL -->|"take"| Q1
+  XL -->|"take"| Q2
+  EL -->|"EntryDriver.execute"| RT
+  RT --> REG & ASSETS
+  RT --> WR & ASVC
+  EL -->|"挂业务通道（保序）"| CHE
+  XL -->|"挂出口通道（保序）"| CHX
+  ASVC -->|"通道↔pi会话"| CHS
+  KERNEL -->|"bind·deliver（经 ExitDriver）"| EXITS
+  KERNEL --> INFRA
+  COMMON --> INFRA
+  ASSETS --> INFRA

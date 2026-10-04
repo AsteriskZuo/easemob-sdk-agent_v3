@@ -1,6 +1,6 @@
 # 核心模块与接口
 
-> 日期：2026-09-15（2026-09-26 修订：双循环、出口工具群、出口绑定。2026-09-27 修订：代码即流程——AgentSlot 拆解为 WorkflowRunner + AgentService，新增业务 SDK。2026-09-30 修订：资产三族（包/工具/skill），PackageRegistry → AssetRegistry；EnvProvider 三类并为普通/安全两桶；平台不再内置资产）
+> 日期：2026-09-15（2026-09-26 修订：双循环、出口工具群、出口绑定。2026-09-27 修订：代码即流程——AgentSlot 拆解为 WorkflowRunner + AgentService，新增业务 SDK。2026-09-30 修订：资产三族（包/工具/skill），PackageRegistry → AssetRegistry；EnvProvider 三类并为普通/安全两桶；平台不再内置资产。2026-10-04 修订：§1/§2/§4.7/§5 对账 monorepo 落地——补装配层 app/server 与 app/console；IdGen/Clock 由 contracts 纯函数与 Date 承担；ContextLoader 不碰 ChannelStore；§5 工程结构布局以 T0 spec 为准）
 > 状态：定稿
 > 范围：**核心模块清单 + 各模块公开接口（TS）+ 工程结构**。已在《调度循环契约》《设置模块契约》中定义的接口（Event、TaskQueue、BusinessRegistry、ProcessingChain、BusinessContext、Lifecycle、ExitTool、Exit、ExitBinding、ExitRegistry、Channel/ChannelPool、Semaphore、PlatformConfig、ConfigStore）此处只引用不重复。
 > 依据：骨架 `skill-platform-spec-v3.md` §2 架构分层 + `design/` 各节点文档 + 调度循环契约与设置契约。
@@ -11,44 +11,52 @@
 
 ## 1. 模块全景
 
-树状总览（层级 = 骨架分层，叶子 = 模块）：
+树状总览（层级 = 骨架分层，叶子 = 模块）：**模块组织图（PlantUML 维护版）见 `design/architecture-overview.puml`**，与骨架 §2 总体架构图内容一致、改图以 puml 为准。
 
 ```
-easemob-agent（模块化单体）
+easemob-agent（monorepo：packages/* 模块 + app/* 进程）
+├── 装配层（进程本体）
+│   ├── app/server                      # 组装根：配置解析 + 启动自检 + 依赖接线——唯一允许 import 全部模块
+│   │   ├── 管理 API（独立 HTTP 端口）   # console 的读写口（资产/环境/业务配置的唯一生产入口）
+│   │   ├── EntryAdapter 接口            # 入口适配器装配契约（接口而非基类）
+│   │   └── ExitDriver                   # 出口执行器：机密回填（exit.{kind}.{key}）+ bind/deliver
+│   └── app/console                     # 控制台 SPA：开关与仪表盘集合，无业务逻辑（经管理 API 读写）
 ├── 入口模块群                       # 每事件源一个独立小模块，只消费队列/日志
 │   ├── 企业微信入口 EntryAdapter(wecom)
 │   ├── Jira 入口    EntryAdapter(jira)
 │   ├── GitHub 入口  EntryAdapter(github)
 │   ├── Webhook 入口 EntryAdapter(webhook)   # 内置通用 webhook 接收：平台可作他方的中间组件
 │   └── 定时/手动    CronTimer / manual
-├── 出口工具群                       # 每通知目的地一个内置投递器模块，只被出口循环调用
-│   ├── 企微智能机器人 ExitTool(wecom-bot)
+├── 出口工具群                       # 每通知目的地一个内置投递器模块，只被出口循环（经 ExitDriver）调用
+│   ├── 企微智能机器人 ExitTool(wecom-aibot)
 │   ├── 企微群 webhook ExitTool(wecom-webhook)
 │   ├── 邮件 / 自定义 webhook / jira / confluence / github 操作 …
 ├── 编排内核（平台心脏：一副机械，两个循环）
 │   ├── 入口事件循环 SchedulerLoop      # 摄取 + 各业务通道消化 + 结果扇出
 │   ├── 出口事件循环 ExitSchedulerLoop  # 摄取 + 各出口通道消化 + 投递
-│   ├── 任务队列     TaskQueue ×2       # 入口队列 / 出口队列，同一契约，SQLite 持久化，FIFO
+│   ├── 任务队列     TaskQueue ×2       # 入口队列 / 出口队列，同一契约两个实例，SQLite 持久化，FIFO
 │   ├── 业务注册表   BusinessRegistry   # 匹配视图 + 业务配置（含出口绑定）统一读写口
-│   ├── 业务组装器   ContextLoader      # 匹配通过后才组装重数据
-│   ├── 生命周期     Lifecycle          # 单次执行 = spawn 业务流程程序，跑完即销毁
+│   ├── 粘合层 runtime                  # 入口循环「过闸门之后」的全部重数据组装与执行编排
+│   │   ├── 业务组装器 ContextLoader    # 匹配通过后才组装重数据（profile + 资产物化 + 两桶 → RunContext）
+│   │   ├── 生命周期   Lifecycle        # EntryDriver 实现：四步时序 + 业务标记打标
+│   │   └── 环境配置   EnvProvider      # 普通/安全两桶 key-value，业务级优先
 │   ├── 流程执行器   WorkflowRunner     # spawn 业务流程程序的薄原语（子进程契约、超时、输出上限）
 │   └── agent 服务   AgentService       # sdk.agent() 的另一端：socket 服务 + pi 子进程执行
 ├── 资产仓（git 登记，物化执行）
 │   └── 资产注册表 AssetRegistry    # 三族资产（包/工具/skill）：git 三元组标识；共享标记仅工具/skill
 ├── 平台公共模块
-│   ├── 通道模块     ChannelStore     # 业务通道 channel_id↔agent 会话映射 + 四操作的平台侧部分
-│   ├── 出口注册表   ExitRegistry     # 内置出口工具菜单的登记与取用
-│   ├── 环境配置     EnvProvider      # 普通/安全两桶 key-value，业务级优先
-│   ├── 设置模块     ConfigStore      # 全局/业务设置，含权限校验
-│   └── 日志模块     Logger           # 四类日志（系统/入口循环/出口循环），脱敏内建
-├── 基础设施与工具                   # 被所有模块依赖，不反向依赖任何业务模块
+│   ├── 通道模块     channel          # ChannelPool ×2（两循环各持一池，同通道串行）+ ChannelStore（channel_id↔agent 会话映射）
+│   ├── 出口注册表   ExitRegistry     # 内置出口工具菜单的登记与取用（exit-tools 包内）
+│   ├── 设置模块     ConfigStore      # 全局/业务设置（未实现——运行参数暂由 server 的 ServerConfig 承担）
+│   └── 日志模块     Logger           # 四类日志（系统/入口循环/出口循环），脱敏内建，全局外观
+├── 基础设施与契约                   # 被所有模块依赖，不反向依赖任何业务模块
 │   ├── 数据库       Database         # SQLite 薄封装，全平台唯一数据访问口
-│   ├── 标识生成     IdGen            # event_id / task_id / lifecycle_id / 随机段
-│   └── 时钟         Clock            # 时间戳统一来源（信封/日志/session_id）
-└── 控制台 Console                   # 开关与仪表盘集合，无业务逻辑
-    └── 账号体系（`design/accounts.md`）
+│   ├── 契约         contracts        # 信封校验 + id 生成（newUlid/newEventId）+ channel_id 纯函数
+│   └── 环境变量     env              # 进程环境变量唯一读取口
+└── 业务 SDK（packages/sdk）          # 业务流程程序侧唯一依赖（sdk.agent/sdk.run/sdk.config/sdk.log…）
 ```
+
+> 注：设计期曾列「标识生成 IdGen / 时钟 Clock」两个基础设施模块，落地时已收敛——id 由 contracts 纯函数承担、时间戳统一 `new Date().toISOString()`，不再单独立模块（§4.7 同步修订）。
 
 说明：**出口与入口对称**（已定决策）——出口 = 出口事件循环 + 出口工具群（内置投递器模块，不是 skill）。业务结果无脑扇出到两个队列：入口队列由关注业务消化（订阅匹配），出口队列由产出方业务的出口绑定消化（归属匹配，不过 LLM、毫秒级）。注意区分两类「触达能力」：**结果投递**归出口工具（平台内置模块）；**执行内调用**（如审查过程中读写 Jira）归工具资产（git 仓库登记，`sdk.run` 按名调用，见 `design/asset-model.md`）。
 
@@ -63,36 +71,38 @@ easemob-agent（模块化单体）
 | 5 | 业务注册表 BusinessRegistry | 内核 | 业务匹配视图 + 业务配置（含出口绑定）统一读写口 | `BusinessRegistry`（循环契约 §3） | 两个循环、控制台、设置模块 |
 | 6 | 入口事件循环 SchedulerLoop | 内核 | 心脏之一：摄取 + 各业务通道消化 + 结果扇出 | 无（是消费方，见循环契约 §9） | — |
 | 7 | 出口事件循环 ExitSchedulerLoop | 内核 | 心脏之二：摄取 + 各出口通道消化 + 投递 | 无（是消费方，见循环契约 §9） | — |
-| 8 | 业务组装器 ContextLoader | 内核 | 匹配通过后才组装重数据为 BusinessContext | `ContextLoader`（§4.1） | 入口循环 |
-| 9 | 生命周期 Lifecycle | 内核 | 单次执行 = spawn 业务流程程序、进程退出即完结、统一打标埋点 | `Lifecycle`（循环契约 §5） | 入口循环、控制台（业务标记投影） |
+| 8 | 业务组装器 ContextLoader | 内核（runtime 包） | 匹配通过后才组装重数据为 RunContext | `ContextLoader`（§4.1） | 入口循环（经 Lifecycle） |
+| 9 | 生命周期 Lifecycle | 内核（runtime 包） | EntryDriver 实现：四步时序 + 统一打标埋点 | `Lifecycle`（循环契约 §5） | 入口循环、控制台（业务标记投影） |
 | 10 | 流程执行器 WorkflowRunner | 内核 | spawn 业务流程程序的薄原语：子进程契约、超时强杀、输出上限 | `WorkflowRunner`（§4.2） | 生命周期 |
 | 11 | agent 服务 AgentService | 内核 | sdk.agent() 的另一端：per-run socket + pi 子进程执行 + 配额与审计 | `AgentService`（§4.2） | 业务流程程序（经 socket，非 import） |
-| 12 | 通道模块 ChannelStore | 公共 | 业务通道 channel_id↔agent 会话映射 + 四操作中的平台侧部分 | `ChannelStore`（§4.3） | 业务组装器、agent 服务 |
-| 13 | 出口注册表 ExitRegistry | 公共 | 内置出口工具菜单的登记与取用 | `ExitRegistry`（循环契约 §6） | 出口循环、控制台 |
+| 12 | 通道模块 channel | 公共 | ChannelPool ×2（两循环各持一池，同通道串行）+ ChannelStore（channel_id↔agent 会话映射） | `ChannelPool` / `ChannelStore`（循环契约 §7、§4.3） | 两个循环、agent 服务 |
+| 13 | 出口注册表 ExitRegistry | 公共 | 内置出口工具菜单的登记与取用 | `ExitRegistry`（循环契约 §6） | 出口循环（经 ExitDriver）、控制台 |
 | 14 | 资产注册表 AssetRegistry | 资产仓 | 登记/列表/取用/物化三族资产（包/工具/skill），asset_id = 属主+git 三元组编码 | `AssetRegistry`（§4.4） | 控制台、业务组装器 |
-| 15 | 环境配置 EnvProvider | 公共 | 普通/安全两桶 key-value 按业务合并，运行时注入 | `EnvProvider`（§4.5） | 业务组装器、出口循环（出口凭证解析）、控制台 |
-| 16 | 设置模块 ConfigStore | 公共 | 全局/业务设置统一读写（含权限校验） | `ConfigStore`（设置契约） | 控制台、内核各模块（只读） |
+| 15 | 环境配置 EnvProvider | 公共（runtime 包） | 普通/安全两桶 key-value 按业务合并，运行时注入 | `EnvProvider`（§4.5） | 业务组装器、ExitDriver（出口凭证解析）、控制台 |
+| 16 | 设置模块 ConfigStore | 公共 | 全局/业务设置统一读写（**未实现**——运行参数暂由 server 的 ServerConfig 承担） | `ConfigStore`（设置契约） | 控制台、内核各模块（只读） |
 | 17 | 日志模块 Logger | 公共 | 四类日志（系统/入口循环/出口循环；业务日志由执行器采集）、四级契约性输出、脱敏内建 | `Logger`（§4.6） | 全部模块 |
 | 18 | 数据库 Database | 基础设施 | SQLite 薄封装：全平台唯一数据访问口，保薄抽象 | `Database`（§4.7） | 全部持久化模块 |
-| 19 | 标识生成 IdGen | 基础设施 | 各类 id 与随机段的唯一生成口 | `IdGen`（§4.7） | 入口群、内核 |
-| 20 | 时钟 Clock | 基础设施 | 时间戳统一来源（信封 timestamp、日志、session_id 时间戳段） | `Clock`（§4.7） | 全部模块 |
-| 21 | 控制台 Console | 控制台 | 开关与仪表盘集合，本身无业务逻辑 | 无（是纯消费方） | — |
+| 19 | 契约 contracts | 基础设施 | 信封校验 + id 生成（`newUlid`/`newEventId`）+ channel_id 纯函数——IdGen/Clock 两模块的落地形态（时间戳统一 `new Date().toISOString()`） | `contracts` | 全部模块 |
+| 20 | 环境变量 env | 基础设施 | 进程环境变量唯一读取口（类型解析 + 必需校验） | `env`（T7 spec） | 装配根（唯一调用方） |
+| 21 | 装配根 app/server | 装配层 | 配置解析 + 启动自检 + 依赖接线；管理 API / EntryAdapter 接口 / ExitDriver（机密回填） | 无（是组装方与消费方） | — |
+| 22 | 控制台 app/console | 控制台 | 开关与仪表盘集合，本身无业务逻辑；账号体系（`design/accounts.md`） | 无（是纯消费方，经管理 API 读写） | — |
 
 ---
 
 ## 2. 依赖纪律（允许的方向）
 
 ```
-入口群 ──▶ TaskQueue(入口) / Logger   # 会话标识直接从事件提取（channel-model §4），入口不再需要会话存储
-入口循环 ──▶ TaskQueue(入口/出口) / BusinessRegistry / ContextLoader / Lifecycle / ChannelPool / PlatformConfig / Logger
-出口循环 ──▶ TaskQueue(出口) / BusinessRegistry(出口绑定) / ExitRegistry / ChannelPool / EnvProvider / PlatformConfig / Logger
-ContextLoader ──▶ BusinessRegistry / AssetRegistry / EnvProvider / ChannelStore
-Lifecycle ──▶ WorkflowRunner / Logger
+app/server ──▶ 全部模块（装配注入：唯一允许 import 全部模块的地方；ExitDriver ──▶ ExitRegistry / EnvProvider）
+入口群 ──▶ TaskQueue(入口) / BusinessRegistry(入口配置) / EnvProvider(验签凭据) / Logger   # 会话标识直接从事件提取（channel-model §4），入口不再需要会话存储
+入口循环 ──▶ TaskQueue(入口/出口) / BusinessRegistry / ChannelPool(入口池) / EntryDriver(=Lifecycle) / PlatformConfig / Logger
+出口循环 ──▶ TaskQueue(出口) / BusinessRegistry(出口绑定) / ExitDriver / ChannelPool(出口池) / PlatformConfig / Logger
+ContextLoader ──▶ BusinessRegistry / AssetRegistry / EnvProvider    # 不碰 ChannelStore：会话映射由 AgentService 自持（2026-09-30 修订）
+Lifecycle ──▶ ContextLoader / WorkflowRunner / AgentService / Logger
 WorkflowRunner ──▶ Logger                      # spawn 业务流程程序（子进程，非 import）
 AgentService ──▶ ChannelStore / Logger          # 经 socket 服务业务进程（非 import）；内部 spawn pi 子进程
-Console ──▶ 全部公开接口（只经接口，不碰内部存储；与内部模块共用同一套读写口）
-全部模块 ──▶ infra（Database / IdGen / Clock）——基础设施不反向依赖
-业务 = 注册表里的数据行 + 工作区里的流程程序资产，不是模块，不被 import
+app/console ──▶ 管理 API（HTTP，只经接口，不碰内部存储）
+全部模块 ──▶ infra（Database / contracts / env）——基础设施不反向依赖
+业务 = 注册表里的数据行 + 物化的程序包资产，不是模块，不被 import
 ```
 
 - **心脏不认识业务**：两个循环只读信封字段与匹配视图；业务细节（提示词、skill、agent 配置）全部封在 ContextLoader 组装出的 BusinessContext 里；
@@ -255,6 +265,8 @@ interface EnvProvider {
 
 被所有模块依赖，不反向依赖任何业务模块。它们存在的理由：**消除"各模块各自实现"的散点**——SQL 写法、id 格式、时间格式一旦散落各处就难以维护（与 session_id 单点定义同一思路）。
 
+> **2026-10-04 落地修订**：Database 已按本接口实现（`packages/database`）；**IdGen / Clock 未单独立模块**——id 生成收敛为 contracts 纯函数（`newUlid()` / `newEventId()`，Crockford base32 ULID + node:crypto），时间戳统一 `new Date().toISOString()`。设计意图（单点消除散点）不变，落地形态从两个接口模块简化为纯函数 + 一行约定。
+
 ```ts
 /** SQLite 薄封装：全平台唯一数据访问口。刻意保持薄抽象（骨架 §4），
  *  未来迁 PostgreSQL 时只有本接口的实现需要换 */
@@ -306,6 +318,8 @@ interface EntryDeps {
 ---
 
 ## 5. 工程结构
+
+> **2026-10-04 落地修订**：本节最初描述的是单包 `src/` 布局，实际工程已落地为 **monorepo**（`packages/*` 模块包 + `app/*` 进程），包结构、包级脚本、依赖规则的唯一定义处是 T0 spec §4（`docs/specs/2026-09-28-t0-engineering-skeleton-spec.md`）；`main.ts` 组装根对应 `app/server`。本节的**规则精神不变**：组装根唯一、模块间只走公开出口、运行时数据不进代码目录、依赖注入集中在组装根。以下原始描述保留作设计记录。
 
 模块边界在目录层面落地，依赖规则在代码层面强制（骨架 §2 命门）。
 

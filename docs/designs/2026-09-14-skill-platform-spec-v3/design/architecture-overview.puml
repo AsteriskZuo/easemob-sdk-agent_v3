@@ -1,0 +1,100 @@
+@startuml 模块组织图
+title easemob agent 平台模块组织图（模块化单体）
+
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam defaultTextAlignment center
+skinparam linetype polyline
+
+' ── 模块组织视图：整体 → 层 → 模块；箭头 = 允许依赖方向（core-modules §2），不画单次调用 ──
+' 数据流视图（一次任务的生命周期）见 docs/specs/2026-10-03-t12-server-spec.md §2 装配总览
+' 同内容的 Mermaid 版（GitHub/在线可直接渲染）：architecture-overview.mmd，两者改动时同步
+
+package "控制台 app/console（T14）" as console {
+  [React SPA\n开关与仪表盘，无业务逻辑] as spa
+}
+
+package "装配层 app/server（T12，进程本体）" as server {
+  [main 组装根\n配置解析 · 启动自检 · 依赖接线] as main
+  [管理 API（T13）\n独立 HTTP 端口] as api
+  [EntryAdapter 接口\nExitDriver（机密回填）] as assembly
+}
+
+package "入口模块群（每事件源一个小模块）" as entries {
+  [Webhook 入口（T18）] as webhook
+  [企微 / jira / github / cron / manual\n（后续任务）] as entriesRest
+}
+
+package "出口工具群 exit-tools\n（每目的地一个投递器）" as exits {
+  [企微群webhook · 邮件 · webhook\n企微aibot · jira · confluence · github] as tools
+}
+
+package "编排内核（心脏：一副机械，两个循环）" as kernel {
+  [入口事件循环\nmatch → 业务通道 → 闸门] as entryloop
+  database "entry_tasks\n入口队列" as q1
+  [出口事件循环\n归属匹配 → 出口通道 → 有界重试] as exitloop
+  database "exit_tasks\n出口队列" as q2
+  [业务注册表 registry\n匹配视图 · 业务资料 · 出口绑定] as registry
+  [runtime（T17 粘合层）\nContextLoader · Lifecycle · EnvProvider 两桶] as runtime
+  [WorkflowRunner\nspawn 业务流程程序] as runner
+  [AgentService\nper-run socket · spawn pi] as agentsvc
+
+  entryloop -[hidden]right- q1
+  exitloop -[hidden]right- q2
+  entryloop --> q1
+  exitloop --> q2
+  entryloop --> runtime : EntryDriver.execute
+  runtime --> runner
+  runtime --> agentsvc
+  runtime --> registry
+}
+
+package "资产仓 asset-registry" as assets {
+  [三族资产：包 / 工具 / skill\ngit 三元组登记 · 物化 · 名解析\n（平台不内置资产）] as assetreg
+}
+
+package "平台公共模块" as common {
+  [入口通道池 ChannelPool\n（入口循环专用：同通道串行）] as channelEntry
+  [出口通道池 ChannelPool\n（出口循环专用：同目标串行）] as channelExit
+  [会话映射 ChannelStore\nchannel_id ↔ pi 会话] as channelStore
+  [日志模块 logger\n四类日志 · 脱敏 · 全局外观] as logger
+}
+
+package "基础设施（不反向依赖）" as infra {
+  database "platform.db\ndatabase 唯一数据口" as db
+  [contracts\n信封 / id / channel_id 纯函数] as contracts
+  [env\n环境变量唯一读取口] as envpkg
+}
+
+spa ..> api : HTTP（跨进程）
+
+main --> entryloop : 装配注入
+main --> exitloop
+main --> webhook : start(EntryDeps)
+webhook --> q1 : 验签·包信封·落队
+entriesRest --> q1
+kernel --> exits : bind·deliver（出口循环经 ExitDriver 调出口工具）
+
+runtime --> assetreg : 物化·名解析
+entryloop --> channelEntry : 挂业务通道（保序）
+exitloop --> channelExit : 挂出口通道（保序）
+agentsvc --> channelStore : 通道↔pi会话
+
+kernel --> infra
+assets --> infra
+common --> infra
+
+' 层序约束：包之间自上而下分层排布；入口群与出口群分列内核两侧
+console -[hidden]down- server
+server -[hidden]down- entries
+entries -[hidden]down- kernel
+kernel -[hidden]down- infra
+entries -[hidden]right- exits
+
+note bottom of infra
+  全体模块只经 logger 全局外观记日志、只经 env 包读环境变量（装配根统一解析）；
+  两条队列是 platform.db 中的表，此处为表达「一个循环配一个队列」单独画出；
+  通道池管顺序（同通道串行、跨通道并行），并发上限另由闸门 Semaphore 控制
+  （入口 task_concurrency 保护 LLM 执行进程 / 出口 result_concurrency 管投递）
+end note
+@enduml

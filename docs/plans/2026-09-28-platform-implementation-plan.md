@@ -58,9 +58,10 @@
 | T15 | 程序包模板 | `templates/agent-package/`：拷贝即用的包骨架（清单 + sdk 依赖 + lint/test/format/circular 同平台 + 示例 program/skill） | T10 | 2026-09-29-t15-package-template-spec.md | [x] |
 | T16 | `@easemob/agent-asset-registry` | 资产注册表：三族资产（包/工具/skill）git 三元组登记 + 清单校验 + 物化 + 名解析纯函数 | T2 | [spec](../specs/2026-09-30-t16-asset-registry-spec.md) | [x] |
 | T17 | `@easemob/agent-runtime` | Lifecycle 四步时序 + ContextLoader + EnvProvider 两桶；顺带扩 registry 业务资料字段（prompt/model/资产绑定/quota/入口配置） | T4 T10 T11 T16 | [spec](../specs/2026-09-30-t17-runtime-spec.md) | [x] |
-| T12 | `app/server` | 平台装配 + EntryAdapter 接口 + webhook 入口适配器 + 启动自检 | T7 T8 T9 T17 | 执行前编写 | [ ] |
+| T12 | `app/server` | 平台装配 + EntryAdapter 接口 + 启动自检 + ExitDriver 机密回填 | T7 T8 T9 T17 | [spec](../specs/2026-10-03-t12-server-spec.md) | [ ] |
 | T13 | 管理 API | server 侧 console 接口（契约补入 contracts） | T12 | 执行前编写 | [ ] |
 | T14 | `app/console` | React + Vite SPA，调管理 API | T13 | 执行前编写 | [ ] |
+| T18 | webhook 入口适配器 | EntryAdapter 首个实现：验签 + 会话标识 + 幂等约定（entry_config schema 随本任务定） | T12 | 执行前编写 | [ ] |
 
 ## 4. 执行批次（并发 ≤2）
 
@@ -79,6 +80,7 @@
 批次11：T12
 批次12：T13
 批次13：T14
+批次14：T18
 ```
 
 ## 5. 验证策略
@@ -90,7 +92,6 @@
 ## 6. 范围外（本计划不做）
 
 - 真实业务接入与端到端验收（单轮审查工单等）——用户手动进行；
-- github / jira / confluence 出口操作工具——等真实业务需要时单独立任务；
 - CI 平台配置、Docker 部署、沙箱隔离（设计已定第二阶段再议）；
 - 死信告警渠道、出口重试参数调优（设计待定项，实现期配置）。
 
@@ -111,6 +112,7 @@
 - T12 ← T7, T8, T9, T17
 - T13 ← T12
 - T14 ← T13
+- T18 ← T12
 
 ## 变更记录
 
@@ -119,3 +121,4 @@
 - 2026-09-29：七类数据分类定稿（console-design §6 重写，businesses/ 目录消解为 config.json + data/ + content/ + cache/ + runs/ + logs/）；资产单元从 skill 更正为程序包（skill-package.md → package-model.md 重写为模型+作者指南）；SDK 迁 packages/sdk/ 并允许依赖零依赖纯包；插入 T15 程序包模板（批次8 与 T11 并行）。
 - 2026-09-30：补三个计划缺口——① 插入 T16 package-registry（core-modules §4.4 定义了 PackageRegistry、工程树画了它，任务表无人认领）；② 插入 T17 runtime（Lifecycle 四步时序 + ContextLoader 悬空：WorkflowRunner/AgentService 已独立成包，core-modules §4.1 的 ContextLoader 与 §4.2 的四步时序无人落地；T17 顺带扩 registry 业务资料字段——prompt/model/package_bindings/quota/入口配置，消费方最清楚要什么故并入而非单开任务）；③ T12 依赖改为 T7 T8 T9 T17。批次 9-13 顺延。
 - 2026-09-30：**资产模型定案**（package-model.md → asset-model.md 重写）：资产单元从单一程序包演进为三族——包（业务代码单位，不共享）/ 工具（可复用代码组件）/ skill（可复用提示词组件）；git 三元组标识、属主 + 共享标记（创建时定不可改）；EnvProvider 三类并为普通/安全两桶（T17 纳入实现）；平台不再内置资产。T16 随之改为 asset-registry（spec 重写，原 package-registry spec 作废）；T17 描述同步（EnvProvider 两桶 + 资产绑定三族）。T15 模板需随资产模型小幅修订（清单删 skills、删内嵌示例 skill），随 T16 批次一并处理。
+- 2026-10-04：T12 范围收缩（owner 裁决）——webhook 入口适配器移出为 T18（外部业务推送形态复杂，验签/会话标识/幂等约定随 T18 单独设计），AibotConnector 维持归企微入口任务；T12 = 平台装配 + EntryAdapter 接口 + 启动自检 + ExitDriver。入口流量与管理 API 各自独立 HTTP 服务。范围外删除「github/jira/confluence 出口工具」一行（T9 已扩展为七工具全实现）。
