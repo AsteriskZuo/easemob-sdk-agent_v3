@@ -55,7 +55,8 @@ packages/sdk/
 ├── package.json            # @easemob/agent-sdk
 ├── tsconfig.json
 │   ├── src/
-│   │   ├── index.ts        # 导出 sdk 单例 + 类型
+│   │   ├── index.ts        # 导出清单（sdk 单例 + 类型），纯 re-export
+│   │   ├── sdk.ts          # sdk 单例对象装配
 │   │   ├── stdin.ts        # stdin 读取与解析（同步，读一次缓存）
 │   │   ├── result.ts       # return/fail 的 stdout 写出
 │   │   ├── log.ts          # stderr 结构化日志行
