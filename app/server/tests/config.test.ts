@@ -122,4 +122,53 @@ describe("resolveServerConfig", () => {
       resolveServerConfig(requiredEnv({ AGENT_WORKSPACE: undefined })),
     ).toThrow(/AGENT_WORKSPACE/);
   });
+
+  it("console_port：默认 6100；env/config.json 覆盖；非法值 → EnvError", () => {
+    expect(resolveServerConfig(requiredEnv()).console_port).toBe(6100);
+    expect(
+      resolveServerConfig(requiredEnv({ AGENT_CONSOLE_PORT: "6200" }))
+        .console_port,
+    ).toBe(6200);
+    // 0 = 随机（测试用），min 0 合法
+    expect(
+      resolveServerConfig(requiredEnv({ AGENT_CONSOLE_PORT: "0" }))
+        .console_port,
+    ).toBe(0);
+
+    writeFileSync(
+      join(workspace, "config.json"),
+      JSON.stringify({ AGENT_CONSOLE_PORT: 6300 }),
+      { flag: "wx" },
+    );
+    expect(resolveServerConfig(requiredEnv()).console_port).toBe(6300);
+
+    expect(() =>
+      resolveServerConfig(requiredEnv({ AGENT_CONSOLE_PORT: "-1" })),
+    ).toThrow(EnvError);
+    expect(() =>
+      resolveServerConfig(requiredEnv({ AGENT_CONSOLE_PORT: "abc" })),
+    ).toThrow(EnvError);
+  });
+
+  it("bootstrap_admin：两键成对 → 注入；都缺省 → undefined；只给一个 → EnvError", () => {
+    expect(resolveServerConfig(requiredEnv()).bootstrap_admin).toBeUndefined();
+
+    const config = resolveServerConfig(
+      requiredEnv({
+        AGENT_ADMIN_USERNAME: "root",
+        AGENT_ADMIN_PASSWORD: "root-pass",
+      }),
+    );
+    expect(config.bootstrap_admin).toEqual({
+      username: "root",
+      password: "root-pass",
+    });
+
+    expect(() =>
+      resolveServerConfig(requiredEnv({ AGENT_ADMIN_USERNAME: "root" })),
+    ).toThrow(/成对设置/);
+    expect(() =>
+      resolveServerConfig(requiredEnv({ AGENT_ADMIN_PASSWORD: "root-pass" })),
+    ).toThrow(/成对设置/);
+  });
 });

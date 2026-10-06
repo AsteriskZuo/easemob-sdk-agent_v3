@@ -141,6 +141,7 @@ beforeAll(async () => {
       AGENT_WORKSPACE: workspace,
       AGENT_PI_CLI_PATH: piCliPath,
       AGENT_PI_AGENT_DIR: piAgentDir,
+      AGENT_CONSOLE_PORT: "0", // 随机端口，避免与本机/并发测试的 6100 冲突
       PATH: process.env.PATH ?? "",
       HOME: process.env.HOME ?? tmpDir,
     },

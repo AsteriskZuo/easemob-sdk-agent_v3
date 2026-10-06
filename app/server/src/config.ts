@@ -26,6 +26,11 @@ export interface ServerConfig {
   pi_agent_dir: string;
   /** pi 子进程基础环境：{ PATH, HOME }；模型凭据一律走 pi_agent_dir/models.json */
   pi_env: Record<string, string>;
+  /** 管理 API（console-api）监听端口；0 = 随机（测试用） */
+  console_port: number;
+  /** 首启 admin 注入（AGENT_ADMIN_USERNAME/AGENT_ADMIN_PASSWORD 成对设置才生效；
+   *  不回显、不进日志；不进 config.json 之外的任何地方） */
+  bootstrap_admin?: { username: string; password: string };
 }
 
 const LOG_LEVELS = ["error", "warn", "info", "debug"] as const;
@@ -268,6 +273,16 @@ export function resolveServerConfig(
   });
   const piCliPath = resolver.string("AGENT_PI_CLI_PATH", { required: true });
   const piAgentDir = resolver.string("AGENT_PI_AGENT_DIR", { required: true });
+  const consolePort = resolver.number("AGENT_CONSOLE_PORT", {
+    default: 6100,
+    min: 0,
+  });
+  // 首启 admin 注入：两个键成对出现才生效；只给一个 = 配置错误（密码不回显、不进日志）
+  const adminUsername = resolver.string("AGENT_ADMIN_USERNAME");
+  const adminPassword = resolver.string("AGENT_ADMIN_PASSWORD");
+  if ((adminUsername === undefined) !== (adminPassword === undefined)) {
+    problems.push("AGENT_ADMIN_USERNAME 与 AGENT_ADMIN_PASSWORD 必须成对设置");
+  }
 
   // 4. pi_env 固定组 { PATH, HOME }（仅取自 envMap；模型凭据走 pi_agent_dir/models.json）
   const piEnv: Record<string, string> = {};
@@ -297,5 +312,11 @@ export function resolveServerConfig(
     pi_cli_path: piCliPath as string,
     pi_agent_dir: piAgentDir as string,
     pi_env: piEnv,
+    console_port: consolePort as number,
+    ...(adminUsername !== undefined && adminPassword !== undefined
+      ? {
+          bootstrap_admin: { username: adminUsername, password: adminPassword },
+        }
+      : {}),
   };
 }

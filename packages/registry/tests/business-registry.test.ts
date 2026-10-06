@@ -531,6 +531,52 @@ describe("getProfile 业务资料", () => {
   });
 });
 
+describe("list 业务列表", () => {
+  it("空表 → 空数组", () => {
+    const { registry, close } = newRegistry();
+    expect(registry.list()).toEqual([]);
+    close();
+  });
+
+  it("多业务 → 全部 profile，按 business_id 字典序", () => {
+    const { registry, close } = newRegistry();
+    const idA = registry.create({
+      business_name: "业务A",
+      creator_id: "user-1",
+      source: "jira",
+      event_type: "issue.created",
+      prompt: "总纲A",
+    });
+    const idB = registry.create({
+      business_name: "业务B",
+      creator_id: "user-2",
+      source: "webhook",
+      event_type: "alert",
+      timeout_minutes: 30,
+    });
+    const profiles = registry.list();
+    expect(profiles.map((p) => p.business_id)).toEqual([idA, idB].sort());
+    const byId = new Map(profiles.map((p) => [p.business_id, p]));
+    expect(byId.get(idA)).toEqual(registry.getProfile(idA));
+    expect(byId.get(idB)).toEqual(registry.getProfile(idB));
+    close();
+  });
+
+  it("创建/删除后列表随之反映", () => {
+    const { registry, close } = newRegistry();
+    const id = registry.create({
+      business_name: "临时业务",
+      creator_id: "user-1",
+      source: "cron",
+      event_type: "tick",
+    });
+    expect(registry.list()).toHaveLength(1);
+    registry.remove(id);
+    expect(registry.list()).toEqual([]);
+    close();
+  });
+});
+
 describe("addMatch entry_config", () => {
   it("带 entry_config → get/match 读出对象；不带 → undefined", () => {
     const { registry, close } = newRegistry();

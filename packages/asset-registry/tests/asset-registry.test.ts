@@ -480,6 +480,40 @@ describe("materialize", () => {
   });
 });
 
+describe("remove", () => {
+  it("下架已物化资产 → 登记行删除 + 缓存目录清理；get 抛 asset_not_found", () => {
+    const repo = makeRepo(PKG_FILES);
+    const meta = registry.register(pkgInput(repo.dir));
+    registry.materialize(meta.asset_id);
+    expect(existsSync(join(cacheRoot, meta.asset_id))).toBe(true);
+
+    registry.remove(meta.asset_id);
+    expect(registry.list({})).toHaveLength(0);
+    expect(existsSync(join(cacheRoot, meta.asset_id))).toBe(false);
+    expect(() => registry.get(meta.asset_id)).toThrow(/^asset_not_found:/);
+  });
+
+  it("下架未物化资产 → 登记行删除（无缓存也不报错）", () => {
+    const repo = makeRepo(PKG_FILES);
+    const meta = registry.register(pkgInput(repo.dir));
+    registry.remove(meta.asset_id);
+    expect(registry.list({})).toHaveLength(0);
+  });
+
+  it("下架不存在的 asset_id → 幂等不报错", () => {
+    expect(() => registry.remove("ast_0000000000000000")).not.toThrow();
+  });
+
+  it("删后可重新登记同三元组 → 得到同 asset_id", () => {
+    const repo = makeRepo(PKG_FILES);
+    const meta = registry.register(pkgInput(repo.dir));
+    registry.remove(meta.asset_id);
+    const again = registry.register(pkgInput(repo.dir));
+    expect(again.asset_id).toBe(meta.asset_id);
+    expect(registry.list({})).toHaveLength(1);
+  });
+});
+
 describe("持久化", () => {
   it("register 后 close 数据库重开 → 新实例 list/get 结果一致", () => {
     const dbPath = join(tmpDir, "persist.db");

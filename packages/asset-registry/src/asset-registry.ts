@@ -74,6 +74,11 @@ export interface AssetRegistry {
   /** 物化：确保资产内容在本地可用，返回资产根绝对路径（幂等；缓存缺失自动补拉）。
    *  opts.credential 同 register（仅缓存缺失、需要真正 clone 时需要，见 §5.7） */
   materialize(asset_id: string, opts?: { credential?: string }): string;
+
+  /** 下架：删登记行 + 清物化缓存目录；不存在幂等不报错。
+   *  不校验在役引用——业务绑定着已下架资产时，运行时取用在 ContextLoader 处抛 asset_not_found，
+   *  属配置错误，由控制台操作者负责（console UI 可在删除前提示在役业务，非本包职责） */
+  remove(asset_id: string): void;
 }
 
 /** 存储迁移（spec §5.5）：下标即版本号，v1 建 assets 表 */
@@ -281,6 +286,14 @@ class AssetRegistryImpl implements AssetRegistry {
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }
+  }
+
+  remove(asset_id: string): void {
+    this.db.run("DELETE FROM assets WHERE asset_id = ?", [asset_id]);
+    rmSync(path.join(this.cacheRoot, asset_id), {
+      recursive: true,
+      force: true,
+    });
   }
 
   private getRow(assetId: string): AssetRow | undefined {

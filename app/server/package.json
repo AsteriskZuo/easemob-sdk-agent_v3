@@ -14,6 +14,7 @@
   "dependencies": {
     "@easemob/agent-asset-registry": "0.1.0",
     "@easemob/agent-channel": "0.1.0",
+    "@easemob/agent-console-api": "0.1.0",
     "@easemob/agent-contracts": "0.1.0",
     "@easemob/agent-database": "0.1.0",
     "@easemob/agent-env": "0.1.0",

@@ -2,6 +2,11 @@ import { join } from "node:path";
 import { createAssetRegistry } from "@easemob/agent-asset-registry";
 import type { AssetRegistry } from "@easemob/agent-asset-registry";
 import { createChannelPool, createChannelStore } from "@easemob/agent-channel";
+import { createConsoleApi } from "@easemob/agent-console-api";
+import type {
+  ConsoleApi,
+  EffectiveConfigView,
+} from "@easemob/agent-console-api";
 import { openDatabase } from "@easemob/agent-database";
 import type { Database } from "@easemob/agent-database";
 import { createExitRegistry } from "@easemob/agent-exit-tools";
@@ -14,6 +19,7 @@ import {
   createContextLoader,
   createEnvProvider,
   createLifecycle,
+  createLifecycleStore,
 } from "@easemob/agent-runtime";
 import type { EnvProvider } from "@easemob/agent-runtime";
 import { createEntryLoop, createExitLoop } from "@easemob/agent-scheduler";
@@ -52,7 +58,7 @@ export interface AssembledContext {
 export interface ServerHandle {
   /** 装配产物（全部模块实例） */
   context: AssembledContext;
-  /** 优雅停：入口适配器 stop（有则）→ 两循环 stop → db close；幂等 */
+  /** 优雅停：管理 API stop → 入口适配器 stop（有则）→ 两循环 stop → db close；幂等 */
   stop(): Promise<void>;
 }
 
@@ -83,6 +89,7 @@ export async function bootstrap(overrides?: {
   let db: Database | null = null;
   let entryLoop: SchedulerLoop | null = null;
   let exitLoop: SchedulerLoop | null = null;
+  let consoleApi: ConsoleApi | null = null;
   const startedAdapters: EntryAdapter[] = [];
   let context: AssembledContext | null = null;
 
@@ -177,8 +184,48 @@ export async function bootstrap(overrides?: {
       startedAdapters.push(adapter);
     }
 
+    // 8.5 管理 API（console-api）：建表/首启 admin 注入在 start 内完成；
+    // ensureBootstrapAdmin 'missing' 时其内部记 error 日志，不阻断启动。
+    // consoleApi 是装配层局部资源（与 EntryAdapter 同列管理），不进 AssembledContext
+    const lifecycleStore = createLifecycleStore(db);
+    const configView: EffectiveConfigView = {
+      workspace: config.workspace,
+      log_level: config.log_level,
+      log_enabled: config.log_enabled,
+      hop_limit: config.hop_limit,
+      task_concurrency: config.task_concurrency,
+      result_concurrency: config.result_concurrency,
+      task_timeout_minutes: config.task_timeout_minutes,
+      max_agent_calls: config.max_agent_calls,
+      pi_cli_path: config.pi_cli_path,
+      pi_agent_dir: config.pi_agent_dir,
+    };
+    consoleApi = createConsoleApi(
+      {
+        db,
+        registry,
+        assets,
+        env: envProvider,
+        exits,
+        entryQueue,
+        exitQueue,
+        lifecycle: lifecycleStore,
+        config: configView,
+      },
+      {
+        port: config.console_port,
+        ...(config.bootstrap_admin !== undefined
+          ? { bootstrap_admin: config.bootstrap_admin }
+          : {}),
+      },
+    );
+    const consolePort = await consoleApi.start();
+
     // 9. system 日志「启动完成」
-    log.info("平台启动完成", { adapters: startedAdapters.length });
+    log.info("平台启动完成", {
+      adapters: startedAdapters.length,
+      console_port: consolePort,
+    });
 
     context = {
       config,
@@ -193,7 +240,14 @@ export async function bootstrap(overrides?: {
     };
   } catch (err) {
     log.error("平台启动失败", { error: errorMessage(err) });
-    // 按装配进度反向清理，不留半启动状态
+    // 按装配进度反向清理，不留半启动状态（先关 API 入口，再停适配器/循环）
+    if (consoleApi) {
+      try {
+        await consoleApi.stop();
+      } catch {
+        // 清理尽力而为，不掩盖启动错误
+      }
+    }
     for (const adapter of [...startedAdapters].reverse()) {
       try {
         await adapter.stop();
@@ -225,14 +279,20 @@ export async function bootstrap(overrides?: {
     throw err;
   }
 
-  // 优雅停：入口适配器 stop → 两循环 stop → db close；幂等
-  // （到达此处装配必然成功：context/db/两循环均已就位）
+  // 优雅停：consoleApi stop（先关 API 入口）→ 入口适配器 stop → 两循环 stop → db close；幂等
+  // （到达此处装配必然成功：context/db/两循环/consoleApi 均已就位）
   const assembled = context as AssembledContext;
+  const assembledConsoleApi = consoleApi as ConsoleApi;
   let stopPromise: Promise<void> | null = null;
   const adapters = startedAdapters;
   const stop = (): Promise<void> => {
     if (stopPromise !== null) return stopPromise;
     stopPromise = (async () => {
+      try {
+        await assembledConsoleApi.stop();
+      } catch (err) {
+        log.error("管理 API 停止失败", { error: errorMessage(err) });
+      }
       for (const adapter of adapters) {
         try {
           await adapter.stop();

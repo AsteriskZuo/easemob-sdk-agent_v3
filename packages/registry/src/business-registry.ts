@@ -88,6 +88,9 @@ export interface BusinessRegistry {
   /** 取业务资料（业务级字段完整读面）；业务不存在返回 undefined */
   getProfile(business_id: string): BusinessProfile | undefined;
 
+  /** 全部业务资料（控制台业务列表）；按 business_id 字典序 */
+  list(): BusinessProfile[];
+
   /** 更新业务级字段（对该业务所有行生效）；业务不存在抛错 */
   update(business_id: string, patch: BusinessPatch): void;
 
@@ -347,6 +350,12 @@ class SqliteBusinessRegistry implements BusinessRegistry {
     if (state.max_agent_calls !== undefined)
       profile.max_agent_calls = state.max_agent_calls;
     return profile;
+  }
+
+  list(): BusinessProfile[] {
+    return [...this.businesses.keys()]
+      .sort()
+      .map((id) => this.getProfile(id) as BusinessProfile);
   }
 
   create(input: CreateBusinessInput): string {
