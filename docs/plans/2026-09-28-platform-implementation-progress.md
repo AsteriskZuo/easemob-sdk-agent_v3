@@ -27,7 +27,7 @@
 | T10 WorkflowRunner + SDK | 完成 | 2026-09-29 | 84f0d77 |
 | T11 AgentService | 完成 | 2026-09-29 | 7aa0105 |
 | T12 server | 完成 | 2026-10-04 | 2dbb911 |
-| T13 管理 API | 未开始 | — | — |
+| T13 管理 API | 完成 | 2026-10-06 | 5e8b86a |
 | T14 console | 未开始 | — | — |
 | T15 程序包模板 | 完成 | 2026-09-29 | 728488b |
 | T16 asset-registry | 完成 | 2026-09-30 22:31 | 10d8b66 |
@@ -239,3 +239,14 @@
 - spec 两轮修订要点（用户已审）：webhook 入口适配器后移 T18（外部业务推送形态复杂，验签/会话标识/幂等随 T18 单独设计）；AibotConnector 维持归企微入口任务；入口流量与管理 API 各自独立 HTTP 服务；集成验证入口 = 直接落队（等价入口适配器的本质动作）；自检覆盖 git（asset-registry 的 git 子进程依赖）、node 不查（runner 用 process.execPath 恒真）；server 是空平台、console 是配置唯一生产入口。
 - 同批设计对账（commit 35e589c）：core-modules §1/§2/§4.7/§5 对账 monorepo（补装配层、IdGen/Clock 收敛为 contracts 纯函数、ContextLoader 不碰 ChannelStore、§5 布局以 T0 spec 为准）；骨架 §2 总体架构图补装配层；新增模块组织图双格式源 `design/architecture-overview.puml/.mmd`（一循环一队列、通道池两池、通道池保序 vs 闸门限流）；AGENTS.md 新增核心原则 9「重大变更先确认」。
 - 子代理合理裁决（主 agent 确认）：① config.ts 对单键做「保存→设置→调用→恢复」桥接以委托 env 包解析（env 包只读 process.env 的既定边界不变，config.ts 本就是 spec 允许的触点）；② git 自检测试改为真实子进程置空 PATH（jest ESM realm 改 process.env 不传播到 spawn 子进程）；③ 集成 fixture 程序写一行 stderr（runner 业务日志首行写入时才懒建文件）；④ server 包 test 脚本前缀全量 build（jest 跑编译产物需上游 dist 就绪）。
+
+### T13 管理 API（console-api）
+
+- 状态：完成
+- 子 agent：agent-21（单发）
+- 开始/完成：2026-10-06
+- 验收证据：主 agent 独立复验——根六连全绿（FINAL_EXIT=0，circular 仅 exit-tools 既有噪音）；console-api 56 测试全过（8 套件）；asset-registry 43（+4 remove 用例）、registry 27（+3 list 用例）、app/server 24（+2）；抽查 accounts.ts（scrypt 自包含串 + timingSafeEqual、32 字节随机 token）、server.ts（不读 process.env）、bootstrap.ts diff（步骤 8.5 装配、清理链与 stop 先关 API 入口）与 spec §5 一致
+- commit：5e8b86a（spec 前置提交 006929a）
+- 范围（spec 决策点，用户已审）：账号体系全量落地（users/console_sessions、scrypt、httpOnly cookie 7 天固定有效期、首启 admin 由 AGENT_ADMIN_USERNAME/PASSWORD 注入、注入失败不阻断启动）；API 契约不进 contracts——DTO 由 console-api 包根导出，T14 console type-only 复用；ConfigStore 不做（GET /api/config 只读回显，改全局参数 = 改 env/config.json 重启）；监控全部只读（任务终止/重试后续立项）；私有资产凭据统一从通用层安全桶解析（env.getFor("")）。
+- 契约增补（用户已确认）：`AssetRegistry.remove`（下架=删行+清缓存，不校验在役引用）、`BusinessRegistry.list`（业务列表读口）。
+- 子代理合理裁决（主 agent 确认）：① 依赖版本沿用仓内 `"0.1.0"` 形式（workspaces 按版本匹配软链）；② 补错误码 `payload_too_large`（413 需统一错误体，spec 表外最小新增）；③ `CreateBusinessBody.entry_config` 经 create 后 removeMatch+addMatch 落定（CreateBusinessInput 无该字段，既有契约不动）；④ changePassword 失效范围 = 该用户全部会话（含当前，与测试清单一致）；⑤ member `GET /api/assets?scope=all` = 其可见全集（mine+shared）；⑥ 'missing' error 日志由 console-api 内记录（start 内调用，app/server 无从观察返回值）。
