@@ -1,0 +1,12 @@
+{"t":"2026-10-07T08:05:39.542Z","event":"extension_loaded","data":{"pid":24384,"log":"/Users/asterisk/Codes/ai/easemob-sdk-agent_v3/docs/researches/pi-hooks/results/exp5a-hooks.jsonl"}}
+{"t":"2026-10-07T08:05:39.558Z","event":"session_start","data":{"reason":"startup"}}
+{"t":"2026-10-07T08:05:39.558Z","event":"input","data":{"text":"Reply with exactly: hello world","source":"interactive"}}
+{"t":"2026-10-07T08:05:39.559Z","event":"before_agent_start","data":{"prompt":"Reply with exactly: hello world"}}
+{"t":"2026-10-07T08:05:39.560Z","event":"agent_start","data":{}}
+{"t":"2026-10-07T08:05:39.560Z","event":"message_end","data":{"role":"system","text":""}}
+{"t":"2026-10-07T08:05:39.560Z","event":"message_end","data":{"role":"user","text":"Reply with exactly: hello world"}}
+{"t":"2026-10-07T08:05:41.260Z","event":"message_end","data":{"role":"assistant","text":"hello world"}}
+{"t":"2026-10-07T08:05:41.261Z","event":"turn_end","data":{"turnIndex":0,"outcome":"completed"}}
+{"t":"2026-10-07T08:05:41.261Z","event":"agent_end","data":{"messageCount":3}}
+{"t":"2026-10-07T08:05:41.262Z","event":"agent_settled","data":{}}
+{"t":"2026-10-07T08:05:41.262Z","event":"session_shutdown","data":{"reason":"quit"}}

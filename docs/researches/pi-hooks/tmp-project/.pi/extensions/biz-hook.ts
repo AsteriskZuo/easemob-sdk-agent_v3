@@ -62,6 +62,10 @@ export default function (pi: ExtensionAPI) {
 				rec("tool_call_blocked", { command: cmd });
 				return { block: true, reason: "demo-hook: 命令包含 FORBIDDEN，已被阻断" };
 			}
+			if (cmd.includes("THROW_ME")) {
+				// 验证 fail-safe：handler 抛错时工具是否被阻断
+				throw new Error("demo-hook: 故意抛错，验证 fail-safe 阻断");
+			}
 			if (cmd.includes("REWRITE_ME")) {
 				const rewritten = cmd.replace("REWRITE_ME", "rewritten-by-hook");
 				(e.input as { command: string }).command = rewritten; // 原地改写入参

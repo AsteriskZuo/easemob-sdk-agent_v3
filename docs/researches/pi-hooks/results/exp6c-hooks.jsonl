@@ -1,12 +1,12 @@
-{"t":"2026-09-26T14:02:16.592Z","event":"extension_loaded","data":{"pid":61105,"log":"/Users/asterisk/Codes/ai/easemob-sdk-agent_v3/docs/researches/pi-hooks/tmp-project/../results/exp6c-hooks.jsonl"}}
-{"t":"2026-09-26T14:02:16.607Z","event":"session_start","data":{"reason":"startup"}}
-{"t":"2026-09-26T14:02:16.608Z","event":"input","data":{"text":"Reply with exactly: C","source":"interactive"}}
-{"t":"2026-09-26T14:02:16.608Z","event":"before_agent_start","data":{"prompt":"Reply with exactly: C"}}
-{"t":"2026-09-26T14:02:16.609Z","event":"agent_start","data":{}}
-{"t":"2026-09-26T14:02:16.609Z","event":"message_end","data":{"role":"system","text":""}}
-{"t":"2026-09-26T14:02:16.609Z","event":"message_end","data":{"role":"user","text":"Reply with exactly: C"}}
-{"t":"2026-09-26T14:02:20.921Z","event":"message_end","data":{"role":"assistant","text":"C"}}
-{"t":"2026-09-26T14:02:20.922Z","event":"turn_end","data":{"turnIndex":0,"outcome":"completed"}}
-{"t":"2026-09-26T14:02:20.922Z","event":"agent_end","data":{"messageCount":3}}
-{"t":"2026-09-26T14:02:20.922Z","event":"agent_settled","data":{}}
-{"t":"2026-09-26T14:02:20.922Z","event":"session_shutdown","data":{"reason":"quit"}}
+{"t":"2026-10-07T08:05:45.561Z","event":"extension_loaded","data":{"pid":24409,"log":"/Users/asterisk/Codes/ai/easemob-sdk-agent_v3/docs/researches/pi-hooks/results/exp6c-hooks.jsonl"}}
+{"t":"2026-10-07T08:05:45.582Z","event":"session_start","data":{"reason":"startup"}}
+{"t":"2026-10-07T08:05:45.583Z","event":"input","data":{"text":"Reply with exactly: C","source":"interactive"}}
+{"t":"2026-10-07T08:05:45.583Z","event":"before_agent_start","data":{"prompt":"Reply with exactly: C"}}
+{"t":"2026-10-07T08:05:45.585Z","event":"agent_start","data":{}}
+{"t":"2026-10-07T08:05:45.585Z","event":"message_end","data":{"role":"system","text":""}}
+{"t":"2026-10-07T08:05:45.585Z","event":"message_end","data":{"role":"user","text":"Reply with exactly: C"}}
+{"t":"2026-10-07T08:05:47.145Z","event":"message_end","data":{"role":"assistant","text":"C"}}
+{"t":"2026-10-07T08:05:47.145Z","event":"turn_end","data":{"turnIndex":0,"outcome":"completed"}}
+{"t":"2026-10-07T08:05:47.146Z","event":"agent_end","data":{"messageCount":3}}
+{"t":"2026-10-07T08:05:47.146Z","event":"agent_settled","data":{}}
+{"t":"2026-10-07T08:05:47.146Z","event":"session_shutdown","data":{"reason":"quit"}}

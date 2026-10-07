@@ -4,10 +4,7 @@
       "baseUrl": "http://localhost:11434/v1",
       "api": "openai-completions",
       "apiKey": "ollama",
-      "models": [
-        { "id": "qwen3.6:latest" },
-        { "id": "llama3.1:latest" }
-      ]
+      "models": [{ "id": "qwen3.6:latest" }]
     }
   }
 }
