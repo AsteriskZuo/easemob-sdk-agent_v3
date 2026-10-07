@@ -1,0 +1,10 @@
+{
+  "providers": {
+    "your-provider-name": {
+      "baseUrl": "https://your-provider.example.com/v1",
+      "api": "openai-completions",
+      "apiKey": "$YOUR_PROVIDER_API_KEY",
+      "models": [{ "id": "your-model-id" }]
+    }
+  }
+}

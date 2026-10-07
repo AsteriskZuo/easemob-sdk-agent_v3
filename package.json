@@ -15,7 +15,7 @@
     "build": "yarn workspaces foreach -Apt run build",
     "test": "yarn build && yarn workspaces foreach -Apt run test",
     "typecheck": "yarn workspaces foreach -Apt run typecheck",
-    "lint": "eslint .",
+    "lint": "eslint packages app",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "circular": "dpdm --circular --transform \"packages/*/src/**/*.ts\" \"app/*/src/**/*.ts\" \"app/*/src/**/*.tsx\""

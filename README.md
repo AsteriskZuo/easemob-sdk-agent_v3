@@ -20,25 +20,56 @@
 
 ```bash
 yarn install
-yarn build        # 构建全部 packages 与 app
+yarn build        # 构建全部 packages 与 app（含 console 产物 app/console/dist）
 
 # 配置（必填项见下表）
 export AGENT_WORKSPACE=/path/to/workspace
 export AGENT_PI_CLI_PATH=/path/to/pi
-export AGENT_PI_AGENT_DIR=/path/to/pi-agent-dir   # 内含 models.json（模型凭据）
+export AGENT_PI_AGENT_DIR=/path/to/pi-agent-dir   # 内含 models.json（模型凭据，模板见 templates/models.json.example）
 
 # 首启注入控制台 admin（仅首个用户创建时需要，成对出现）
 export AGENT_ADMIN_USERNAME=admin
 export AGENT_ADMIN_PASSWORD=your-initial-password
-
-# 启动平台（API + 双循环）
-yarn workspace @easemob/agent-server start
 ```
 
-控制台两种用法：
+### 生产模式（部署运行）
 
-- **生产**：`yarn workspace @easemob/agent-console build`，然后设 `AGENT_CONSOLE_STATIC_DIR=$(pwd)/app/console/dist` 重启 server，浏览器访问 `http://localhost:6100`；
-- **开发**：`yarn workspace @easemob/agent-console dev`（Vite dev server，`/api` 自动代理到 6100）。
+server 单进程托管一切（API + 双循环 + 控制台静态文件）：
+
+```bash
+AGENT_CONSOLE_STATIC_DIR=$(pwd)/app/console/dist yarn workspace @easemob/agent-server start
+# 浏览器访问 http://localhost:6100
+```
+
+### 开发模式（日常调试）
+
+两个进程分开跑，前端热更新：
+
+```bash
+# 终端 1：server（纯 API，不托管静态文件）
+yarn workspace @easemob/agent-server start
+
+# 终端 2：console dev server（/api 自动代理到 localhost:6100）
+yarn workspace @easemob/agent-console dev
+```
+
+## 数据重置（调试手段）
+
+先停 server，再删数据。workspace 内数据按生命周期五类分根（细则见 `docs/designs/2026-09-14-skill-platform-spec-v3/design/console-design.md` §6）：
+
+| 路径 | 内容 | 删除影响 |
+|------|------|---------|
+| `data/platform.db` | 全部状态：账号/业务/资产登记/队列/通道/环境配置 | 全量重置（含控制台账号；下次启动需重新注入首启 admin） |
+| `cache/` | 资产物化、仓库克隆、agent 会话 | 安全，自动重建 |
+| `runs/` | 业务执行临时数据 | 安全 |
+| `logs/` | 日志 | 安全 |
+| `config.json` | 人工维护的配置兜底 | 别删（除非连配置一起重置） |
+
+完整重置：
+
+```bash
+rm -rf "$AGENT_WORKSPACE/data" "$AGENT_WORKSPACE/cache" "$AGENT_WORKSPACE/runs" "$AGENT_WORKSPACE/logs"
+```
 
 ## 配置项
 
@@ -48,7 +79,7 @@ yarn workspace @easemob/agent-server start
 |------|------|------|------|
 | `AGENT_WORKSPACE` | 是 | — | 平台工作目录（数据五类分根的根） |
 | `AGENT_PI_CLI_PATH` | 是 | — | pi 可执行文件绝对路径 |
-| `AGENT_PI_AGENT_DIR` | 是 | — | pi 的 models.json 所在目录（模型凭据由它承载） |
+| `AGENT_PI_AGENT_DIR` | 是 | — | pi 的 models.json 所在目录（模型凭据由它承载；模板见 `templates/models.json.example`，apiKey 支持 `$ENV_VAR` 环境插值） |
 | `AGENT_CONSOLE_PORT` | 否 | `6100` | 管理 API / 控制台端口 |
 | `AGENT_CONSOLE_STATIC_DIR` | 否 | 不托管 | 控制台静态产物目录（vite build 输出） |
 | `AGENT_ADMIN_USERNAME` / `AGENT_ADMIN_PASSWORD` | 否 | — | 首启注入首个 admin（成对；仅 users 表为空时生效） |
@@ -92,8 +123,9 @@ yarn workspace @easemob/agent-server start
 │   ├── server/         # 平台装配根 + 进程入口
 │   └── console/        # 控制台 SPA（React + Vite + antd）
 ├── templates/
-│   └── agent-package/  # 业务包模板（拷贝即用）
-├── workspace/          # 运行时数据（gitignore）
+│   ├── agent-package/      # 业务包模板（拷贝即用）
+│   └── models.json.example # pi 模型凭据模板（复制到 AGENT_PI_AGENT_DIR 改名为 models.json）
+├── workspace/              # 本地开发建议的 AGENT_WORKSPACE 指向（gitignore；注意：变量无默认值、必填，这只是约定俗成的本地目录）
 └── docs/               # 设计/规格/计划/进度（见 docs/README.md）
 ```
 
