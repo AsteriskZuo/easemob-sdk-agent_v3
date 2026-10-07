@@ -16,6 +16,7 @@ import { SESSION_COOKIE, parseCookies, readBody, sendJson } from "./http.js";
 import type { HttpRequest } from "./http.js";
 import { compileRoutes, matchRoute } from "./router.js";
 import type { Route } from "./router.js";
+import { serveStatic } from "./static.js";
 import { assetRoutes } from "./routes-assets.js";
 import { authRoutes } from "./routes-auth.js";
 import { businessRoutes } from "./routes-businesses.js";
@@ -51,6 +52,10 @@ export interface ConsoleApiOptions {
   port: number;
   /** 首启 admin 注入（users 表为空时生效；缺省不建号，记 error 日志不阻断启动） */
   bootstrap_admin?: { username: string; password: string };
+  /** 控制台静态资源目录（vite build 产物的绝对路径）；
+   *  设置后：非 /api 请求按文件托管（GET/HEAD），未命中回退 index.html（SPA 路由）；
+   *  不设置 = 纯 API 服务（开发期形态） */
+  static_dir?: string;
 }
 
 export interface ConsoleApi {
@@ -111,6 +116,13 @@ export function createConsoleApi(
       const matched = matchRoute(compiled, method, url.pathname);
       if (matched === undefined) {
         rawReq.resume(); // drain 请求体，避免 keep-alive 悬挂
+        // 静态托管分支（/api 前缀永远优先，已在 serveStatic 内判定）
+        if (
+          options.static_dir !== undefined &&
+          serveStatic(res, options.static_dir, url.pathname, method)
+        ) {
+          return;
+        }
         throw new ApiError(
           "not_found",
           `路由不存在: ${method} ${url.pathname}`,

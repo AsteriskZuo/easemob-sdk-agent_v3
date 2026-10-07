@@ -217,6 +217,9 @@ export async function bootstrap(overrides?: {
         ...(config.bootstrap_admin !== undefined
           ? { bootstrap_admin: config.bootstrap_admin }
           : {}),
+        ...(config.console_static_dir !== undefined
+          ? { static_dir: config.console_static_dir }
+          : {}),
       },
     );
     const consolePort = await consoleApi.start();
@@ -225,6 +228,9 @@ export async function bootstrap(overrides?: {
     log.info("平台启动完成", {
       adapters: startedAdapters.length,
       console_port: consolePort,
+      ...(config.console_static_dir !== undefined
+        ? { static_dir: config.console_static_dir }
+        : {}),
     });
 
     context = {

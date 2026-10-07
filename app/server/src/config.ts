@@ -28,6 +28,8 @@ export interface ServerConfig {
   pi_env: Record<string, string>;
   /** 管理 API（console-api）监听端口；0 = 随机（测试用） */
   console_port: number;
+  /** 控制台静态资源目录（vite build 产物绝对路径；可缺省 = 纯 API 服务，开发期形态） */
+  console_static_dir?: string;
   /** 首启 admin 注入（AGENT_ADMIN_USERNAME/AGENT_ADMIN_PASSWORD 成对设置才生效；
    *  不回显、不进日志；不进 config.json 之外的任何地方） */
   bootstrap_admin?: { username: string; password: string };
@@ -277,6 +279,8 @@ export function resolveServerConfig(
     default: 6100,
     min: 0,
   });
+  // 控制台静态资源目录：string 键、可缺省（trim 空 = 未设置，由 KeyResolver.envRaw 保证）
+  const consoleStaticDir = resolver.string("AGENT_CONSOLE_STATIC_DIR");
   // 首启 admin 注入：两个键成对出现才生效；只给一个 = 配置错误（密码不回显、不进日志）
   const adminUsername = resolver.string("AGENT_ADMIN_USERNAME");
   const adminPassword = resolver.string("AGENT_ADMIN_PASSWORD");
@@ -313,6 +317,9 @@ export function resolveServerConfig(
     pi_agent_dir: piAgentDir as string,
     pi_env: piEnv,
     console_port: consolePort as number,
+    ...(consoleStaticDir !== undefined
+      ? { console_static_dir: consoleStaticDir }
+      : {}),
     ...(adminUsername !== undefined && adminPassword !== undefined
       ? {
           bootstrap_admin: { username: adminUsername, password: adminPassword },

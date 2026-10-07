@@ -107,6 +107,32 @@ describe("bootstrap 装配管理 API", () => {
     ).rejects.toThrow();
   });
 
+  it("AGENT_CONSOLE_STATIC_DIR 开启静态托管：/ 返回 index.html，/api 不受影响", async () => {
+    const staticDir = join(tmpDir, "console-dist");
+    mkdirSync(staticDir, { recursive: true });
+    writeFileSync(
+      join(staticDir, "index.html"),
+      "<!doctype html><html><body>console</body></html>",
+    );
+
+    const port = await freePort();
+    handle = await bootstrap({
+      env: testEnv({
+        AGENT_CONSOLE_PORT: String(port),
+        AGENT_CONSOLE_STATIC_DIR: staticDir,
+      }),
+    });
+
+    const root = await fetch(`http://127.0.0.1:${port}/`);
+    expect(root.status).toBe(200);
+    expect(root.headers.get("content-type")).toContain("text/html");
+    expect(await root.text()).toContain("console");
+
+    // /api 前缀永远优先于静态分支
+    const me = await fetch(`http://127.0.0.1:${port}/api/auth/me`);
+    expect(me.status).toBe(401);
+  });
+
   it("未注入首启 admin（'missing'）不阻断启动；登录 401", async () => {
     const port = await freePort();
     handle = await bootstrap({

@@ -78,9 +78,12 @@ export interface TestServer {
   stop(): Promise<void>;
 }
 
-/** 起测试服务。deps 全真实（无 mock）；bootstrap_admin 注入首启 admin */
+/** 起测试服务。deps 全真实（无 mock）；bootstrap_admin 注入首启 admin；static_dir 开启静态托管 */
 export async function startTestServer(
-  options: { bootstrap_admin?: { username: string; password: string } } = {},
+  options: {
+    bootstrap_admin?: { username: string; password: string };
+    static_dir?: string;
+  } = {},
 ): Promise<TestServer> {
   ensureTestLogger();
   const tmpDir = mkdtempSync(join(tmpdir(), "console-api-test-"));
@@ -110,6 +113,9 @@ export async function startTestServer(
       port: 0,
       ...(options.bootstrap_admin
         ? { bootstrap_admin: options.bootstrap_admin }
+        : {}),
+      ...(options.static_dir !== undefined
+        ? { static_dir: options.static_dir }
         : {}),
     },
   );

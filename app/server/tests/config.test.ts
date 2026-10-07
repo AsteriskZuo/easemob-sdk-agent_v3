@@ -150,6 +150,40 @@ describe("resolveServerConfig", () => {
     ).toThrow(EnvError);
   });
 
+  it("console_static_dir：默认 undefined；env/config.json 生效；trim 空 = 未设置", () => {
+    expect(
+      resolveServerConfig(requiredEnv()).console_static_dir,
+    ).toBeUndefined();
+
+    expect(
+      resolveServerConfig(
+        requiredEnv({ AGENT_CONSOLE_STATIC_DIR: "/opt/console/dist" }),
+      ).console_static_dir,
+    ).toBe("/opt/console/dist");
+
+    // trim 后空串 = 未设置
+    expect(
+      resolveServerConfig(requiredEnv({ AGENT_CONSOLE_STATIC_DIR: "   " }))
+        .console_static_dir,
+    ).toBeUndefined();
+
+    writeFileSync(
+      join(workspace, "config.json"),
+      JSON.stringify({ AGENT_CONSOLE_STATIC_DIR: "/srv/console" }),
+      { flag: "wx" },
+    );
+    expect(resolveServerConfig(requiredEnv()).console_static_dir).toBe(
+      "/srv/console",
+    );
+
+    // config.json 类型不符 → EnvError
+    writeFileSync(
+      join(workspace, "config.json"),
+      JSON.stringify({ AGENT_CONSOLE_STATIC_DIR: 42 }),
+    );
+    expect(() => resolveServerConfig(requiredEnv())).toThrow(EnvError);
+  });
+
   it("bootstrap_admin：两键成对 → 注入；都缺省 → undefined；只给一个 → EnvError", () => {
     expect(resolveServerConfig(requiredEnv()).bootstrap_admin).toBeUndefined();
 
