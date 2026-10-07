@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import type { ServerConfig } from "./config.js";
+import { loadModelList } from "./models.js";
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -17,7 +18,8 @@ function errorMessage(err: unknown): string {
 /** 启动自检（fail-fast）：任一前提不满足抛出 Error，message 列出全部失败项。
  *  检查项全量收集后一次性报出，不遇一错即停：
  *  ① {workspace} 可建可写；② 数据分类子目录骨架（data/ cache/ runs/ logs/）可建；
- *  ③ pi_cli_path 存在且可执行；④ pi_agent_dir 存在且含 models.json；⑤ git 可用。
+ *  ③ pi_cli_path 存在且可执行；④ pi_agent_dir 存在且含可解析、非空的 models.json
+ *  （可选模型列表的部署侧来源，loadModelList 验证）；⑤ git 可用。
  *  （node 不单列：workflow-runner 用 process.execPath spawn 业务程序，server 能启动即 node 恒在；
  *   数据库可打开/迁移由各工厂创建时自然 fail-fast） */
 export function runSelfCheck(config: ServerConfig): void {
@@ -55,12 +57,18 @@ export function runSelfCheck(config: ServerConfig): void {
     );
   }
 
-  // ④ pi_agent_dir 存在且含 models.json 文件
+  // ④ pi_agent_dir 存在且含 models.json 文件，且可解析出非空模型列表
   try {
     if (!statSync(join(config.pi_agent_dir, "models.json")).isFile()) {
       failures.push(
         `pi_agent_dir 下 models.json 不是文件: ${config.pi_agent_dir}`,
       );
+    } else {
+      try {
+        loadModelList(config.pi_agent_dir);
+      } catch (err) {
+        failures.push(`models.json 不可用: ${errorMessage(err)}`);
+      }
     }
   } catch (err) {
     failures.push(

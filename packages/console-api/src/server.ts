@@ -76,7 +76,12 @@ export function createConsoleApi(
   const routes: Route[] = [
     ...authRoutes({ accounts }),
     ...userRoutes({ accounts }),
-    ...businessRoutes({ registry: deps.registry }),
+    ...businessRoutes({
+      registry: deps.registry,
+      assets: deps.assets,
+      env: deps.env,
+      config: deps.config,
+    }),
     ...assetRoutes({ assets: deps.assets, env: deps.env }),
     ...envRoutes({ env: deps.env, registry: deps.registry }),
     ...configRoutes({ config: deps.config, exits: deps.exits }),

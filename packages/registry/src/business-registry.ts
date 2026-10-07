@@ -22,7 +22,7 @@ export interface BusinessProfile {
   creator_id: string; // 创建者账号 id（权限归属判定用）
   on_failure: boolean; // 失败也扇出开关
   prompt: string; // 提示词总纲（可空串）
-  model: string; // 大模型选择（MVP 仅 qwen3.8max）
+  model: string; // 大模型选择：provider/id 形式（如 qwen/qwen3.8-max）；可选集合由部署侧 models.json 决定
   agent_kind: string; // agent 内核（MVP 仅 pi）
   package_asset_id?: string; // 绑定的包资产；未绑定 = undefined
   entry_program?: string; // 流程程序入口名（包清单 programs 的键）
@@ -65,7 +65,7 @@ export interface CreateBusinessInput {
   on_failure?: boolean; // 缺省 false
   exit_bindings?: Array<{ tool: string; config: Record<string, string> }>; // 缺省无绑定
   prompt?: string; // 缺省 ''
-  model?: string; // 缺省 'qwen3.8max'
+  model?: string; // 缺省 ''（空串 = 未选择；registry 层机械存储，必选校验归控制台表单）
   agent_kind?: string; // 缺省 'pi'
   package_asset_id?: string; // 缺省未绑定
   entry_program?: string; // 缺省未指定
@@ -141,6 +141,9 @@ const MIGRATIONS: readonly string[] = [
    ALTER TABLE businesses ADD COLUMN timeout_minutes INTEGER;
    ALTER TABLE businesses ADD COLUMN max_agent_calls INTEGER;
    ALTER TABLE business_matches ADD COLUMN entry_config TEXT;`,
+  // v3：清理历史默认填入的模型名（旧值 'qwen3.8max' 缺 provider 前缀，本就不是合法模型名 → 归一为 '' = 未选择）。
+  // v2 的 `DEFAULT 'qwen3.8max'` 是死代码（INSERT 恒显式给值），按迁移纪律保留不改
+  `UPDATE businesses SET model = '' WHERE model = 'qwen3.8max';`,
 ];
 
 interface BusinessRow {
@@ -379,7 +382,7 @@ class SqliteBusinessRegistry implements BusinessRegistry {
           input.on_failure ? 1 : 0,
           JSON.stringify(exitBindings),
           input.prompt ?? "",
-          input.model ?? "qwen3.8max",
+          input.model ?? "",
           input.agent_kind ?? "pi",
           input.package_asset_id ?? null,
           input.entry_program ?? null,
@@ -400,7 +403,7 @@ class SqliteBusinessRegistry implements BusinessRegistry {
       on_failure: input.on_failure ?? false,
       exit_bindings: exitBindings,
       prompt: input.prompt ?? "",
-      model: input.model ?? "qwen3.8max",
+      model: input.model ?? "",
       agent_kind: input.agent_kind ?? "pi",
       tool_asset_ids: toolAssetIds,
       skill_asset_ids: skillAssetIds,

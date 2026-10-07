@@ -37,6 +37,7 @@ function makeEvent(sessionId = "sess-1"): EventEnvelope {
 function makeReq(program: string, over: Partial<RunRequest> = {}): RunRequest {
   return {
     program: fixturePath(program),
+    programs: {},
     event: makeEvent(),
     business_id: "biz-1",
     config: { region: "cn", flag: "on" },
@@ -93,6 +94,14 @@ describe("WorkflowRunner", () => {
     expect(output.config).toEqual(req.config);
     expect(output.secretApiKey).toBe(SECRET_VALUE);
     expect(output.runInput).toEqual({ input: req.event, config: req.config });
+  });
+
+  it("2b. 信封携带 programs 映射原样到达业务进程", async () => {
+    const { runner } = setup();
+    const programs = { "jira-fetch": "/cache/assets/ast_x/programs/fetch.js" };
+    const outcome = await runner.run(makeReq("echo-programs.js", { programs }));
+    expect(outcome.status).toBe("success");
+    expect((outcome.output as Record<string, any>).programs).toEqual(programs);
   });
 
   it("3. 业务失败：sdk.fail → failed、reason 含原因", async () => {

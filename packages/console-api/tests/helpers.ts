@@ -39,6 +39,8 @@ export const TEST_CONFIG_VIEW: EffectiveConfigView = {
   max_agent_calls: 20,
   pi_cli_path: "/fake/pi",
   pi_agent_dir: "/fake/agent-dir",
+  models: ["test/model-a", "test/model-b"],
+  agents: ["pi"],
 };
 
 // logger 全局外观每进程只能 init 一次：测试文件内多个 startTestServer 共用同一个

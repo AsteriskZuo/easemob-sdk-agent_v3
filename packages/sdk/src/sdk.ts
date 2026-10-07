@@ -97,7 +97,9 @@ export const sdk = {
     },
   },
 
-  /** 调子程序：spawn 独立程序，同一子进程契约。对端 ok=false / 异常退出 / 超时 → 抛错 */
+  /** 调子程序：program 是程序名（本包 programs ∪ 绑定工具 programs），SDK 从 stdin 信封
+   *  注入的 programs 映射（名→物化绝对路径）查表后 spawn——业务按名调用，不接触路径。
+   *  名不存在 → 抛错（消息列出全部可用程序名）。对端 ok=false / 异常退出 / 超时 → 抛错 */
   run(
     program: string,
     args: {
@@ -106,7 +108,15 @@ export const sdk = {
       timeout_ms?: number; // 缺省 300_000
     },
   ): Promise<unknown> {
-    return runSubprogram(program, args, sdk.input().workspace);
+    const env = readStdinEnvelope();
+    const path = env.programs?.[program];
+    if (path === undefined) {
+      const available = Object.keys(env.programs ?? {});
+      throw new Error(
+        `未知程序名：${program}（可用：${available.length > 0 ? available.join(", ") : "无"}）`,
+      );
+    }
+    return runSubprogram(path, args, sdk.input().workspace);
   },
 
   /** 写业务日志：结构化行写 stderr，平台采集进该 run 的业务日志。永不抛错 */

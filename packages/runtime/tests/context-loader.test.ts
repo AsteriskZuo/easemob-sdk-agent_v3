@@ -73,9 +73,10 @@ function makeRepo(files: Record<string, string>): string {
 const PKG_FILES: Record<string, string> = {
   "agent-package.json": JSON.stringify({
     name: "demo",
-    programs: { main: "src/main.js" },
+    programs: { main: "src/main.js", helper: "src/helper.js" },
   }),
   "src/main.js": "console.log('hi');",
+  "src/helper.js": "console.log('helper');",
 };
 
 const TOOL_FILES: Record<string, string> = {
@@ -129,6 +130,7 @@ function createBusiness(
     source: "jira",
     event_type: "issue.created",
     prompt: "你是审查助手",
+    model: "qwen/qwen3.8-max",
     package_asset_id: ids.pkg,
     entry_program: "main",
     tool_asset_ids: [ids.tool],
@@ -165,10 +167,56 @@ describe("全链路组装", () => {
     for (const s of ctx.skills) expect(existsSync(s.path)).toBe(true);
     // prompt / model / 两桶合并（业务优先）/ quota 覆盖值
     expect(ctx.prompt).toBe("你是审查助手");
-    expect(ctx.model).toBe("qwen3.8max");
+    expect(ctx.model).toBe("qwen/qwen3.8-max");
     expect(ctx.vars).toEqual({ lang: "zh", region: "cn" });
     expect(ctx.secrets).toEqual({ api_key: "sk-1" });
     expect(ctx.quota).toEqual({ timeout_minutes: 30, max_agent_calls: 5 });
+    // programs = 本包 ∪ 绑定工具的全量映射（名→物化绝对路径）
+    const pkgRoot = assets.materialize(ids.pkg);
+    const toolRoot = assets.materialize(ids.tool);
+    expect(ctx.programs).toEqual({
+      main: join(pkgRoot, "src/main.js"),
+      helper: join(pkgRoot, "src/helper.js"),
+      do: join(toolRoot, "do.js"),
+    });
+    for (const p of Object.values(ctx.programs)) {
+      expect(existsSync(p)).toBe(true);
+    }
+  });
+
+  it("同名程序名按数组顺序首个命中（包在前、工具随后）", () => {
+    const pkg = assets.register({
+      kind: "package",
+      url: makeRepo(PKG_FILES),
+      ref: "HEAD",
+      owner_id: "alice",
+    }).asset_id;
+    // 工具声明与包同名的 main 程序：首个命中 = 包
+    const tool = assets.register({
+      kind: "tool",
+      url: makeRepo({
+        "agent-package.json": JSON.stringify({
+          name: "tool-clash",
+          programs: { main: "main.js" },
+        }),
+        "main.js": "console.log('tool main');",
+      }),
+      ref: "HEAD",
+      owner_id: "alice",
+    }).asset_id;
+    const businessId = registry.create({
+      business_name: "同名程序业务",
+      creator_id: "user-1",
+      source: "jira",
+      event_type: "issue.created",
+      package_asset_id: pkg,
+      entry_program: "main",
+      tool_asset_ids: [tool],
+    });
+    const ctx = newLoader().load(businessId, `jira__s__${businessId}`);
+    expect(ctx.programs.main).toBe(
+      join(assets.materialize(pkg), "src/main.js"),
+    );
   });
 
   it("quota 缺省 → 取 defaults", () => {

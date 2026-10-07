@@ -62,7 +62,7 @@ describe("POST /api/businesses", () => {
     expect(profile.business_id).toMatch(/^b/);
     expect(profile.creator_id).toBe(owner.user_id);
     expect(profile.prompt).toBe("总纲");
-    expect(profile.model).toBe("qwen3.8max");
+    expect(profile.model).toBe("");
     expect(profile.agent_kind).toBe("pi");
 
     const detail = await api(

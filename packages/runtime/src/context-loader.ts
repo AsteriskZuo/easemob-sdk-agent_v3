@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { resolveResource } from "@easemob/agent-asset-registry";
 import type {
   AssetManifest,
@@ -13,6 +14,7 @@ export interface RunContext {
   business_id: string;
   channel_id: string; // buildBusinessChannelId 计算结果（回显用）
   program: string; // 流程程序入口绝对路径（名解析命中）
+  programs: Record<string, string>; // 程序名→物化绝对路径全量映射（本包 ∪ 绑定工具；runner 注入信封）
   prompt: string; // 总纲（可空串，agent-service 原样传）
   skills: SkillRef[]; // 白名单全集：绑定 skill 集合的技能并集（name + 物化绝对路径）
   model: string;
@@ -95,6 +97,16 @@ export function createContextLoader(deps: {
         profile.entry_program,
       ).path;
 
+      // 全量 programs 映射（名→物化绝对路径）：同名按 resolved 数组顺序首个命中
+      // （与 resolveResource 同语义；名冲突本应被 console-api 配置期校验拦住，此处为运行时兜底）
+      const programs: Record<string, string> = {};
+      for (const asset of resolved) {
+        for (const [name, rel] of Object.entries(asset.programs)) {
+          if (programs[name] === undefined)
+            programs[name] = join(asset.root, rel);
+        }
+      }
+
       // skills 白名单全集：绑定 skill 集合的技能并集（同名按集合顺序首个命中，去重）
       const skillByName = new Map<string, SkillRef>();
       for (const obj of objects) {
@@ -111,6 +123,7 @@ export function createContextLoader(deps: {
         business_id,
         channel_id,
         program,
+        programs,
         prompt: profile.prompt,
         skills: [...skillByName.values()],
         model: profile.model,

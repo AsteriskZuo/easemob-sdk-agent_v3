@@ -26,10 +26,22 @@ beforeEach(() => {
   piCliPath = join(tmpDir, "fake-pi");
   writeFileSync(piCliPath, "#!/bin/sh\nexit 0\n");
   chmodSync(piCliPath, 0o755);
-  // fixture pi_agent_dir：含哑 models.json
+  // fixture pi_agent_dir：含合法 models.json（伪造占位内容；自检要求可解析且非空）
   piAgentDir = join(tmpDir, "pi-agent-dir");
   mkdirSync(piAgentDir, { recursive: true });
-  writeFileSync(join(piAgentDir, "models.json"), "{}");
+  writeFileSync(
+    join(piAgentDir, "models.json"),
+    JSON.stringify({
+      providers: {
+        "test-provider": {
+          baseUrl: "https://test-provider.example.com/v1",
+          api: "openai-completions",
+          apiKey: "sk-fake-placeholder",
+          models: [{ id: "model-a" }],
+        },
+      },
+    }),
+  );
 });
 
 afterEach(() => {
@@ -91,6 +103,22 @@ describe("runSelfCheck", () => {
     mkdirSync(emptyDir);
     expect(() => runSelfCheck(makeConfig({ pi_agent_dir: emptyDir }))).toThrow(
       /models\.json/,
+    );
+  });
+
+  it("models.json 存在但无可用模型（空 providers / 全部空 models）→ 抛错", () => {
+    const badDir = join(tmpDir, "bad-models-dir");
+    mkdirSync(badDir);
+    writeFileSync(join(badDir, "models.json"), "{}");
+    expect(() => runSelfCheck(makeConfig({ pi_agent_dir: badDir }))).toThrow(
+      /models\.json 不可用/,
+    );
+    writeFileSync(
+      join(badDir, "models.json"),
+      JSON.stringify({ providers: { p: { models: [] } } }),
+    );
+    expect(() => runSelfCheck(makeConfig({ pi_agent_dir: badDir }))).toThrow(
+      /models\.json 不可用/,
     );
   });
 

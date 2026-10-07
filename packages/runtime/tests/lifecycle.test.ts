@@ -82,9 +82,10 @@ function makeRunContext(over: Partial<RunContext> = {}): RunContext {
     business_id: BUSINESS_ID,
     channel_id: `manual__sess-1__${BUSINESS_ID}`,
     program: "/assets/pkg/src/main.js",
+    programs: { main: "/assets/pkg/src/main.js" },
     prompt: "你是审查助手",
     skills: [{ name: "review", path: "/assets/skill/review" }],
-    model: "qwen3.8max",
+    model: "qwen/qwen3.8-max",
     vars: { region: "cn" },
     secrets: { api_key: "sk-1" },
     quota: { timeout_minutes: 12, max_agent_calls: 3 },
@@ -190,6 +191,7 @@ describe("四步时序", () => {
 
     const runArg = recorder.runArg!;
     expect(runArg.program).toBe(ctx.program);
+    expect(runArg.programs).toEqual(ctx.programs);
     expect(runArg.event).toBe(task.event);
     expect(runArg.business_id).toBe(BUSINESS_ID);
     expect(runArg.config).toBe(ctx.vars);

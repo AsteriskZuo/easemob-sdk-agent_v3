@@ -28,7 +28,20 @@ beforeEach(() => {
   chmodSync(piCliPath, 0o755);
   piAgentDir = join(tmpDir, "pi-agent-dir");
   mkdirSync(piAgentDir, { recursive: true });
-  writeFileSync(join(piAgentDir, "models.json"), "{}");
+  // 合法 models.json（伪造占位内容；自检要求可解析且非空）
+  writeFileSync(
+    join(piAgentDir, "models.json"),
+    JSON.stringify({
+      providers: {
+        "test-provider": {
+          baseUrl: "https://test-provider.example.com/v1",
+          api: "openai-completions",
+          apiKey: "sk-fake-placeholder",
+          models: [{ id: "model-a" }, { id: "model-b" }],
+        },
+      },
+    }),
+  );
 });
 
 afterEach(async () => {
@@ -98,6 +111,21 @@ describe("bootstrap 装配管理 API", () => {
     const user = (await me.json()) as { username: string; role: string };
     expect(user.username).toBe("root");
     expect(user.role).toBe("admin");
+
+    // GET /api/config 携带 models（pi_agent_dir/models.json 解析结果）与 agents（MVP 恒 ['pi']）
+    const configRes = await fetch(`http://127.0.0.1:${port}/api/config`, {
+      headers: { cookie: `agent_console_token=${token}` },
+    });
+    expect(configRes.status).toBe(200);
+    const configView = (await configRes.json()) as {
+      models: string[];
+      agents: string[];
+    };
+    expect(configView.models).toEqual([
+      "test-provider/model-a",
+      "test-provider/model-b",
+    ]);
+    expect(configView.agents).toEqual(["pi"]);
 
     // stop 后连接被拒绝
     await handle.stop();

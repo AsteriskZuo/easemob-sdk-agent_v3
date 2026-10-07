@@ -7,6 +7,7 @@ export interface StdinEnvelope {
   config?: Record<string, string>; // 业务非机密配置（控制台登记）
   secrets?: Record<string, string>; // 业务安全变量（仅平台→流程；sdk.run 不传）
   endpoint?: { socket_path: string; token: string }; // agent 服务端点（仅平台→流程）
+  programs?: Record<string, string>; // 程序名→物化绝对路径映射（本包 programs ∪ 绑定工具 programs）；仅平台→流程程序注入，sdk.run 不向子程序传
 }
 
 /** 业务流程程序的 stdout 唯一结果：只认第一个合法结果对象，其后内容忽略（仍计入大小上限） */

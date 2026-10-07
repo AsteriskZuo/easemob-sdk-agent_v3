@@ -30,6 +30,7 @@ import { resolveServerConfig } from "./config.js";
 import type { ServerConfig } from "./config.js";
 import type { EntryAdapter } from "./entry-adapter.js";
 import { createExitDriver } from "./exit-driver.js";
+import { loadModelList } from "./models.js";
 import { runSelfCheck } from "./self-check.js";
 
 /** 装配产物：T13 管理 API 与 T18 入口适配器复用的全部实例 */
@@ -96,6 +97,10 @@ export async function bootstrap(overrides?: {
   try {
     // 3. 启动自检（fail-fast，全量收集一次性报出）
     runSelfCheck(config);
+
+    // 3.5 可选模型全量列表（自检已保证 models.json 可解析且非空，此处必成功）；
+    // 不读不记 apiKey——它只属 pi 子进程
+    const models = loadModelList(config.pi_agent_dir);
 
     // 4. system 日志「启动中」（回显关键配置，不含任何 secret）
     log.info("平台启动中", {
@@ -199,6 +204,9 @@ export async function bootstrap(overrides?: {
       max_agent_calls: config.max_agent_calls,
       pi_cli_path: config.pi_cli_path,
       pi_agent_dir: config.pi_agent_dir,
+      models,
+      // MVP 恒 ['pi']；新内核 = 代码新增 + 此处登记
+      agents: ["pi"],
     };
     consoleApi = createConsoleApi(
       {

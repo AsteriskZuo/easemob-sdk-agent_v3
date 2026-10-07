@@ -87,7 +87,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ant-design/icons@npm:^5.6.1":
+"@ant-design/icons@npm:^5.5.1, @ant-design/icons@npm:^5.6.1":
   version: 5.6.1
   resolution: "@ant-design/icons@npm:5.6.1"
   dependencies:
@@ -592,6 +592,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@easemob/agent-console@workspace:app/console"
   dependencies:
+    "@ant-design/icons": "npm:^5.5.1"
     "@easemob/agent-console-api": "npm:0.1.0"
     "@testing-library/dom": "npm:^10.4.0"
     "@testing-library/react": "npm:^16.0.0"

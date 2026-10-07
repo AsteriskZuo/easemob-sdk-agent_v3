@@ -61,7 +61,7 @@ export interface CreateBusinessBody {
   on_failure?: boolean;
   /** 提示词总纲，缺省 '' */
   prompt?: string;
-  /** 大模型选择，缺省 'qwen3.8max' */
+  /** 大模型选择：provider/id 形式；缺省 '' = 未选择（console 表单必选，API 不强制但做合法性校验，见绑定校验） */
   model?: string;
   /** agent 内核，缺省 'pi' */
   agent_kind?: string;
@@ -263,4 +263,8 @@ export interface EffectiveConfigView {
   pi_cli_path: string;
   /** PI_CODING_AGENT_DIR（非机密，原样回显） */
   pi_agent_dir: string;
+  /** 可选大模型列表（provider/id 形式）：server 启动时解析 pi_agent_dir/models.json 所得全量 */
+  models: string[];
+  /** 可选 agent 内核列表（MVP 恒 ['pi']） */
+  agents: string[];
 }

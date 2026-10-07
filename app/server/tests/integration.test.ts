@@ -128,10 +128,22 @@ beforeAll(async () => {
   const piCliPath = join(tmpDir, "fake-pi");
   writeFileSync(piCliPath, "#!/bin/sh\nexit 0\n");
   chmodSync(piCliPath, 0o755);
-  // fixture pi_agent_dir（自检要求含 models.json）
+  // fixture pi_agent_dir（自检要求含可解析、非空的 models.json；伪造占位内容）
   const piAgentDir = join(tmpDir, "pi-agent-dir");
   mkdirSync(piAgentDir, { recursive: true });
-  writeFileSync(join(piAgentDir, "models.json"), "{}");
+  writeFileSync(
+    join(piAgentDir, "models.json"),
+    JSON.stringify({
+      providers: {
+        "test-provider": {
+          baseUrl: "https://test-provider.example.com/v1",
+          api: "openai-completions",
+          apiKey: "sk-fake-placeholder",
+          models: [{ id: "model-a" }],
+        },
+      },
+    }),
+  );
 
   const receiverUrl = await startReceiver();
   const repoDir = makeAssetRepo();

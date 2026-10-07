@@ -305,11 +305,20 @@ describe("sdk.agent / session", () => {
 });
 
 describe("sdk.run", () => {
-  it("子程序收 input/config、回 output → 返回 output", async () => {
+  /** 平台注入的程序名→物化绝对路径映射（stdin 信封 programs 字段） */
+  const PROGRAMS = {
+    echo: fixturePath("run-child.js"),
+    fail: fixturePath("run-child-fail.js"),
+    slow: fixturePath("run-child-slow.js"),
+    dump: fixturePath("run-child-dump-envelope.js"),
+  };
+
+  it("名命中 → 按名查表 spawn，子程序收 input/config、回 output → 返回 output", async () => {
     const r = await runFixture("run-parent.js", {
       stdin: makeEnvelope({
+        programs: PROGRAMS,
         input: {
-          child: "run-child.js",
+          child: "echo",
           args: { input: { n: 1 }, config: { a: "b" } },
         },
       }),
@@ -323,10 +332,46 @@ describe("sdk.run", () => {
     });
   });
 
+  it("名不存在 → 抛错，消息列出全部可用程序名", async () => {
+    const r = await runFixture("run-parent.js", {
+      stdin: makeEnvelope({
+        programs: PROGRAMS,
+        input: { child: "nope", args: { input: null } },
+      }),
+    });
+    expect(r.code).toBe(1);
+    const result = parseResult(r.stdout);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toContain("未知程序名：nope");
+    expect(result.reason).toContain("echo");
+    expect(result.reason).toContain("slow");
+  });
+
+  it("子程序信封不含 programs（工具是叶子，不能再按名组合）", async () => {
+    const r = await runFixture("run-parent.js", {
+      stdin: makeEnvelope({
+        programs: PROGRAMS,
+        input: { child: "dump", args: { input: null } },
+      }),
+    });
+    expect(r.code).toBe(0);
+    const result = parseResult(r.stdout);
+    expect(result.ok).toBe(true);
+    const runOut = (result.output as any).runOut;
+    expect(runOut.has_programs).toBe(false);
+    expect(runOut.keys).toEqual([
+      "config",
+      "contract_version",
+      "input",
+      "workspace",
+    ]);
+  });
+
   it("子程序 ok:false → 抛错含 reason", async () => {
     const r = await runFixture("run-parent.js", {
       stdin: makeEnvelope({
-        input: { child: "run-child-fail.js", args: { input: null } },
+        programs: PROGRAMS,
+        input: { child: "fail", args: { input: null } },
       }),
     });
     expect(r.code).toBe(1);
@@ -338,8 +383,9 @@ describe("sdk.run", () => {
   it("子程序超时（timeout_ms 小值）→ 抛错", async () => {
     const r = await runFixture("run-parent.js", {
       stdin: makeEnvelope({
+        programs: PROGRAMS,
         input: {
-          child: "run-child-slow.js",
+          child: "slow",
           args: { input: null, timeout_ms: 200 },
         },
       }),

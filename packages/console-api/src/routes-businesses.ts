@@ -1,4 +1,5 @@
 import type { EventSource } from "@easemob/agent-contracts";
+import type { AssetRegistry } from "@easemob/agent-asset-registry";
 import { logger } from "@easemob/agent-logger";
 import type {
   BusinessPatch,
@@ -7,11 +8,14 @@ import type {
   CreateBusinessInput,
   ExitBinding,
 } from "@easemob/agent-registry";
+import type { EnvProvider } from "@easemob/agent-runtime";
 import type { User } from "./accounts.js";
+import { validateBusinessWrite } from "./binding-validation.js";
 import { ApiError } from "./errors.js";
 import type {
   BusinessDetail,
   CreateBusinessBody,
+  EffectiveConfigView,
   MatchBody,
   PatchBusinessBody,
   RemoveMatchBody,
@@ -148,8 +152,14 @@ function parseQuotaOverride(
   return value;
 }
 
-/** 业务路由：读不设限（登录即可）；写 = creator 本人或 admin */
-export function businessRoutes(deps: { registry: BusinessRegistry }): Route[] {
+/** 业务路由：读不设限（登录即可）；写 = creator 本人或 admin。
+ *  create/patch 落库前做配置期校验（binding-validation）：不涉及绑定字段的 patch 零校验零物化 */
+export function businessRoutes(deps: {
+  registry: BusinessRegistry;
+  assets: AssetRegistry; // 绑定校验：存在性/物化/清单键位检查
+  env: EnvProvider; // 绑定校验：私有资产凭据解析（通用层安全桶）
+  config: EffectiveConfigView; // 绑定校验：model/agent_kind 可选集合
+}): Route[] {
   const { registry } = deps;
   const log = logger.for({ module: "console-api" });
   return [
@@ -224,6 +234,26 @@ export function businessRoutes(deps: { registry: BusinessRegistry }): Route[] {
         const exitBindings = parseExitBindings(body.exit_bindings);
         if (exitBindings !== undefined) input.exit_bindings = exitBindings;
 
+        // 配置期校验：带了任一绑定字段 → 校验生效绑定集合（顺带物化 fail-fast）；
+        // model/agent_kind 出现且非空 → 校验 ∈ 可选集合（与绑定无关）
+        const touchesBinding =
+          body.package_asset_id !== undefined ||
+          body.entry_program !== undefined ||
+          body.tool_asset_ids !== undefined ||
+          body.skill_asset_ids !== undefined;
+        validateBusinessWrite(deps, actor, {
+          binding: touchesBinding
+            ? {
+                package_asset_id: input.package_asset_id,
+                entry_program: input.entry_program,
+                tool_asset_ids: input.tool_asset_ids ?? [],
+                skill_asset_ids: input.skill_asset_ids ?? [],
+              }
+            : undefined,
+          model: input.model,
+          agent_kind: input.agent_kind,
+        });
+
         const businessId = registry.create(input);
         // 首个匹配行的入口配置：CreateBusinessInput 不含 entry_config（既有契约不改动），
         // 先建后删补 addMatch 落定（同一事务外两步，失败面仅留下无入口配置的匹配行）
@@ -265,7 +295,7 @@ export function businessRoutes(deps: { registry: BusinessRegistry }): Route[] {
       handler: (req, res) => {
         const actor = req.actor as User;
         const businessId = req.params.id;
-        assertWritable(registry, businessId, actor);
+        const profile = assertWritable(registry, businessId, actor);
         const body = requirePlainObject(
           req.body,
           "body",
@@ -330,6 +360,29 @@ export function businessRoutes(deps: { registry: BusinessRegistry }): Route[] {
           "max_agent_calls",
         );
         if (maxAgentCalls !== undefined) patch.max_agent_calls = maxAgentCalls;
+
+        // 配置期校验：patch 出现任一绑定字段 → 校验「既有 profile 与 patch 覆盖合并后」的生效绑定集合；
+        // patch 不涉及绑定字段时零校验、零物化（改个 prompt 不应触发 git clone）。
+        // model/agent_kind 出现且非空 → 校验 ∈ 可选集合（与绑定无关）
+        const touchesBinding =
+          body.package_asset_id !== undefined ||
+          body.entry_program !== undefined ||
+          body.tool_asset_ids !== undefined ||
+          body.skill_asset_ids !== undefined;
+        validateBusinessWrite(deps, actor, {
+          binding: touchesBinding
+            ? {
+                package_asset_id:
+                  patch.package_asset_id ?? profile.package_asset_id,
+                entry_program: patch.entry_program ?? profile.entry_program,
+                tool_asset_ids: patch.tool_asset_ids ?? profile.tool_asset_ids,
+                skill_asset_ids:
+                  patch.skill_asset_ids ?? profile.skill_asset_ids,
+              }
+            : undefined,
+          model: patch.model,
+          agent_kind: patch.agent_kind,
+        });
 
         registry.update(businessId, patch);
         log.info("API 更新业务", {

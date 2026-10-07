@@ -112,6 +112,7 @@ export function createLifecycle(deps: LifecycleDeps): EntryDriver {
       try {
         outcome = await deps.runner.run({
           program: ctx.program,
+          programs: ctx.programs,
           event: task.event,
           business_id,
           config: ctx.vars,

@@ -384,7 +384,8 @@ describe("迁移 v2：v1 老库升级", () => {
     const profile = r2.getProfile("b_old");
     expect(profile).toBeDefined();
     expect(profile?.prompt).toBe("");
-    expect(profile?.model).toBe("qwen3.8max");
+    // v2 老数据经 DEFAULT 落入历史模型名，v3 迁移归一为 ''（未选择）
+    expect(profile?.model).toBe("");
     expect(profile?.agent_kind).toBe("pi");
     expect(profile?.package_asset_id).toBeUndefined();
     expect(profile?.entry_program).toBeUndefined();
@@ -392,6 +393,64 @@ describe("迁移 v2：v1 老库升级", () => {
     expect(profile?.skill_asset_ids).toEqual([]);
     expect(profile?.timeout_minutes).toBeUndefined();
     expect(profile?.max_agent_calls).toBeUndefined();
+    db2.close();
+  });
+});
+
+describe("迁移 v3：清理历史默认模型名", () => {
+  it("v2 老库（含历史默认模型名行）升级 → 该行 model 归一为 ''；合法 provider/id 值不动", () => {
+    const dbPath = join(tmpDir, "old-v2.db");
+    const db1 = openDatabase(dbPath);
+    // 手工落 v2 schema + 迁移登记（模拟老库；与 src 的 v1/v2 迁移同形）
+    db1.exec(`CREATE TABLE businesses (
+      business_id TEXT PRIMARY KEY,
+      business_name TEXT NOT NULL,
+      creator_id TEXT NOT NULL,
+      on_failure INTEGER NOT NULL DEFAULT 0,
+      exit_bindings TEXT NOT NULL DEFAULT '[]',
+      prompt TEXT NOT NULL DEFAULT '',
+      model TEXT NOT NULL DEFAULT 'qwen3.8max',
+      agent_kind TEXT NOT NULL DEFAULT 'pi',
+      package_asset_id TEXT,
+      entry_program TEXT,
+      tool_asset_ids TEXT NOT NULL DEFAULT '[]',
+      skill_asset_ids TEXT NOT NULL DEFAULT '[]',
+      timeout_minutes INTEGER,
+      max_agent_calls INTEGER
+    );
+    CREATE TABLE business_matches (
+      business_id TEXT NOT NULL,
+      source TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      entry_config TEXT,
+      UNIQUE (business_id, source, event_type)
+    );
+    CREATE TABLE schema_migrations (
+      module TEXT NOT NULL,
+      version INTEGER NOT NULL,
+      applied_at TEXT NOT NULL,
+      PRIMARY KEY (module, version)
+    );`);
+    for (const version of [1, 2]) {
+      db1.run(
+        "INSERT INTO schema_migrations (module, version, applied_at) VALUES ('registry', ?, ?)",
+        [version, new Date().toISOString()],
+      );
+    }
+    db1.run(
+      "INSERT INTO businesses (business_id, business_name, creator_id) VALUES ('b_legacy', '历史业务', 'user-1')",
+    );
+    db1.run(
+      "INSERT INTO businesses (business_id, business_name, creator_id, model) VALUES ('b_kept', '已选业务', 'user-1', 'qwen/qwen3.8-max')",
+    );
+    db1.close();
+
+    const db2 = openDatabase(dbPath);
+    const r2 = createBusinessRegistry(db2);
+    // 历史默认填入行（v2 DEFAULT 落库）→ v3 归一为 ''（未选择）
+    expect(r2.getProfile("b_legacy")?.model).toBe("");
+    // 显式选用的合法 provider/id 值不受 v3 影响
+    expect(r2.getProfile("b_kept")?.model).toBe("qwen/qwen3.8-max");
     db2.close();
   });
 });
@@ -411,7 +470,7 @@ describe("getProfile 业务资料", () => {
       creator_id: "user-1",
       on_failure: false,
       prompt: "",
-      model: "qwen3.8max",
+      model: "",
       agent_kind: "pi",
       tool_asset_ids: [],
       skill_asset_ids: [],
@@ -427,7 +486,7 @@ describe("getProfile 业务资料", () => {
       source: "webhook",
       event_type: "alert",
       prompt: "你是审查助手",
-      model: "qwen3.8max",
+      model: "qwen/qwen3.8-max",
       agent_kind: "pi",
       package_asset_id: "ast_pkg1",
       entry_program: "main",
@@ -442,7 +501,7 @@ describe("getProfile 业务资料", () => {
       creator_id: "user-1",
       on_failure: false,
       prompt: "你是审查助手",
-      model: "qwen3.8max",
+      model: "qwen/qwen3.8-max",
       agent_kind: "pi",
       package_asset_id: "ast_pkg1",
       entry_program: "main",
@@ -470,7 +529,7 @@ describe("getProfile 业务资料", () => {
     });
     registry.update(id, {
       prompt: "新总纲",
-      model: "qwen3.8max",
+      model: "qwen/qwen3.8-max",
       package_asset_id: "ast_pkg9",
       entry_program: "review",
       tool_asset_ids: ["ast_t9"],
@@ -519,7 +578,7 @@ describe("getProfile 业务资料", () => {
       creator_id: "user-1",
       on_failure: false,
       prompt: "总纲",
-      model: "qwen3.8max",
+      model: "",
       agent_kind: "pi",
       package_asset_id: "ast_pkg1",
       entry_program: "main",

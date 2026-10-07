@@ -62,6 +62,7 @@
 | T13 | 管理 API | `packages/console-api`（账号体系 + 全部管理路由）+ server 装配扩展（DTO 由包导出，console type-only 复用，不进 contracts） | T12 | [spec](../specs/2026-10-05-t13-console-api-spec.md) | [x] |
 | T14 | `app/console` | React + Vite SPA，调管理 API（六页 MVP 一次做全；console-api 顺带扩静态托管） | T13 | [spec](../specs/2026-10-07-t14-console-spec.md) | [x] |
 | T18 | webhook 入口适配器 | EntryAdapter 首个实现：验签 + 会话标识 + 幂等约定（entry_config schema 随本任务定） | T12 | 执行前编写 | [ ] |
+| T19 | 组合机制回炉（真机验证驱动） | T19a 平台侧：信封 programs 映射 + sdk.run 按名查表 + ContextLoader 全量映射 + registry 去模型硬编码 + console-api 绑定配置期校验 + server models.json 解析；T19b console 业务编辑页重做 | T14 | [spec](../specs/2026-10-07-t19-composition-rework-spec.md) | T19a [x] T19b [ ] |
 
 ## 4. 执行批次（并发 ≤2）
 
@@ -80,7 +81,8 @@
 批次11：T12
 批次12：T13
 批次13：T14
-批次14：T18
+批次14：T19a → T19b       （串行：console 依赖 T19a 的 EffectiveConfigView 新字段）
+批次15：T18
 ```
 
 ## 5. 验证策略
