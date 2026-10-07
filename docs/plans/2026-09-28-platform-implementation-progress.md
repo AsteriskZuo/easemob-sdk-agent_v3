@@ -28,7 +28,7 @@
 | T11 AgentService | 完成 | 2026-09-29 | 7aa0105 |
 | T12 server | 完成 | 2026-10-04 | 2dbb911 |
 | T13 管理 API | 完成 | 2026-10-06 | 5e8b86a |
-| T14 console | 未开始 | — | — |
+| T14 console | 完成 | 2026-10-07 | 97b40c6 |
 | T15 程序包模板 | 完成 | 2026-09-29 | 728488b |
 | T16 asset-registry | 完成 | 2026-09-30 22:31 | 10d8b66 |
 | T17 runtime | 完成 | 2026-10-02 09:07 | e8e16ee |
@@ -250,3 +250,14 @@
 - 范围（spec 决策点，用户已审）：账号体系全量落地（users/console_sessions、scrypt、httpOnly cookie 7 天固定有效期、首启 admin 由 AGENT_ADMIN_USERNAME/PASSWORD 注入、注入失败不阻断启动）；API 契约不进 contracts——DTO 由 console-api 包根导出，T14 console type-only 复用；ConfigStore 不做（GET /api/config 只读回显，改全局参数 = 改 env/config.json 重启）；监控全部只读（任务终止/重试后续立项）；私有资产凭据统一从通用层安全桶解析（env.getFor("")）。
 - 契约增补（用户已确认）：`AssetRegistry.remove`（下架=删行+清缓存，不校验在役引用）、`BusinessRegistry.list`（业务列表读口）。
 - 子代理合理裁决（主 agent 确认）：① 依赖版本沿用仓内 `"0.1.0"` 形式（workspaces 按版本匹配软链）；② 补错误码 `payload_too_large`（413 需统一错误体，spec 表外最小新增）；③ `CreateBusinessBody.entry_config` 经 create 后 removeMatch+addMatch 落定（CreateBusinessInput 无该字段，既有契约不动）；④ changePassword 失效范围 = 该用户全部会话（含当前，与测试清单一致）；⑤ member `GET /api/assets?scope=all` = 其可见全集（mine+shared）；⑥ 'missing' error 日志由 console-api 内记录（start 内调用，app/server 无从观察返回值）。
+
+### T14 控制台 SPA（app/console）
+
+- 状态：完成
+- 子 agent：agent-22（单发）
+- 开始/完成：2026-10-07
+- 验收证据：主 agent 独立复验——根六连全绿（FINAL_EXIT=0，circular 仅既有噪音）；console 24 测试全过（6 套件：api-client/auth-guard/login/business-form/assets/pages-smoke）；console-api 63（+7 静态托管）、app/server 26（+2）不回归；抽查 static.ts（路径穿越防护 resolve 越根 404、SPA 回退、/api 优先、hash 产物 immutable）与 BusinessEditPage secret 分流（exit.{kind}.{field.key} 硬契约、secret 不进 ExitBinding.config、回填占位）与 spec 一致；冒烟实证：vite build 产物存在、server 托管下 GET / → index.html、/api/auth/me → 401、SPA 回退与缓存头正确
+- commit：97b40c6（spec 前置提交 db844bd）
+- 范围（spec 决策点，用户已审）：antd v5 组件库、六页一次做全（统计搜索页不做）、生产 = server 同进程托管静态文件（AGENT_CONSOLE_STATIC_DIR）+ 开发 vite proxy、React 18 + Vite 5、测试不用 vitest（esbuild --bundle 内联 antd 解决 CJS 解析）、编辑页 env 独立保存、入口/关注统一为匹配行编辑。
+- 子代理合理裁决（主 agent 确认）：① esbuild --bundle 下 setupFiles 与测试各持一份 @testing-library/dom，configure 放 helpers.tsx；② jsdom + antd cssinjs 下 userEvent 的 pointer-events 检查极慢，setupUser() 统一关闭；③ @jest/globals 会被 bundle 进产物报错，api-client 测试用计数闭包代替 jest.fn；④ antd 双中文字符按钮空格渲染不稳定，测试用 /^登\s?录$/ 类正则；⑤ 路径穿越测试改用 %2f 编码斜杠重组（%2e%2e 被 WHATWG URL 预折叠）；⑥ jest testTimeout 120s（antd 全量 jsdom 重交互单条可达 35s）；⑦ eslint-plugin-react-hooks 用 ^7（peer 声明支持 eslint ^10）。
+- 遗留（非阻塞）：console 测试全量约 2 分钟（jsdom+antd 固有成本）；vite build 有 500KB chunk 警告（antd 体积，未做代码分割）；yarn install 对 vite 依赖链 esbuild@0.21.5 build scripts 有警告级提示，实测不影响构建。

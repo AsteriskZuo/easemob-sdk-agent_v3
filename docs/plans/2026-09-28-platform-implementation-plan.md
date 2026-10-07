@@ -60,7 +60,7 @@
 | T17 | `@easemob/agent-runtime` | Lifecycle 四步时序 + ContextLoader + EnvProvider 两桶；顺带扩 registry 业务资料字段（prompt/model/资产绑定/quota/入口配置） | T4 T10 T11 T16 | [spec](../specs/2026-09-30-t17-runtime-spec.md) | [x] |
 | T12 | `app/server` | 平台装配 + EntryAdapter 接口 + 启动自检 + ExitDriver 机密回填 | T7 T8 T9 T17 | [spec](../specs/2026-10-03-t12-server-spec.md) | [x] |
 | T13 | 管理 API | `packages/console-api`（账号体系 + 全部管理路由）+ server 装配扩展（DTO 由包导出，console type-only 复用，不进 contracts） | T12 | [spec](../specs/2026-10-05-t13-console-api-spec.md) | [x] |
-| T14 | `app/console` | React + Vite SPA，调管理 API（六页 MVP 一次做全；console-api 顺带扩静态托管） | T13 | [spec](../specs/2026-10-07-t14-console-spec.md) | [ ] |
+| T14 | `app/console` | React + Vite SPA，调管理 API（六页 MVP 一次做全；console-api 顺带扩静态托管） | T13 | [spec](../specs/2026-10-07-t14-console-spec.md) | [x] |
 | T18 | webhook 入口适配器 | EntryAdapter 首个实现：验签 + 会话标识 + 幂等约定（entry_config schema 随本任务定） | T12 | 执行前编写 | [ ] |
 
 ## 4. 执行批次（并发 ≤2）
