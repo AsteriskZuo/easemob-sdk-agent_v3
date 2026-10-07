@@ -396,3 +396,7 @@ $RECYCLE.BIN/
 # T0 工程骨架
 dist-test/
 workspace/
+.easemob-agent-workspace/
+
+# pi 平台凭据目录（models.json 含 apiKey 字面量，永不进 git）
+.pi/
