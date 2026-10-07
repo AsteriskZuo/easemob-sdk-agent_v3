@@ -261,3 +261,19 @@
 - 范围（spec 决策点，用户已审）：antd v5 组件库、六页一次做全（统计搜索页不做）、生产 = server 同进程托管静态文件（AGENT_CONSOLE_STATIC_DIR）+ 开发 vite proxy、React 18 + Vite 5、测试不用 vitest（esbuild --bundle 内联 antd 解决 CJS 解析）、编辑页 env 独立保存、入口/关注统一为匹配行编辑。
 - 子代理合理裁决（主 agent 确认）：① esbuild --bundle 下 setupFiles 与测试各持一份 @testing-library/dom，configure 放 helpers.tsx；② jsdom + antd cssinjs 下 userEvent 的 pointer-events 检查极慢，setupUser() 统一关闭；③ @jest/globals 会被 bundle 进产物报错，api-client 测试用计数闭包代替 jest.fn；④ antd 双中文字符按钮空格渲染不稳定，测试用 /^登\s?录$/ 类正则；⑤ 路径穿越测试改用 %2f 编码斜杠重组（%2e%2e 被 WHATWG URL 预折叠）；⑥ jest testTimeout 120s（antd 全量 jsdom 重交互单条可达 35s）；⑦ eslint-plugin-react-hooks 用 ^7（peer 声明支持 eslint ^10）。
 - 遗留（非阻塞）：console 测试全量约 2 分钟（jsdom+antd 固有成本）；vite build 有 500KB chunk 警告（antd 体积，未做代码分割）；yarn install 对 vite 依赖链 esbuild@0.21.5 build scripts 有警告级提示，实测不影响构建。
+
+### T19 组合机制回炉（真机验证驱动）
+
+**T19a 平台侧**
+
+- 状态：完成
+- 子 agent：agent-23（单发）
+- 开始/完成：2026-10-07
+- 验收证据：主 agent 独立复验——根六连全绿（exit 0，test 2m3s，circular 仅既有噪音）；diff 面抽查 34 文件无越界（未动 app/console 业务编辑页、未动 docs/、未动既有迁移 v1/v2）；SettingsPage `Record<keyof EffectiveConfigView>` 穷举映射因新字段挂 typecheck 是 spec 盲区，主 agent 补 2 行标签（models/agents）后全绿
+- commit：0a54f1b（设计修订 1823282、spec 前置 b22c0ab）
+- 范围：runner 信封/RunRequest 增加 programs（信封可选、RunRequest 必填）；sdk.run 按名查表（未知名抛错含可用名列表；子程序信封不带 programs，叶子语义物理成立）；ContextLoader 全量映射（同名首个命中，与 resolveResource 同语义）；registry model 缺省 'qwen3.8max'→''+迁移 v3 清历史行；console-api binding-validation.ts（存在性/凭据/权限含 admin 不例外/entry_program/程序名查重/skill 查重/requires 覆盖/model·agent_kind 合法性，全量收集一次 400；patch 不碰绑定字段零校验零物化；顺带落实业务初始化物化）；server models.ts（loadModelList 产 provider/id 全量、不读 apiKey）+ 自检④增强 + configView models/agents；模板 README 补包内程序 vs 共享工具分工
+- 已知取舍（spec 不做项）：assets.get 同步物化阻塞管理 API 事件循环（配置期低频，接受并注释）；model 必填仅 console 表单强制（API 保持机械存储纪律，只做合法性校验）
+
+**T19b console 业务编辑页重做**
+
+- 状态：待执行（依赖 T19a 的 EffectiveConfigView.models/agents 与绑定校验 API 行为）
