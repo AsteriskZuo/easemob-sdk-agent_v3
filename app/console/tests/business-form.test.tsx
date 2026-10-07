@@ -51,7 +51,7 @@ const BIZ_DETAIL = {
     creator_id: MEMBER_USER.user_id,
     on_failure: false,
     prompt: "旧总纲",
-    model: "qwen3.8max",
+    model: "qwen/qwen3.8-max",
     agent_kind: "pi",
     package_asset_id: "pkg-1",
     entry_program: "main",
@@ -77,13 +77,25 @@ const BIZ_DETAIL = {
   ],
 };
 
-/** 业务表单通用 mock；extra 追加路由（如编辑态详情） */
-function installBusinessMocks() {
+/** 业务表单通用 mock；overrides.emptyPackages = true 时包列表为空（空资产引导用例） */
+function installBusinessMocks(overrides?: { emptyPackages?: boolean }) {
   return installFetchMock((path, { method }) => {
     if (path === "/api/auth/me") return { status: 200, body: MEMBER_USER };
+    if (path === "/api/config") {
+      return {
+        status: 200,
+        body: {
+          models: ["qwen/qwen3.8-max", "moonshot/k2"],
+          agents: ["pi"],
+        },
+      };
+    }
     if (path === "/api/exit-tools") return { status: 200, body: EXIT_TOOLS };
     if (path === "/api/assets?kind=package&scope=mine") {
-      return { status: 200, body: [PACKAGE_META] };
+      return {
+        status: 200,
+        body: overrides?.emptyPackages ? [] : [PACKAGE_META],
+      };
     }
     if (path === "/api/assets?kind=tool&scope=all") {
       return { status: 200, body: [] };
@@ -131,7 +143,7 @@ function installBusinessMocks() {
   });
 }
 
-/** 填齐创建表单必填项（名称/包/入口程序/首个匹配行事件类型） */
+/** 填齐创建表单必填项（名称/包/入口程序/大模型/首个匹配行事件类型） */
 async function fillRequiredFields(
   user: ReturnType<typeof userEvent.setup>,
   name: string,
@@ -141,6 +153,8 @@ async function fillRequiredFields(
   await selectOption(user, "包绑定", "pkg-1");
   // 入口程序 → main
   await selectOption(user, "入口程序", "main");
+  // 大模型必选（无默认选中，可选项来自 /api/config）
+  await selectOption(user, "大模型", "qwen/qwen3.8-max");
   await user.type(screen.getByLabelText("匹配行 1 事件类型"), "review.request");
 }
 
@@ -170,7 +184,7 @@ describe("业务表单", () => {
       event_type: "review.request",
       on_failure: false,
       prompt: "",
-      model: "qwen3.8max",
+      model: "qwen/qwen3.8-max",
       agent_kind: "pi",
       package_asset_id: "pkg-1",
       entry_program: "main",
@@ -307,5 +321,90 @@ describe("业务表单", () => {
     expect(
       (patchCall?.body as { timeout_minutes: unknown }).timeout_minutes,
     ).toBeNull();
+  });
+
+  it("⑥ agent/大模型下拉由 /api/config 驱动（可选集合来自 models.json，无硬编码项）", async () => {
+    installBusinessMocks();
+    renderApp("/businesses/new");
+    const user = setupUser();
+
+    // 先等路由页渲染完（auth 加载是异步的，同步查询会撞上加载态 spinner）
+    await screen.findByLabelText("业务名称");
+    // 打开大模型下拉：两个 mock 模型都在，裸的 qwen3.8max 硬编码项不存在
+    // （antd Select 的 aria-label 会命中多个节点，取 INPUT 同 selectOption 的做法）
+    const candidates = screen.getAllByLabelText("大模型");
+    const combobox =
+      candidates.find((el) => el.tagName === "INPUT") ?? candidates[0];
+    await user.click(combobox);
+    expect(await screen.findAllByText("qwen/qwen3.8-max")).not.toHaveLength(0);
+    expect(await screen.findAllByText("moonshot/k2")).not.toHaveLength(0);
+    expect(screen.queryAllByText("qwen3.8max")).toHaveLength(0);
+  });
+
+  it("⑦ 大模型未选 → 表单校验拦截，不提交", async () => {
+    const calls = installBusinessMocks();
+    renderApp("/businesses/new");
+    const user = setupUser();
+
+    // 填齐除大模型外的必填项
+    await user.type(await screen.findByLabelText("业务名称"), "缺模型业务");
+    await selectOption(user, "包绑定", "pkg-1");
+    await selectOption(user, "入口程序", "main");
+    await user.type(
+      screen.getByLabelText("匹配行 1 事件类型"),
+      "review.request",
+    );
+
+    await user.click(screen.getByRole("button", { name: "创建业务" }));
+
+    // 校验错误出现在表单错误区（与 Select 占位文案区分：必须在 explain-error 内）
+    await waitFor(() => {
+      const hits = screen.queryAllByText("请选择模型");
+      expect(
+        hits.some((el) => el.closest(".ant-form-item-explain-error") !== null),
+      ).toBe(true);
+    });
+    expect(
+      calls.some((c) => c.method === "POST" && c.path === "/api/businesses"),
+    ).toBe(false);
+  });
+
+  it("⑧ 空资产引导：包/工具/skill 下拉为空时给出去资产管理登记的引导", async () => {
+    installBusinessMocks({ emptyPackages: true });
+    renderApp("/businesses/new");
+
+    expect(await screen.findByText(/还没有可用的包资产/)).toBeTruthy();
+    expect(screen.getByText(/没有可绑定的工具资产/)).toBeTruthy();
+    expect(screen.getByText(/没有可绑定的 skill 集合/)).toBeTruthy();
+    // 引导含跳资产管理的链接
+    const links = screen.getAllByRole("link", { name: /资产管理登记/ });
+    expect(links.length).toBeGreaterThan(0);
+    expect(links[0].getAttribute("href")).toBe("/assets");
+  });
+
+  it("⑨ 出口机密项：键名标注 + 已配置/未配置状态（编辑态已配置，创建态未配置）", async () => {
+    // 编辑态：secret_keys 含 exit.wecom-webhook.token → 已配置
+    installBusinessMocks();
+    const editView = renderApp("/businesses/biz-1");
+    await waitFor(() => {
+      expect(screen.getByLabelText("业务名称")).toHaveProperty(
+        "value",
+        "旧业务",
+      );
+    });
+    expect(
+      (await screen.findAllByText(/exit\.wecom-webhook\.token/)).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("已配置").length).toBeGreaterThan(0);
+    // 同文档双挂载会撞查询范围，先卸载再挂创建态
+    editView.unmount();
+
+    // 创建态：业务未存在 → 全部未配置
+    renderApp("/businesses/new");
+    const user = setupUser();
+    await user.click(
+      await screen.findByRole("checkbox", { name: /企业微信群机器人/ }),
+    );
+    expect(await screen.findAllByText("未配置")).not.toHaveLength(0);
   });
 });

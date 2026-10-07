@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   App as AntdApp,
+  Alert,
   Button,
   Card,
   Checkbox,
@@ -9,15 +10,17 @@ import {
   InputNumber,
   Select,
   Switch,
+  Tag,
   Tooltip,
 } from "antd";
 import { QuestionCircleOutlined } from "@ant-design/icons";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import type {
   AssetManifest,
   AssetMeta,
   BusinessDetail,
   CreateBusinessBody,
+  EffectiveConfigView,
   EnvListView,
   ExitToolMenuItem,
   MatchBody,
@@ -87,6 +90,12 @@ export default function BusinessEditPage() {
   const [tools, setTools] = useState<AssetMeta[]>([]);
   const [skills, setSkills] = useState<AssetMeta[]>([]);
   const [entryPrograms, setEntryPrograms] = useState<string[]>([]);
+  // 可选集合由 server 解析 models.json 经 /api/config 提供——平台与 console 均不内置模型名
+  const [models, setModels] = useState<string[]>([]);
+  const [agents, setAgents] = useState<string[]>([]);
+  // 编辑态失效侦测：profile 原值不在可选集合（models.json 后来改了）时保留显示并标黄
+  const watchedModel = Form.useWatch("model", form);
+  const watchedAgentKind = Form.useWatch("agent_kind", form);
 
   const reportError = useCallback(
     (err: unknown, fallback: string) => {
@@ -114,7 +123,7 @@ export default function BusinessEditPage() {
     [reportError],
   );
 
-  // 初始加载：出口工具菜单 + 三类资产下拉数据源
+  // 初始加载：出口工具菜单 + 三类资产下拉数据源 + 可选模型/内核（models.json 驱动）
   useEffect(() => {
     apiFetch<ExitToolMenuItem[]>("/api/exit-tools")
       .then(setExitTools)
@@ -128,7 +137,19 @@ export default function BusinessEditPage() {
     apiFetch<AssetMeta[]>("/api/assets?kind=skill&scope=all")
       .then(setSkills)
       .catch((err: unknown) => reportError(err, "加载 skill 资产失败"));
-  }, [reportError]);
+    apiFetch<EffectiveConfigView>("/api/config")
+      .then((config) => {
+        setModels(config.models);
+        setAgents(config.agents);
+        // 创建模式 agent 默认选中第一个可选项（模型无部署无关的合理默认，必须用户显式选）
+        if (!isEdit && config.agents.length > 0) {
+          if (form.getFieldValue("agent_kind") === undefined) {
+            form.setFieldValue("agent_kind", config.agents[0]);
+          }
+        }
+      })
+      .catch((err: unknown) => reportError(err, "加载可选模型列表失败"));
+  }, [reportError, isEdit, form]);
 
   // 编辑态：回填详情 + 安全桶键名
   useEffect(() => {
@@ -382,8 +403,6 @@ export default function BusinessEditPage() {
         layout="vertical"
         disabled={loading}
         initialValues={{
-          agent_kind: "pi",
-          model: "qwen3.8max",
           on_failure: false,
         }}
       >
@@ -399,6 +418,7 @@ export default function BusinessEditPage() {
           <Form.Item
             name="business_name"
             label="业务名称"
+            tooltip="是什么：业务的展示名。何时用：创建时命名，之后可改。配错后果：无执行影响，但重名会让运维分不清业务。"
             rules={[
               { required: true, whitespace: true, message: "业务名称不能为空" },
             ]}
@@ -408,20 +428,53 @@ export default function BusinessEditPage() {
           <Form.Item
             name="agent_kind"
             label="Agent"
-            rules={[{ required: true }]}
+            tooltip="是什么：执行大模型调用的内核程序（当前仅 pi）。何时用：一般保持默认。配错后果：不在可选集合的值保存时会被服务端拒绝。"
+            rules={[{ required: true, message: "请选择 agent 内核" }]}
+            extra={
+              isEdit &&
+              watchedAgentKind !== undefined &&
+              watchedAgentKind !== "" &&
+              agents.length > 0 &&
+              !agents.includes(watchedAgentKind) ? (
+                <span style={{ color: "#faad14" }}>
+                  该 agent 内核已不在可选列表
+                </span>
+              ) : undefined
+            }
           >
             <Select
               aria-label="Agent"
-              options={[{ value: "pi", label: "pi" }]}
+              options={agents.map((a) => ({ value: a, label: a }))}
             />
           </Form.Item>
-          <Form.Item name="model" label="大模型" rules={[{ required: true }]}>
+          <Form.Item
+            name="model"
+            label="大模型"
+            tooltip="是什么：本业务大模型调用使用的模型，可选项来自服务端 models.json（provider/id 形式）。何时用：创建时必选，按业务质量与成本需要选择。配错后果：不在可选列表时保存被拒绝；运行期模型失效 = agent 调用失败。"
+            rules={[{ required: true, message: "请选择模型" }]}
+            extra={
+              isEdit &&
+              watchedModel !== undefined &&
+              watchedModel !== "" &&
+              models.length > 0 &&
+              !models.includes(watchedModel) ? (
+                <span style={{ color: "#faad14" }}>
+                  该模型已不在可选列表（models.json 已变更）
+                </span>
+              ) : undefined
+            }
+          >
             <Select
               aria-label="大模型"
-              options={[{ value: "qwen3.8max", label: "qwen3.8max" }]}
+              placeholder="请选择模型"
+              options={models.map((m) => ({ value: m, label: m }))}
             />
           </Form.Item>
-          <Form.Item name="prompt" label="提示词总纲">
+          <Form.Item
+            name="prompt"
+            label="提示词总纲"
+            tooltip="是什么：每次 agent 调用自动注入的业务总纲，说明业务规则、边界与不可做。何时用：业务需要稳定的行为约束时必写。配错后果：总纲缺失或过宽，模型输出质量与边界不可控。"
+          >
             <Input.TextArea
               aria-label="提示词总纲"
               rows={6}
@@ -434,17 +487,33 @@ export default function BusinessEditPage() {
           title={
             <SectionTitle
               title="资产绑定"
-              tip="包 = 业务流程程序（必填，否则业务无法运行）；工具/skill = 包声明依赖的实现。改了立即作用于后续 run。"
+              tip="是什么：业务要用的代码资产组合。何时用：创建业务时配置，改了立即作用于后续 run。配错后果：缺绑/名冲突保存时被服务端拒绝（消息会列出全部问题）。"
             />
           }
           style={{ marginBottom: 16 }}
         >
+          <Alert
+            type="info"
+            showIcon
+            style={{ marginBottom: 16 }}
+            message="包 / 工具 / skill 的关系"
+            description="包 = 业务代码单位，提供流程程序入口（平台每次执行 spawn 它）与包内程序；工具 = 可共享的子程序，包代码用 sdk.run('程序名') 调用；skill = 给大模型的能力集合，sdk.agent 按名注入。工具与 skill 可绑多个（自己的 + 他人共享的），名冲突会被拒绝。"
+          />
           <Form.Item
             name="package_asset_id"
             label="包绑定"
+            tooltip="是什么：业务代码单位（恰好一个），提供流程程序入口与包内程序。何时用：创建业务必选。配错后果：不绑定包业务无法运行；绑错包 = 执行错误的流程。"
             rules={[
               { required: true, message: "必须绑定包资产，否则业务无法运行" },
             ]}
+            extra={
+              packages.length === 0 ? (
+                <span>
+                  还没有可用的包资产。包是业务代码单位（恰好绑定一个），
+                  <Link to="/assets">先去资产管理登记</Link>。
+                </span>
+              ) : undefined
+            }
           >
             <Select
               aria-label="包绑定"
@@ -460,6 +529,7 @@ export default function BusinessEditPage() {
           <Form.Item
             name="entry_program"
             label="入口程序"
+            tooltip="是什么：包清单 programs 中作为流程入口的程序名，平台每次执行 spawn 它。何时用：选定包后必选。配错后果：选错入口 = 执行了错误的程序。"
             rules={[{ required: true, message: "请选择入口程序" }]}
           >
             <Select
@@ -468,7 +538,19 @@ export default function BusinessEditPage() {
               options={entryPrograms.map((p) => ({ value: p, label: p }))}
             />
           </Form.Item>
-          <Form.Item name="tool_asset_ids" label="工具绑定">
+          <Form.Item
+            name="tool_asset_ids"
+            label="工具绑定"
+            tooltip="是什么：可共享的子程序资产，包代码用 sdk.run('程序名') 按名调用。何时用：包清单 requires.tools 声明了外部工具时必须绑定对应资产。配错后果：缺绑/程序名冲突保存时被拒绝；运行期按名找不到程序则 run 失败。"
+            extra={
+              tools.length === 0 ? (
+                <span>
+                  没有可绑定的工具资产（可选项）。工具是可共享的子程序， sdk.run
+                  按名调用；需要时<Link to="/assets">去资产管理登记</Link>。
+                </span>
+              ) : undefined
+            }
+          >
             <Select
               aria-label="工具绑定"
               mode="multiple"
@@ -477,7 +559,20 @@ export default function BusinessEditPage() {
               options={assetOptions(tools)}
             />
           </Form.Item>
-          <Form.Item name="skill_asset_ids" label="Skill 绑定">
+          <Form.Item
+            name="skill_asset_ids"
+            label="Skill 绑定"
+            tooltip="是什么：给大模型的能力集合，sdk.agent 按名注入（白名单校验）。何时用：包代码调 sdk.agent 引用 skill 时。配错后果：缺绑时 agent 调用被白名单拦截而失败。"
+            extra={
+              skills.length === 0 ? (
+                <span>
+                  没有可绑定的 skill 集合（可选项）。skill 是给大模型的能力，
+                  sdk.agent 按名注入；需要时
+                  <Link to="/assets">去资产管理登记</Link>。
+                </span>
+              ) : undefined
+            }
+          >
             <Select
               aria-label="Skill 绑定"
               mode="multiple"
@@ -492,7 +587,7 @@ export default function BusinessEditPage() {
           title={
             <SectionTitle
               title="入口（匹配行）"
-              tip="决定什么事件触发本业务。配错 = 业务不触发或误触发。"
+              tip="是什么：决定什么事件触发本业务。三种入口：外部事件 = 入口适配器推送（如 webhook）；内部队列事件 = 关注上游业务的产出类型（业务id.产出类型）；定时 = 周期/绝对时间触发。何时用：每个业务至少一条匹配行。配错后果：事件类型写错 = 业务永远不触发；关注错上游 = 误触发。"
             />
           }
           style={{ marginBottom: 16 }}
@@ -504,7 +599,7 @@ export default function BusinessEditPage() {
           title={
             <SectionTitle
               title="出口（可选）"
-              tip="业务结果投递到哪。机密项（如 token）写入业务层安全桶，不回显；配错 = 运行时投递失败。"
+              tip="是什么：业务结果的投递目的地（企微/邮件/webhook 等），投递不过大模型。何时用：结果需要通知人或系统时勾选并按 schema 填配置。配错后果：地址/账号填错 = 运行时投递失败进死信；机密项没配进安全桶 = 必填校验拦截或投递失败。"
             />
           }
           style={{ marginBottom: 16 }}
@@ -556,10 +651,21 @@ export default function BusinessEditPage() {
                             )}
                             {field.label}
                             {isSecret && (
-                              <span style={{ color: "#999", marginLeft: 8 }}>
-                                （机密，存安全桶{" "}
-                                {exitSecretKey(tool.kind, field.key)}）
-                              </span>
+                              <>
+                                <Tag
+                                  color={configured ? "success" : "warning"}
+                                  style={{ marginLeft: 8 }}
+                                >
+                                  {configured ? "已配置" : "未配置"}
+                                </Tag>
+                                <div style={{ color: "#999", fontSize: 12 }}>
+                                  机密项，值存业务安全桶，键名：
+                                  {exitSecretKey(tool.kind, field.key)}
+                                  {isEdit
+                                    ? "（也可在下方「业务 key-value」安全桶维护）"
+                                    : "（此处填写将在创建后写入安全桶）"}
+                                </div>
+                              </>
                             )}
                           </div>
                           {isSecret ? (
@@ -603,20 +709,30 @@ export default function BusinessEditPage() {
           title={
             <SectionTitle
               title="运行策略"
-              tip="超时/配额留空 = 用全局默认（见通用配置页）；失败传播开启后，本业务失败也会触发下游关注失败事件的匹配行。"
+              tip="超时/配额留空 = 用全局默认（见通用配置页），业务级覆盖优先。"
             />
           }
           style={{ marginBottom: 16 }}
         >
-          <Form.Item name="on_failure" label="失败传播" valuePropName="checked">
+          <Form.Item
+            name="on_failure"
+            label="失败传播"
+            tooltip="是什么：开启后，本业务失败也会派生事件（带失败状态）扇出给下游与出口。何时用：下游需要感知失败做善后时。配错后果：默认关闭下失败静默，下游以为没发生；误开会让下游收到大量失败事件。"
+            valuePropName="checked"
+          >
             <Switch aria-label="失败传播" />
           </Form.Item>
-          <Form.Item name="timeout_minutes" label="超时覆盖（分钟，可清空）">
+          <Form.Item
+            name="timeout_minutes"
+            label="超时覆盖（分钟，可清空）"
+            tooltip="是什么：本业务 run 的 wall-clock 超时（分钟），覆盖全局默认。何时用：业务明显长于/短于全局默认时。配错后果：过短 = 正常业务被强杀；过长 = 失控任务长期占用并发闸门。"
+          >
             <InputNumber aria-label="超时覆盖" min={1} placeholder="全局默认" />
           </Form.Item>
           <Form.Item
             name="max_agent_calls"
             label="agent 调用配额覆盖（可清空）"
+            tooltip="是什么：本业务单 run 的 agent 调用次数上限，覆盖全局默认。何时用：多轮/多阶段业务需要更多调用时。配错后果：过低 = 正常流程被配额强杀；过高 = 失控循环烧钱。"
           >
             <InputNumber aria-label="配额覆盖" min={1} placeholder="全局默认" />
           </Form.Item>
@@ -637,7 +753,7 @@ export default function BusinessEditPage() {
           title={
             <SectionTitle
               title="业务 key-value"
-              tip="仅本业务生效的环境配置，独立于上方表单保存。安全桶存本业务的机密（如出口 token）。"
+              tip="是什么：按业务注入的 key-value 配置——普通桶明文回显，安全桶只写不读（掩码）。何时用：包代码 sdk.config()/sdk.secret() 要读的参数与凭据（含出口机密项）。配错后果：键名写错 = 业务代码取不到值而失败；机密放普通桶 = 明文泄漏。"
             />
           }
           style={{ marginTop: 16 }}
