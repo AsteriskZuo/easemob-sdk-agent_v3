@@ -283,7 +283,7 @@ type ServiceResponse =
 ## 9. 本规格的裁决点（设计文档未覆盖，主 agent 已定）
 
 - **A. 新增 `sdk.runInput()`**：设计 RunInput 只覆盖流程入口（event+workspace）；子程序经 sdk.run 被调时读口是 input+config——契约递归同构需要这个读口，属真实需求驱动的最小新增。
-- **B. SDK 形态 = 单例对象 + 允许依赖零依赖纯包**：`return` 是保留字无法做独立导出函数；`sdk.return()` 属性调用合法且与设计示例一致。一个业务进程 = 一次 run，单例无状态共享问题。SDK 位于 `packages/sdk/`（位置不等于发布边界）；可依赖 contracts 类型与 logger 纯函数层（如脱敏/格式化——`sdk.log` 是平台管控的日志控制点，业务密钥在源头脱敏、将来注入 run 级关联字段都一处生效），发布形态为平台 esbuild bundle 注入，业务零安装不变。
+- **B. SDK 形态 = 单例对象 + 允许依赖零依赖纯包**：`return` 是保留字无法做独立导出函数；`sdk.return()` 属性调用合法且与设计示例一致。一个业务进程 = 一次 run，单例无状态共享问题。SDK 位于 `packages/sdk/`（位置不等于发布边界）；可依赖 contracts 类型与 logger 纯函数层（如脱敏/格式化——`sdk.log` 是平台管控的日志控制点、统一格式与将来注入 run 级关联字段都一处生效），发布形态为平台 esbuild bundle 注入，业务零安装不变。**实现裁定（2026-10-06 与用户确认）**：SDK 保持运行时零依赖（不 import contracts/logger，信封与类型用结构化本地定义）；日志脱敏落在 sink——runner 的 `createFileSink(path, { secrets })` 写盘时替换，不经 sdk 源头脱敏。依据：大模型内容的脱敏由业务负责（脱敏子程序/外部服务，进出模型各一次，见 business-workflow.md §8 审查工单链路）；日志文件在平台服务器上属可控面，sink 脱敏已覆盖（runner 测试 8）；若将来出现源头脱敏的真实需求（如日志经网络通道外送），再引入 logger 依赖并公开导出 `maskSecrets`。
 - **C. 子进程 `env: {}`**：平台环境变量（含平台自身密钥）不泄漏给业务进程；node 用 `process.execPath` 绝对路径启动，不依赖 PATH。secrets 只走 stdin。
 - **D. socket 一次调用一条连接**：协议最简（无多路复用、无粘包问题），agent 调用是分钟级低频操作，连接开销可忽略。
 - **E. stdout 只认第一个合法结果 + 全程字节上限**：协议污染与垃圾输出的机械边界（防线三）。
