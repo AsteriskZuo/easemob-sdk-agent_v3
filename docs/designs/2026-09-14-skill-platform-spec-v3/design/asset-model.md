@@ -116,7 +116,18 @@ description: 审查 jira 工单并给出通过/驳回结论与理由
 
 - `sdk.run('jira-fetch')` → 解析范围 = 本包 programs ∪ 绑定工具的 programs；
 - `sdk.agent({ skills: ['ticket-review', 'output-format'] })` → 白名单 = 绑定 skill 集合的技能并集，逐个校验、逐个注入（可一次多个、可跨集合）；
-- **名唯一性由配置期保证**：控制台在绑定时机械查重（同业务的绑定集合里程序名不重复、技能名不重复，重复即报错）——运行时解析因此无需优先级、无需限定写法，按名唯一命中；找不到 = 运行时报错（绑定在运行后被改或物化异常）。
+- **名唯一性由配置期保证**：绑定时机械查重（同业务的绑定集合里程序名不重复、技能名不重复），**重复即拒绝**（控制台校验 + 管理 API 兜底，不做隐式首命中）——运行时解析因此无需优先级、无需限定写法，按名唯一命中；找不到 = 运行时报错（绑定在运行后被改或物化异常）。
+
+**程序名解析机制**：平台物化闭包后产出 **程序名 → 物化绝对路径** 的全量映射（本包 programs ∪ 绑定工具 programs），spawn 流程程序时经 stdin 信封注入（§7.1 `programs` 字段），`sdk.run('名')` 按名查表得绝对路径后 spawn 子进程。**业务按名使用、从不配置路径**——资产的物理位置是平台内部计算结果（`cache/assets/{asset_id}/`，业务无从预知），对外暴露的只有 git 引用（url + commit + 子路径）与程序名。平台给业务的是绝对路径的**使用权**，不是**管理权**。
+
+**包内程序与共享工具的分工**：
+
+| 形态 | 调用方式 | 典型场景 |
+|------|---------|---------|
+| 包内程序（包仓库的 programs） | 同仓库路径可知：**可直接 import 进程内调用**，也可 `sdk.run` 走子进程隔离——包按需要自己决定 | 本业务专用环节（如该业务的门禁校验） |
+| 共享工具（独立工具资产） | **只能 `sdk.run` 按名调用**（跨仓库，物理位置只有平台知道） | 跨业务复用的机械能力（jira-fetch、脱敏、还原） |
+
+工具资产的主场景是**共享复用**；包内自用的程序不必登记成工具资产——登记成资产是为了被别人绑定。
 
 **skill 获取规则**：`sdk.agent` 用到的 skill 一律来自绑定的 skill 资产，**包内不内嵌 skill**。想单仓开发：同一仓库注册两次（根 = 包、`skills/` 子路径 = skill 集合），同 commit 两行资产，单仓自洽；将来要复用共享，把该目录拆成独立仓库即可——**业务代码零改动**（代码引用的是名字，不是路径）。
 
@@ -133,15 +144,17 @@ description: 审查 jira 工单并给出通过/驳回结论与理由
   "workspace": "<run 工作目录绝对路径>",              // 平台注入；也是进程 cwd
   "config": { "jira_site": "..." },                  // 控制台登记的业务非机密配置；无则缺省
   "secrets": { "jira_token": "..." },                // 业务安全变量；仅平台→流程程序注入，sdk.run 不向子程序传
-  "endpoint": { "socket_path": "...", "token": "..." } // agent 服务端点；sdk.agent()/session.* 使用
+  "endpoint": { "socket_path": "...", "token": "..." }, // agent 服务端点；sdk.agent()/session.* 使用
+  "programs": { "jira-fetch": "/abs/.../jira-fetch.js" } // 程序名→物化绝对路径映射（本包 ∪ 绑定工具，§6）；
+                                                          // 仅平台→流程程序注入，sdk.run 不向子程序传
 }
 ```
 
-读法（SDK）：`sdk.input()` → `{ event, workspace }`；`sdk.config()` / `sdk.secret(name)`；子程序被 `sdk.run` 调用时用 `sdk.runInput()` → `{ input, config }`。**本地离线调试**：`echo '{"contract_version":"v1","input":{...},"workspace":"/tmp/x"}' | node dist/programs/xxx.js`——工具的「可独立运行」就是这个含义：dist 自包含、node 直接跑，输入走 stdin 契约。
+读法（SDK）：`sdk.input()` → `{ event, workspace }`；`sdk.config()` / `sdk.secret(name)`；子程序被 `sdk.run` 调用时用 `sdk.runInput()` → `{ input, config }`；`programs` 映射业务代码不直接读——由 SDK 内部的 `sdk.run` 按名查表消费。**本地离线调试**：`echo '{"contract_version":"v1","input":{...},"workspace":"/tmp/x"}' | node dist/programs/xxx.js`——工具的「可独立运行」就是这个含义：dist 自包含、node 直接跑，输入走 stdin 契约。
 
 **平台→流程程序 与 sdk.run→子程序的注入差异**（机制强制，不是约定）：
 
-- sdk.run 的子程序**拿不到 `secrets` 和 `endpoint`**——物理上调不了 `sdk.agent`（无 endpoint 直接抛错）、摸不到业务安全桶。「工具不碰大模型、机械零 token」由此物理成立，不靠自觉；
+- sdk.run 的子程序**拿不到 `secrets`、`endpoint` 和 `programs` 映射**——物理上调不了 `sdk.agent`（无 endpoint 直接抛错）、摸不到业务安全桶、也不能再按名 `sdk.run` 别的程序（工具是叶子，组合编排只发生在包的胶水代码里）。「工具不碰大模型、机械零 token、不嵌套组合」由此物理成立，不靠自觉；
 - 工具需要的 token / 参数由**调用方显式传递**：包的胶水代码 `sdk.secret('jira_token')` 读出后放进 `sdk.run` 的 `config`——显式传递是刻意的：共享工具会被很多业务用，自动灌入全部 secrets 泄漏面就失控了，给什么由包作者决定；
 - **依赖的两个层面**：代码级依赖（npm 包、多文件）工具自己解决——repo 内 build 出自包含的 dist，平台物化后不跑 npm install；平台资产级引用（按名字引用别的工具/skill）只有包能声明（§5.1 requires），工具不能。
 
@@ -180,7 +193,7 @@ description: 审查 jira 工单并给出通过/驳回结论与理由
 | 业务配置 / 安全变量 | stdin `config` / `secrets` | 业务参数与凭据（不碰环境变量） |
 | agent 调用 | `sdk.agent({skills, input, mode})`（模型凭据平台持有，不进业务进程；skills 可多个、可跨集合） | 大模型推理；`mode:'channel'` 多轮连续 / `'fresh'` 独立 |
 | 会话操作 | `sdk.session.compact()/clear()` | 多轮业务的上下文压缩/清空 |
-| 子程序组合 | `sdk.run(program, {input, config?, timeout_ms?})` | 调用本包或绑定工具的程序（同一契约） |
+| 子程序组合 | `sdk.run(program, {input, config?, timeout_ms?})`——program 是**程序名**，SDK 从 stdin 注入的 `programs` 映射查绝对路径后 spawn（§6）；包内程序也可直接 import 进程内调用，包自由掌握 | 调用本包或绑定工具的程序（同一契约） |
 | 业务日志 | `sdk.log` | 排查追踪 |
 | 结果扇出与投递 | 平台负责：`sdk.return` 的 output 自动派生事件 → 下游业务 + 出口绑定（企微/邮件/webhook…） | 业务不写任何通知代码 |
 

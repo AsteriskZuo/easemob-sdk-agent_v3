@@ -35,7 +35,7 @@
 大模型调用的唯一通道。完整契约（socket 通道、pi 子进程执行、总纲注入、skill 白名单、会话连续性、配额、审计、hooks 三条纪律）见 `design/business-workflow.md` §4；本文只保留平台侧纪律：
 
 - **pi 是唯一内核**（决策见 `docs/decisions/2026-09-27-agent-kernel-and-execution-mode.md`）；codex-cli 不支持——hook 语义差异大、审计无法闭环，适配代价不值得；
-- **模型配置是部署/业务配置而非代码耦合**；MVP 仅 **qwen3.8max**；
+- **模型配置是部署/业务配置而非代码耦合**：可选集合由部署侧 models.json 决定（server 启动解析，经管理 API 供控制台选择，见 `design/console-design.md` §4），平台代码不内置具体模型名；
 - 调用统一埋点：token 用量、耗时、成本上报控制台。
 
 ## 6. 资源事实

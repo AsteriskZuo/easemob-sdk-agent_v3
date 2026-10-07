@@ -175,7 +175,8 @@ interface AgentCliObject {
 
 /** 大模型最小视图 */
 interface ModelObject {
-  name: 'qwen3.8max';         // MVP 仅 qwen3.8max
+  name: string;               // provider/id 形式（如 'qwen/qwen3.8max'）；可选集合 = 部署侧
+                              // models.json 解析所得（console-design §4），平台代码不内置具体模型名
   params?: Record<string, unknown>;
 }
 

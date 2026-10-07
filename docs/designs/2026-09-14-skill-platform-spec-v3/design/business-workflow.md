@@ -28,7 +28,7 @@
 
 - **子进程契约**：stdin 一段 JSON（输入）、stdout 一段 JSON（结果）、exit code 非零或超时 = 失败（fail-closed）。这是平台与业务之间唯一的线；契约带 `contract_version: 'v1'`（版本纪律同事件契约，`design/event-contract.md` §2）；
 - **业务上下文业务自己管理**：流程中的中间数据（如脱敏 kv）就是程序内的变量，平台不持有、不传递；
-- **平台注入的额外上下文**：入口信封、业务环境配置与安全变量、run 工作目录、agent 服务端点——经 stdin 与环境变量在启动时一次性注入；
+- **平台注入的额外上下文**：入口信封、业务环境配置与安全变量、run 工作目录、agent 服务端点、程序名→物化路径映射（`sdk.run` 按名查表的依据，见 `design/asset-model.md` §6）——经 stdin 与环境变量在启动时一次性注入；
 - **结果校验**：平台只对 stdout 结果做 schema 校验与大小上限（大产物走引用，见 `design/event-contract.md`），不解析内容。
 
 **运行时形态**：业务流程程序来自业务绑定的**包**（`design/asset-model.md`：git 仓库登记，初始化时物化/转译就绪——TS 源码经 esbuild 转译存 JS，平台运行时零编译，类型检查是业务开发期的事）；业务 SDK 由平台注入 run 环境的依赖解析路径（sdk 连同其零依赖纯包依赖 esbuild bundle 注入），业务零安装、只 import；`WorkflowRunner.run({program})` 的 `program` = 绑定包中选定入口程序的物化产物文件。
@@ -68,7 +68,9 @@ interface Sdk {
     clear(): Promise<void>;
   };
 
-  /** 调子程序：spawn 独立程序，同一子进程契约（§2），超时与编解码全封装 */
+  /** 调子程序：spawn 独立程序，同一子进程契约（§2），超时与编解码全封装。
+   *  program 是程序名（本包 programs ∪ 绑定工具 programs），SDK 从 stdin 信封注入的
+   *  programs 映射（名→物化绝对路径）查表后 spawn——业务按名调用，不接触路径 */
   run(program: string, args: { input: unknown; config?: Record<string, string>; timeout_ms?: number }): Promise<unknown>;
 
   /** 写业务日志：结构化行写 stderr，平台采集进该 run 的业务日志（design/logging.md §1）。
