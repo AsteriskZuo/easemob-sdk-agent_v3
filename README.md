@@ -73,23 +73,38 @@ rm -rf "$AGENT_WORKSPACE/data" "$AGENT_WORKSPACE/cache" "$AGENT_WORKSPACE/runs" 
 
 ## 配置项
 
-优先级：**环境变量 > `{workspace}/config.json` 同名键 > 代码默认值**。`AGENT_WORKSPACE` 只能来自环境变量。
+**所有配置项都归 server；console 不需要任何环境变量**（浏览器 SPA 运行时不读 env；开发模式的 API 代理目标写在 `app/console/vite.config.ts`，生产模式由 server 托管静态文件）。
 
-| 变量 | 必填 | 默认 | 说明 |
-|------|------|------|------|
-| `AGENT_WORKSPACE` | 是 | — | 平台工作目录（数据五类分根的根） |
-| `AGENT_PI_CLI_PATH` | 是 | — | pi 可执行文件绝对路径 |
-| `AGENT_PI_AGENT_DIR` | 是 | — | pi 的 models.json 所在目录（模型凭据由它承载；模板见 `templates/models.json.example`，apiKey 支持 `$ENV_VAR` 环境插值） |
-| `AGENT_CONSOLE_PORT` | 否 | `6100` | 管理 API / 控制台端口 |
-| `AGENT_CONSOLE_STATIC_DIR` | 否 | 不托管 | 控制台静态产物目录（vite build 输出） |
-| `AGENT_ADMIN_USERNAME` / `AGENT_ADMIN_PASSWORD` | 否 | — | 首启注入首个 admin（成对；仅 users 表为空时生效） |
-| `AGENT_HOP_LIMIT` | 否 | `8` | 派生事件 hop 上限（防循环订阅） |
-| `AGENT_TASK_CONCURRENCY` | 否 | `4` | 入口业务并发闸门 |
-| `AGENT_RESULT_CONCURRENCY` | 否 | `16` | 出口投递并发闸门 |
-| `AGENT_TASK_TIMEOUT_MINUTES` | 否 | `60` | 单次业务执行超时（业务可在控制台覆盖） |
-| `AGENT_MAX_AGENT_CALLS` | 否 | `20` | 单次执行的大模型调用配额（业务可覆盖） |
-| `AGENT_LOG_LEVEL` | 否 | `info` | 系统日志级别（error/warn/info/debug） |
-| `AGENT_LOG_ENABLED` | 否 | `true` | 日志总开关 |
+来源优先级：**环境变量 > `{workspace}/config.json` 同名键 > 代码默认值**（config.json 与环境变量同名、含 `AGENT_` 前缀）。
+
+### 启动必需
+
+| 变量 | 来源 | 说明 |
+|------|------|------|
+| `AGENT_WORKSPACE` | **只能环境变量** | 平台工作目录（数据五类分根的根）；config.json 栖身于 workspace，故不能来自文件 |
+| `AGENT_PI_CLI_PATH` | env 或 config.json | pi 可执行文件绝对路径 |
+| `AGENT_PI_AGENT_DIR` | env 或 config.json | pi 的 agent 目录（models.json 所在；模板见 `templates/models.json.example`。**apiKey 须写字面量**——pi 子进程环境只有 PATH/HOME，`$ENV_VAR` 插值解析不到） |
+| `PATH` / `HOME` | 只能环境变量 | pi 子进程基础环境（pi_env 固定组）；正常 shell 天然存在，一般无需显式设置 |
+
+### 运行参数（均有默认值，env 或 config.json 均可）
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `AGENT_CONSOLE_PORT` | `6100` | 管理 API / 控制台端口 |
+| `AGENT_HOP_LIMIT` | `8` | 派生事件 hop 上限（防循环订阅） |
+| `AGENT_TASK_CONCURRENCY` | `4` | 入口业务并发闸门 |
+| `AGENT_RESULT_CONCURRENCY` | `16` | 出口投递并发闸门 |
+| `AGENT_TASK_TIMEOUT_MINUTES` | `60` | 单次业务执行超时（业务可在控制台覆盖） |
+| `AGENT_MAX_AGENT_CALLS` | `20` | 单次执行的大模型调用配额（业务可覆盖） |
+| `AGENT_LOG_LEVEL` | `info` | 系统日志级别（error/warn/info/debug） |
+| `AGENT_LOG_ENABLED` | `true` | 日志总开关 |
+
+### 可选增强
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `AGENT_CONSOLE_STATIC_DIR` | 不设 = 纯 API | 控制台静态产物目录（vite build 输出），设置后 server 同进程托管控制台 |
+| `AGENT_ADMIN_USERNAME` / `AGENT_ADMIN_PASSWORD` | 不设 = 不建号 | **控制台唯一建号入口**（平台不开放注册）：users 表为空时创建首个 admin。两键必须成对，只给一个 = 配置解析失败；不注入不影响 server 启动（记 error 日志），但控制台无人能登录，只能下次启动时注入或删 `data/` 重来 |
 
 ## 开发一个业务
 

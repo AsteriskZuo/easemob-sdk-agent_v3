@@ -3,7 +3,7 @@
     "your-provider-name": {
       "baseUrl": "https://your-provider.example.com/v1",
       "api": "openai-completions",
-      "apiKey": "$YOUR_PROVIDER_API_KEY",
+      "apiKey": "在这里填入你的-apiKey",
       "models": [{ "id": "your-model-id" }]
     }
   }
