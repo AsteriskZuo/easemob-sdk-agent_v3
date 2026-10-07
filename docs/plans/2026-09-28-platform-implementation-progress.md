@@ -276,4 +276,10 @@
 
 **T19b console 业务编辑页重做**
 
-- 状态：待执行（依赖 T19a 的 EffectiveConfigView.models/agents 与绑定校验 API 行为）
+- 状态：完成
+- 子 agent：agent-24 两次派发均因模型 API 请求挂起超时（2h×2，wire 日志证实单次 llm.request 无响应 ~7500s，非工作循环；探索完成零改动），**主 agent 接手直接实施**
+- 开始/完成：2026-10-07 ～ 2026-10-08
+- 验收证据：console 28 测试全过（6 套件；business-form 9 条含新增 4 条）；根六连全绿（test 4m14s）；两处 prettier 格式问题 prettier --write 后复验 format/lint/typecheck 全过
+- commit：8d8a38f
+- 范围：agent/model 下拉 /api/config 驱动（删除全部硬编码；创建模式 agent 默认 agents[0]、model 必选无默认；编辑态原值不在可选集合标黄）；包/工具/skill 空列表引导 + 跳资产管理链接；出口机密项 已配置/未配置 Tag + 键名 exit.{kind}.{field.key} 标注 + 创建/编辑去向提示；叹号提示按「是什么/何时用/配错的后果」三段式重写（13 个模块）；资产绑定卡 Alert 补包/工具/skill/入口程序关系说明
+- 实施中发现并处理：antd Select aria-label 命中多节点（测试取 INPUT，同 selectOption 惯例）；「请选择模型」占位文案与校验文案同词（断言限定 .ant-form-item-explain-error 内）；同步 getAllByLabelText 撞上 auth 加载态 spinner（先 await findByLabelText 业务名称）；同测试双 renderApp 撞查询范围（先 unmount 再挂）
