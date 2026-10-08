@@ -277,3 +277,73 @@ describe("DELETE /api/businesses/:id", () => {
     expect(after.status).toBe(404);
   });
 });
+
+describe("webhook 端点 path 全平台唯一", () => {
+  it("创建携带 webhook path 后：跨业务同 path 创建 → 400；同业务加行同 path → 400；不同 path → 正常", async () => {
+    const first = await createBusiness(owner.token, "webhook-甲", {
+      source: "webhook",
+      event_type: "hook.a",
+      entry_config: { path: "hook-x", session_id_key: "id" },
+    });
+
+    // 跨业务：另一个业务用同 path 创建 → 400 invalid_input
+    const dupCreate = await api(server, "POST", "/api/businesses", {
+      token: owner.token,
+      body: {
+        business_name: "webhook-乙",
+        source: "webhook",
+        event_type: "hook.b",
+        entry_config: { path: "hook-x", session_id_key: "id" },
+      },
+    });
+    expect(dupCreate.status).toBe(400);
+    const dupBody = dupCreate.body as {
+      error: { code: string; message: string };
+    };
+    expect(dupBody.error.code).toBe("invalid_input");
+    expect(dupBody.error.message).toContain("hook-x");
+
+    // 同业务：追加一条同 path 的 webhook 行 → 400（含同业务多行同 path 也拒绝）
+    const dupMatch = await api(
+      server,
+      "POST",
+      `/api/businesses/${first.business_id}/matches`,
+      {
+        token: owner.token,
+        body: {
+          source: "webhook",
+          event_type: "hook.c",
+          entry_config: { path: "hook-x", session_id_key: "id" },
+        },
+      },
+    );
+    expect(dupMatch.status).toBe(400);
+
+    // 不同 path 正常追加
+    const ok = await api(
+      server,
+      "POST",
+      `/api/businesses/${first.business_id}/matches`,
+      {
+        token: owner.token,
+        body: {
+          source: "webhook",
+          event_type: "hook.d",
+          entry_config: { path: "hook-y", session_id_key: "id" },
+        },
+      },
+    );
+    expect(ok.status).toBe(201);
+
+    // path 缺失/非字符串 = 无有效端点，不参与查重（放行，运行时 404）
+    const noPath = await api(server, "POST", "/api/businesses", {
+      token: owner.token,
+      body: {
+        business_name: "webhook-无path",
+        source: "webhook",
+        event_type: "hook.e",
+      },
+    });
+    expect(noPath.status).toBe(201);
+  });
+});

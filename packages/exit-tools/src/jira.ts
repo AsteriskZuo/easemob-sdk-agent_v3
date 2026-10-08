@@ -345,6 +345,27 @@ export function createJiraExitTool(
     name: "Jira 操作",
     implemented: true,
     configSchema,
+    resultDoc: `# Jira 操作：sdk.return 期望形状
+
+业务返回一个带 \`op\` 字段的对象，两种操作：
+
+| op | 字段 | 语义 |
+| --- | --- | --- |
+| \`comment\` | \`body\`（必填） | 给配置项 \`issue_key\` 指定的工单加评论（此时 \`issue_key\` 配置必填） |
+| \`create\` | \`fields\`（必填对象，含非空 \`summary\`，可选 \`description\` 及其余自定义字段） | 在配置项 \`project\` 项目下建工单 |
+
+\`body\` / 非字符串内容：字符串原样；其他 JSON 值转 json 围栏文本。
+
+## 示例
+
+\`\`\`json
+{ "op": "comment", "body": "审查完成：通过" }
+\`\`\`
+
+\`\`\`json
+{ "op": "create", "fields": { "summary": "自动审查发现的问题", "description": "详见平台运行记录" } }
+\`\`\`
+`,
     destinationOf(config) {
       const url = requireUrl(config);
       let host: string;

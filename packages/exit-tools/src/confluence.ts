@@ -342,6 +342,25 @@ export function createConfluenceExitTool(options?: {
     name: "Confluence 操作",
     implemented: true,
     configSchema,
+    resultDoc: `# Confluence 操作：sdk.return 期望形状
+
+业务返回以下两种形状之一，作为页面正文（转 storage XHTML 后整体覆盖写入）：
+
+- **字符串**：原样作为正文
+- **对象**：须含 \`content\` 字段（\`string | object\`；对象转 json 文本）
+
+目标页面由配置项 \`space_key\` + \`page_title\` 决定：已存在则整体覆盖更新，不存在则创建。
+
+## 示例
+
+\`\`\`json
+"# 审查结论\\n\\n工单 PRJ-123：通过"
+\`\`\`
+
+\`\`\`json
+{ "content": { "verdict": "pass", "score": 92 } }
+\`\`\`
+`,
     destinationOf(config) {
       const baseUrl = requireField(config, "base_url");
       const spaceKey = requireField(config, "space_key");

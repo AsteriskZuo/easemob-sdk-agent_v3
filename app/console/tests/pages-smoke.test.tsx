@@ -18,6 +18,17 @@ const CONFIG_VIEW = {
   max_agent_calls: 20,
   pi_cli_path: "/usr/local/bin/pi",
   pi_agent_dir: "/opt/pi-agent",
+  entry_adapters: [
+    {
+      id: "webhook",
+      kind: "webhook",
+      name: "自定义 Webhook",
+      defaultEnabled: true,
+      enabled: true,
+      configSchema: [],
+      eventDoc: "# doc",
+    },
+  ],
 };
 
 describe("页面冒烟", () => {
@@ -78,6 +89,41 @@ describe("页面冒烟", () => {
     renderApp("/settings");
     expect(await screen.findByText("工作目录")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^新\s?增$/ })).toBeNull();
+    // member 不见缓存清理入口（仅 admin）
+    expect(screen.queryByRole("button", { name: /清理资产缓存/ })).toBeNull();
+  });
+
+  it("Settings：admin 清理资产缓存——确认弹窗写明后果，确认后调 POST /api/cache/clear", async () => {
+    const calls = installFetchMock((path, { method }) => {
+      if (path === "/api/auth/me") return { status: 200, body: ADMIN_USER };
+      if (path === "/api/config") return { status: 200, body: CONFIG_VIEW };
+      if (path === "/api/env/global") {
+        return { status: 200, body: { vars: {}, secret_keys: [] } };
+      }
+      if (path === "/api/cache/clear" && method === "POST") {
+        return { status: 200, body: { cleared: true } };
+      }
+      return undefined;
+    });
+    renderApp("/settings");
+    const user = setupUser();
+
+    // 入口适配器回显（名称 + 开关状态）
+    expect(
+      await screen.findByText(/自定义 Webhook（webhook，开）/),
+    ).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: /清理资产缓存/ }));
+    // 确认弹窗写明后果（重新物化构建、耗时分钟级）
+    expect(await screen.findByText(/重新物化构建/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /^清\s?理$/ }));
+
+    await waitFor(() => {
+      expect(
+        calls.some((c) => c.method === "POST" && c.path === "/api/cache/clear"),
+      ).toBe(true);
+    });
+    expect(await screen.findByText("资产缓存已清理")).toBeTruthy();
   });
 
   it("Users：admin 表格渲染 + 停用确认", async () => {

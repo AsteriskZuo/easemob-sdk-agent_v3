@@ -1,4 +1,4 @@
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { migrate } from "@asterisk/agent-database";
 import type { Database } from "@asterisk/agent-database";
@@ -76,6 +76,10 @@ export interface AssetRegistry {
    *  不校验在役引用——业务绑定着已下架资产时，运行时取用在 ContextLoader 处抛 asset_not_found，
    *  属配置错误，由控制台操作者负责（console UI 可在删除前提示在役业务，非本包职责） */
   remove(asset_id: string): void;
+
+  /** 清空物化缓存根目录下全部内容（登记行不动）；cacheRoot 不存在时不报错（幂等）。
+   *  清理后已登记资产下次 get/materialize 触发重新物化构建（懒重建，可能耗时分钟级） */
+  clearCache(): void;
 }
 
 /** 存储迁移（spec §5.5）：下标即版本号，v1 建 assets 表 */
@@ -286,6 +290,17 @@ class AssetRegistryImpl implements AssetRegistry {
       recursive: true,
       force: true,
     });
+  }
+
+  clearCache(): void {
+    if (!existsSync(this.cacheRoot)) return;
+    // 逐项删除保 cacheRoot 目录本身（后续物化直接以它为父目录）
+    for (const entry of readdirSync(this.cacheRoot)) {
+      rmSync(path.join(this.cacheRoot, entry), {
+        recursive: true,
+        force: true,
+      });
+    }
   }
 
   private getRow(assetId: string): AssetRow | undefined {

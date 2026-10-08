@@ -3,6 +3,7 @@ import type {
   AssetObject,
   AssetRegistry,
 } from "@asterisk/agent-asset-registry";
+import type { BusinessRegistry } from "@asterisk/agent-registry";
 import type { EnvProvider } from "@asterisk/agent-runtime";
 import type { User } from "./accounts.js";
 import type { EffectiveConfigView } from "./dto.js";
@@ -69,6 +70,32 @@ export function validateBusinessWrite(
       "invalid_input",
       `业务配置校验未通过:\n- ${problems.join("\n- ")}`,
     );
+  }
+}
+
+/** webhook 端点 path 全平台唯一性校验：候选行为待写入的 source='webhook' 匹配行的 entry_config
+ * （调用纪律：业务写路径在落库前调用，候选行尚未持久化——与全量既有 webhook 行比对即覆盖
+ *  跨业务与同业务多行同 path 两种冲突）。
+ *  path 缺失/非非空字符串 = 该行无有效端点（适配器运行时按 404 处理），此处不校验、直接放行；
+ *  冲突 → ApiError invalid_input（400，消息列出占用方）。
+ *  实现：list() + 逐业务 get() 内联扫全量 webhook 行——与 entry-adapters 的 scanMatchRows 同扫法，
+ *  不复用它的原因：避免 console-api → entry-adapters 的依赖方向（管理 API 不依赖入口实现包） */
+export function assertWebhookPathUnique(
+  registry: BusinessRegistry,
+  entryConfig: Record<string, unknown> | undefined,
+): void {
+  const path = entryConfig?.path;
+  if (typeof path !== "string" || path === "") return;
+  for (const profile of registry.list()) {
+    for (const row of registry.get(profile.business_id)) {
+      if (row.source !== "webhook") continue;
+      if (row.entry_config?.path === path) {
+        throw new ApiError(
+          "invalid_input",
+          `webhook 端点 path 已被占用: ${path}（业务 ${row.business_id} 匹配行 ${row.event_type}；path 须全平台唯一）`,
+        );
+      }
+    }
   }
 }
 

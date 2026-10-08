@@ -721,6 +721,28 @@ describe("remove", () => {
   });
 });
 
+describe("clearCache", () => {
+  it("清空 cacheRoot 下全部内容（登记行不动；再次取用触发重新物化）", () => {
+    const repo = makeRepo(PKG_FILES);
+    const meta = registry.register(pkgInput(repo.dir));
+    registry.materialize(meta.asset_id);
+    expect(existsSync(join(cacheRoot, meta.asset_id))).toBe(true);
+
+    registry.clearCache();
+    expect(existsSync(join(cacheRoot, meta.asset_id))).toBe(false);
+    // 登记行保留，list 不受影响
+    expect(registry.list({})).toHaveLength(1);
+    // 缓存缺失 → 重新物化（懒重建）
+    registry.materialize(meta.asset_id);
+    expect(existsSync(join(cacheRoot, meta.asset_id))).toBe(true);
+  });
+
+  it("cacheRoot 不存在时幂等不报错", () => {
+    expect(existsSync(cacheRoot)).toBe(false);
+    expect(() => registry.clearCache()).not.toThrow();
+  });
+});
+
 describe("持久化", () => {
   it("register 后 close 数据库重开 → 新实例 list/get 结果一致", () => {
     const dbPath = join(tmpDir, "persist.db");

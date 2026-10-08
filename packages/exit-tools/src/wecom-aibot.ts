@@ -77,6 +77,26 @@ export function createWecomAibotExitTool(options?: {
     name: "企业微信智能机器人",
     implemented: true,
     configSchema,
+    resultDoc: `# 企业微信智能机器人：sdk.return 期望形状
+
+业务返回以下两种形状之一，平台以企微 markdown 消息经智能机器人长连接投递到配置的会话：
+
+- **字符串**：原样作为 markdown 消息正文
+- **其他 JSON 值**：转为 json 围栏文本作为正文
+
+正文超过 20480 字节会被截断（追加 \`…(已截断)\`）。
+会话（\`chat_id\`）与触发用户（\`user_id\`）在出口配置中指定，不来自返回值。
+
+## 示例
+
+\`\`\`json
+"工单 PRJ-123 审查完成：通过"
+\`\`\`
+
+\`\`\`json
+{ "verdict": "pass", "score": 92 }
+\`\`\`
+`,
     destinationOf(config) {
       return [
         requireSegment(config, "bot_id"),

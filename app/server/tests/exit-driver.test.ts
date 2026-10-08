@@ -35,6 +35,7 @@ function makeFakeRegistry(schema?: ConfigField[]): FakeRegistry {
       { key: "host", label: "主机", required: true },
       { key: "pass", label: "口令", required: true, secret: true },
     ],
+    resultDoc: "# 假工具：sdk.return 期望形状（测试 fixture）",
     destinationOf(config) {
       destinationOfCalls.push(config);
       return `dest:${config.host ?? "?"}`;

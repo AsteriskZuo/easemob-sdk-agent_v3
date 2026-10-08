@@ -330,6 +330,31 @@ const LEGAL_FORMS =
   "{ op: 'issue', title, body? } | { op: 'comment', number, body } | " +
   "{ op: 'pr', title, body?, head?, base? } | { op: 'clone', path, ref? }";
 
+/** 结果形状文档（与 deliver 的分支校验一致；改 deliver 时同步改这里与 LEGAL_FORMS） */
+const RESULT_DOC = `# GitHub 操作：sdk.return 期望形状
+
+业务返回一个带 \`op\` 字段的对象，四种操作：
+
+| op | 字段 | 语义 |
+| --- | --- | --- |
+| \`issue\` | \`title\`（必填）、\`body\` | 建 issue；返回新 issue number |
+| \`comment\` | \`number\`（正整数，必填）、\`body\`（必填） | 给 issue/PR 加评论（同端点） |
+| \`pr\` | \`title\`（必填）、\`body\`、\`head\`、\`base\` | 建 PR（head 分支须已推送）；返回 PR number |
+| \`clone\` | \`path\`（必填）、\`ref\` | 下载仓库 tarball 写入 path（绝对路径，通常在 run workspace 内） |
+
+\`body\` 字段：字符串原样；其他 JSON 值转 json 围栏文本。
+
+## 示例
+
+\`\`\`json
+{ "op": "comment", "number": 128, "body": "审查完成：通过" }
+\`\`\`
+
+\`\`\`json
+{ "op": "issue", "title": "自动审查发现的问题", "body": { "verdict": "fail", "reasons": ["缺少测试"] } }
+\`\`\`
+`;
+
 /** GitHub 出口工具（kind = 'github'，name = 'GitHub 操作'）。
  *  经 @actions/github（Octokit REST 客户端）操作仓库，无子进程；
  *  createClient 可注入（测试用假 client），缺省直接 new GithubClient */
@@ -342,6 +367,7 @@ export function createGithubExitTool(options?: {
     name: "GitHub 操作",
     implemented: true,
     configSchema,
+    resultDoc: RESULT_DOC,
     destinationOf(config) {
       const parsed = parseRepo(config.repo ?? "");
       // destination_id 契约：host/owner/repo 的 ':'/'/' → '_'

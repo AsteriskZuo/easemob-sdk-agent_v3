@@ -11,6 +11,7 @@ import type {
 import type { EnvProvider } from "@asterisk/agent-runtime";
 import type { User } from "./accounts.js";
 import { validateBusinessWrite } from "./binding-validation.js";
+import { assertWebhookPathUnique } from "./binding-validation.js";
 import { ApiError } from "./errors.js";
 import type {
   BusinessDetail,
@@ -233,6 +234,15 @@ export function businessRoutes(deps: {
         if (maxAgentCalls !== undefined) input.max_agent_calls = maxAgentCalls;
         const exitBindings = parseExitBindings(body.exit_bindings);
         if (exitBindings !== undefined) input.exit_bindings = exitBindings;
+        // 首个匹配行的入口配置提前解析（webhook 查重与落库复用同一解析结果）
+        const entryConfig =
+          body.entry_config === undefined
+            ? undefined
+            : requirePlainObject(body.entry_config, "entry_config");
+        // webhook 行端点 path 全平台唯一（候选行未落库，与全量既有行比对；冲突 → 400）
+        if (source === "webhook") {
+          assertWebhookPathUnique(registry, entryConfig);
+        }
 
         // 配置期校验：带了任一绑定字段 → 校验生效绑定集合（顺带物化 fail-fast）；
         // model/agent_kind 出现且非空 → 校验 ∈ 可选集合（与绑定无关）
@@ -257,11 +267,7 @@ export function businessRoutes(deps: {
         const businessId = registry.create(input);
         // 首个匹配行的入口配置：CreateBusinessInput 不含 entry_config（既有契约不改动），
         // 先建后删补 addMatch 落定（同一事务外两步，失败面仅留下无入口配置的匹配行）
-        if (body.entry_config !== undefined) {
-          const entryConfig = requirePlainObject(
-            body.entry_config,
-            "entry_config",
-          );
+        if (entryConfig !== undefined) {
           registry.removeMatch(businessId, source, eventType);
           registry.addMatch(businessId, source, eventType, entryConfig);
         }
@@ -424,6 +430,10 @@ export function businessRoutes(deps: {
           body.entry_config === undefined
             ? undefined
             : requirePlainObject(body.entry_config, "entry_config");
+        // webhook 行端点 path 全平台唯一（含与本业务既有行比对；冲突 → 400）
+        if (source === "webhook") {
+          assertWebhookPathUnique(registry, entryConfig);
+        }
         registry.addMatch(businessId, source, eventType, entryConfig);
         log.info("API 新增匹配行", {
           operator_id: actor.user_id,

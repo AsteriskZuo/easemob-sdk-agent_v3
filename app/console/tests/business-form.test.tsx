@@ -19,8 +19,44 @@ const EXIT_TOOLS: ExitToolMenuItem[] = [
       { key: "url", label: "Webhook 地址", required: true },
       { key: "token", label: "令牌", required: true, secret: true },
     ],
+    resultDoc:
+      "# 企业微信群机器人：sdk.return 期望形状\n\n字符串或 { content, mentions? }",
   },
-  { kind: "mail", name: "邮件", implemented: false, configSchema: [] },
+  {
+    kind: "mail",
+    name: "邮件",
+    implemented: false,
+    configSchema: [],
+    resultDoc: "# 邮件：待定",
+  },
+];
+
+/** 入口适配器 mock（/api/config 的 entry_adapters）：webhook 启用 + jira-polling 关闭 */
+const ENTRY_ADAPTERS = [
+  {
+    id: "webhook",
+    kind: "webhook",
+    name: "自定义 Webhook",
+    defaultEnabled: true,
+    enabled: true,
+    configSchema: [
+      { key: "path", label: "URL 路径段", required: true },
+      { key: "session_id_key", label: "session_id 字段路径", required: true },
+      { key: "token_key", label: "验签 token 的 secrets 键名" },
+    ],
+    eventDoc: "# 自定义 Webhook 入口\n\nPOST /hooks/{path}",
+  },
+  {
+    id: "jira-polling",
+    kind: "jira",
+    name: "Jira 定时轮询",
+    defaultEnabled: false,
+    enabled: false,
+    configSchema: [
+      { key: "jira_url", label: "Jira 站点根地址", required: true },
+    ],
+    eventDoc: "# Jira 定时轮询入口",
+  },
 ];
 
 const PACKAGE_META = {
@@ -87,6 +123,7 @@ function installBusinessMocks(overrides?: { emptyPackages?: boolean }) {
         body: {
           models: ["qwen/qwen3.8-max", "moonshot/k2"],
           agents: ["pi"],
+          entry_adapters: ENTRY_ADAPTERS,
         },
       };
     }

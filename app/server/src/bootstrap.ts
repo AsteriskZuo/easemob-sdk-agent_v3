@@ -231,6 +231,13 @@ export async function bootstrap(overrides?: {
       models,
       // MVP 恒 ['pi']；新内核 = 代码新增 + 此处登记
       agents: ["pi"],
+      // 入口适配器自描述 + 当前开关状态（§8.1.1；console 入口区据此渲染 eventDoc 与 entry_config 表单）
+      entry_adapters: ENTRY_ADAPTERS.map((factory, index) => ({
+        ...factory.spec,
+        enabled:
+          (switchStates[index] as { enabled: boolean } | undefined)?.enabled ??
+          factory.spec.defaultEnabled,
+      })),
     };
     consoleApi = createConsoleApi(
       {

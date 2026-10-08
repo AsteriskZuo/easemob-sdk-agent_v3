@@ -208,6 +208,29 @@ export interface ExitToolMenuItem {
   implemented: boolean;
   /** 配置项声明 */
   configSchema: ConfigField[];
+  /** markdown：业务侧 sdk.return 该返回什么形状 + 示例 JSON（出口区「看了就懂」的对接依据） */
+  resultDoc: string;
+}
+
+/** GET /api/config 的 entry_adapters 项：入口适配器自描述 + 当前开关状态。
+ *  形状与 entry-adapters 包的 EntryAdapterSpec 对齐（+ enabled），
+ *  装配层（server bootstrap）负责从 ENTRY_ADAPTERS 与开关状态映射——
+ *  console-api 不依赖 entry-adapters 包（避免管理 API → 入口实现的依赖方向） */
+export interface EntryAdapterView {
+  /** 适配器唯一标识（如 'webhook' | 'jira-polling'），开关键 = AGENT_ENTRY_{id 大写、'-' 转 '_'}_ENABLED */
+  id: string;
+  /** 适配器产出事件的 source（'webhook' | 'jira' | ...）；多个适配器可共享同一 source */
+  kind: EventSource;
+  /** 展示名（如「自定义 Webhook」「Jira 定时轮询」） */
+  name: string;
+  /** 缺省开关（部署配置可覆盖） */
+  defaultEnabled: boolean;
+  /** 当前生效开关状态（装配层解析部署配置后的结果；false = 该适配器未启动） */
+  enabled: boolean;
+  /** entry_config 字段声明（console 据此渲染表单；secret 引用性质的字段填 secrets 键名） */
+  configSchema: ConfigField[];
+  /** markdown：事件类型清单 + payload 形状 + 示例 JSON（业务开发者对接依据） */
+  eventDoc: string;
 }
 
 /** 单队列状态计数 */
@@ -267,4 +290,6 @@ export interface EffectiveConfigView {
   models: string[];
   /** 可选 agent 内核列表（MVP 恒 ['pi']） */
   agents: string[];
+  /** 入口适配器清单（自描述 + 当前开关状态）：console 入口区据此渲染 eventDoc 与 entry_config 表单 */
+  entry_adapters: EntryAdapterView[];
 }

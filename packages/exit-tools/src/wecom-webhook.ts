@@ -83,6 +83,27 @@ export function createWecomWebhookExitTool(): ExitTool {
     name: "企业微信群机器人",
     implemented: true,
     configSchema,
+    resultDoc: `# 企业微信群机器人：sdk.return 期望形状
+
+业务返回以下两种形状之一，平台以企微 markdown 消息投递到群机器人：
+
+- **字符串**：原样作为 markdown 消息正文
+- **对象**：\`{ content: string | object, mentions?: string[] }\`
+  - \`content\`：消息正文（字符串原样；对象转 json 围栏文本）
+  - \`mentions\`：可选，要 @ 的企微 userid 列表（拼为 \`<@userid>\` 追加在正文末尾）
+
+正文超过 4000 字节会被截断（追加 \`…(已截断)\`）。
+
+## 示例
+
+\`\`\`json
+{ "content": "工单 PRJ-123 审查完成：通过", "mentions": ["zhangsan"] }
+\`\`\`
+
+\`\`\`json
+{ "content": { "verdict": "pass", "score": 92 } }
+\`\`\`
+`,
     destinationOf(config) {
       return parseKey(requireUrl(config));
     },

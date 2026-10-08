@@ -84,7 +84,11 @@ export function createConsoleApi(
     }),
     ...assetRoutes({ assets: deps.assets, env: deps.env }),
     ...envRoutes({ env: deps.env, registry: deps.registry }),
-    ...configRoutes({ config: deps.config, exits: deps.exits }),
+    ...configRoutes({
+      config: deps.config,
+      exits: deps.exits,
+      assets: deps.assets,
+    }),
     ...monitoringRoutes({
       entryQueue: deps.entryQueue,
       exitQueue: deps.exitQueue,

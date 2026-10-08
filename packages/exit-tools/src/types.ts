@@ -14,6 +14,10 @@ export interface ExitTool {
   readonly name: string; // 展示名（如「企业微信群机器人」），控制台按它选用
   readonly implemented: boolean; // false = 占位（菜单可见但不可实际投递；控制台据此置灰/标记）
   readonly configSchema: ConfigField[]; // 配置项声明，控制台据此渲染表单；占位工具为空数组（待定）
+  /** markdown：业务侧 sdk.return 该返回什么形状 + 示例 JSON（控制台出口区「看了就懂」的对接依据；
+   *  内容须与本工具 deliver 的实际消费逻辑一致）。通用约定：sdk.return(null) = 无产出不投递，
+   *  各工具文档不再重复此条 */
+  readonly resultDoc: string;
 
   /** 投递目标标识：从非机密配置提取——出口 channel_id 的第二维。
    *  必须文件路径安全；配置缺失/非法抛错（该绑定将被调度循环判失败）。

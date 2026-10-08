@@ -120,12 +120,27 @@ describe("bootstrap 装配管理 API", () => {
     const configView = (await configRes.json()) as {
       models: string[];
       agents: string[];
+      entry_adapters: Array<{
+        id: string;
+        enabled: boolean;
+        eventDoc: string;
+        configSchema: unknown[];
+      }>;
     };
     expect(configView.models).toEqual([
       "test-provider/model-a",
       "test-provider/model-b",
     ]);
     expect(configView.agents).toEqual(["pi"]);
+    // 入口适配器自描述 + 开关状态（默认：webhook 开、jira-polling 关）
+    const webhook = configView.entry_adapters.find((a) => a.id === "webhook");
+    expect(webhook?.enabled).toBe(true);
+    expect(webhook?.eventDoc.length).toBeGreaterThan(0);
+    expect(webhook?.configSchema.length).toBeGreaterThan(0);
+    const jiraPolling = configView.entry_adapters.find(
+      (a) => a.id === "jira-polling",
+    );
+    expect(jiraPolling?.enabled).toBe(false);
 
     // stop 后连接被拒绝
     await handle.stop();
@@ -159,6 +174,36 @@ describe("bootstrap 装配管理 API", () => {
     // /api 前缀永远优先于静态分支
     const me = await fetch(`http://127.0.0.1:${port}/api/auth/me`);
     expect(me.status).toBe(401);
+  });
+
+  it("AGENT_ENTRY_JIRA_POLLING_ENABLED=true → /api/config 里该适配器 enabled 为 true", async () => {
+    const port = await freePort();
+    handle = await bootstrap({
+      env: testEnv({
+        AGENT_CONSOLE_PORT: String(port),
+        AGENT_ADMIN_USERNAME: "root",
+        AGENT_ADMIN_PASSWORD: "root-pass",
+        AGENT_ENTRY_JIRA_POLLING_ENABLED: "true",
+      }),
+    });
+    const login = await fetch(`http://127.0.0.1:${port}/api/auth/login`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "root", password: "root-pass" }),
+    });
+    const setCookie = login.headers.get("set-cookie") ?? "";
+    const token = /agent_console_token=([0-9a-f]+)/.exec(setCookie)?.[1];
+
+    const configRes = await fetch(`http://127.0.0.1:${port}/api/config`, {
+      headers: { cookie: `agent_console_token=${token}` },
+    });
+    expect(configRes.status).toBe(200);
+    const configView = (await configRes.json()) as {
+      entry_adapters: Array<{ id: string; enabled: boolean }>;
+    };
+    expect(
+      configView.entry_adapters.find((a) => a.id === "jira-polling")?.enabled,
+    ).toBe(true);
   });
 
   it("未注入首启 admin（'missing'）不阻断启动；登录 401", async () => {

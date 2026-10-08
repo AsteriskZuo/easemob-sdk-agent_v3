@@ -29,4 +29,14 @@ describe("createExitRegistry", () => {
   it("get 未知 kind 抛错", () => {
     expect(() => registry.get("nope")).toThrow("未注册的出口工具");
   });
+
+  it("每个工具都带 resultDoc（markdown，非空；含示例）", () => {
+    for (const tool of registry.list()) {
+      expect(typeof tool.resultDoc).toBe("string");
+      expect(tool.resultDoc.length).toBeGreaterThan(0);
+      // 文档须含「sdk.return 期望形状」语义与至少一个 JSON 示例围栏
+      expect(tool.resultDoc).toContain("sdk.return");
+      expect(tool.resultDoc).toContain("```json");
+    }
+  });
 });

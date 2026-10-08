@@ -19,8 +19,10 @@ import type {
   AssetManifest,
   AssetMeta,
   BusinessDetail,
+  BusinessProfile,
   CreateBusinessBody,
   EffectiveConfigView,
+  EntryAdapterView,
   EnvListView,
   ExitToolMenuItem,
   MatchBody,
@@ -93,6 +95,10 @@ export default function BusinessEditPage() {
   // 可选集合由 server 解析 models.json 经 /api/config 提供——平台与 console 均不内置模型名
   const [models, setModels] = useState<string[]>([]);
   const [agents, setAgents] = useState<string[]>([]);
+  // 入口适配器自描述（/api/config 的 entry_adapters）：MatchEditor 事件文档与 entry_config 表单数据源
+  const [entryAdapters, setEntryAdapters] = useState<EntryAdapterView[]>([]);
+  // 现有业务列表：source=internal 的「上游业务」下拉数据源
+  const [businesses, setBusinesses] = useState<BusinessProfile[]>([]);
   // 编辑态失效侦测：profile 原值不在可选集合（models.json 后来改了）时保留显示并标黄
   const watchedModel = Form.useWatch("model", form);
   const watchedAgentKind = Form.useWatch("agent_kind", form);
@@ -141,6 +147,7 @@ export default function BusinessEditPage() {
       .then((config) => {
         setModels(config.models);
         setAgents(config.agents);
+        setEntryAdapters(config.entry_adapters);
         // 创建模式 agent 默认选中第一个可选项（模型无部署无关的合理默认，必须用户显式选）
         if (!isEdit && config.agents.length > 0) {
           if (form.getFieldValue("agent_kind") === undefined) {
@@ -149,6 +156,10 @@ export default function BusinessEditPage() {
         }
       })
       .catch((err: unknown) => reportError(err, "加载可选模型列表失败"));
+    // 现有业务列表：internal 入口引导的「上游业务」下拉
+    apiFetch<BusinessProfile[]>("/api/businesses")
+      .then(setBusinesses)
+      .catch((err: unknown) => reportError(err, "加载业务列表失败"));
   }, [reportError, isEdit, form]);
 
   // 编辑态：回填详情 + 安全桶键名
@@ -592,7 +603,12 @@ export default function BusinessEditPage() {
           }
           style={{ marginBottom: 16 }}
         >
-          <MatchEditor value={matches} onChange={setMatches} />
+          <MatchEditor
+            value={matches}
+            onChange={setMatches}
+            entryAdapters={entryAdapters}
+            businesses={businesses}
+          />
         </Card>
 
         <Card
@@ -698,6 +714,30 @@ export default function BusinessEditPage() {
                         </div>
                       );
                     })}
+                    {/* 该出口期望 sdk.return 返回的形状（markdown 原文展示，不引渲染器依赖） */}
+                    {tool.resultDoc != null && tool.resultDoc !== "" && (
+                      <div>
+                        <div style={{ color: "#666", marginBottom: 4 }}>
+                          该出口期望 sdk.return 返回的形状：
+                        </div>
+                        <pre
+                          style={{
+                            margin: 0,
+                            padding: 12,
+                            background: "#fafafa",
+                            border: "1px solid #f0f0f0",
+                            borderRadius: 6,
+                            whiteSpace: "pre-wrap",
+                            wordBreak: "break-word",
+                            fontSize: 12,
+                            maxHeight: 320,
+                            overflow: "auto",
+                          }}
+                        >
+                          {tool.resultDoc}
+                        </pre>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

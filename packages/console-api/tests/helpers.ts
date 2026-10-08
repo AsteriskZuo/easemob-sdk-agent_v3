@@ -41,6 +41,31 @@ export const TEST_CONFIG_VIEW: EffectiveConfigView = {
   pi_agent_dir: "/fake/agent-dir",
   models: ["test/model-a", "test/model-b"],
   agents: ["pi"],
+  entry_adapters: [
+    {
+      id: "webhook",
+      kind: "webhook",
+      name: "自定义 Webhook",
+      defaultEnabled: true,
+      enabled: true,
+      configSchema: [
+        { key: "path", label: "URL 路径段", required: true },
+        { key: "session_id_key", label: "session_id 字段路径", required: true },
+      ],
+      eventDoc: "# 自定义 Webhook 入口\n\nPOST /hooks/{path}",
+    },
+    {
+      id: "jira-polling",
+      kind: "jira",
+      name: "Jira 定时轮询",
+      defaultEnabled: false,
+      enabled: false,
+      configSchema: [
+        { key: "jira_url", label: "Jira 站点根地址", required: true },
+      ],
+      eventDoc: "# Jira 定时轮询入口",
+    },
+  ],
 };
 
 // logger 全局外观每进程只能 init 一次：测试文件内多个 startTestServer 共用同一个

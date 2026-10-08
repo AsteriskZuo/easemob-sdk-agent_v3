@@ -36,6 +36,19 @@ export function createWebhookExitTool(): ExitTool {
     name: "自定义 Webhook",
     implemented: true,
     configSchema,
+    resultDoc: `# 自定义 Webhook 出口：sdk.return 期望形状
+
+业务返回**任意 JSON 值**，平台原样作为请求体 POST 到配置的目标地址
+（\`Content-Type: application/json\`；配置了 Bearer 令牌时带 \`Authorization\` 头）。
+
+对端接收的 body = sdk.return 的 output 原样序列化，形状完全由业务自定义。
+
+## 示例
+
+\`\`\`json
+{ "verdict": "pass", "issue": "PRJ-123", "detail": { "score": 92 } }
+\`\`\`
+`,
     destinationOf(config) {
       return normalizeUrl(requireUrl(config));
     },

@@ -45,6 +45,25 @@ export function createMailExitTool(
     name: "邮件通知",
     implemented: true,
     configSchema,
+    resultDoc: `# 邮件通知：sdk.return 期望形状
+
+业务返回以下两种形状之一，作为邮件正文（纯文本）投递：
+
+- **字符串**：原样作为正文
+- **其他 JSON 值**：转为 json 围栏文本作为正文
+
+主题取配置项 \`subject\`（缺省「Easemob Agent 通知」），收件人取配置项 \`to\`。
+
+## 示例
+
+\`\`\`json
+"工单 PRJ-123 审查完成：通过"
+\`\`\`
+
+\`\`\`json
+{ "verdict": "pass", "score": 92 }
+\`\`\`
+`,
     destinationOf(config) {
       const to = config.to?.trim();
       if (!to) throw new Error(`出口工具 '${KIND}' 缺少必需配置项 'to'`);
