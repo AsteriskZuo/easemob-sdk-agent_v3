@@ -64,7 +64,7 @@
 | T18 | webhook 入口适配器 | EntryAdapter 首个实现：验签 + 会话标识 + 幂等约定（entry_config schema 随本任务定）——**并入 T21** | T12 | 并入 T21 spec | [ ] |
 | T19 | 组合机制回炉（真机验证驱动） | T19a 平台侧：信封 programs 映射 + sdk.run 按名查表 + ContextLoader 全量映射 + registry 去模型硬编码 + console-api 绑定配置期校验 + server models.json 解析；T19b console 业务编辑页重做 | T14 | [spec](../specs/2026-10-07-t19-composition-rework-spec.md) | T19a [x] T19b [x] |
 | T20 | 包名改名 + sdk 发布准备 | `@easemob/agent-*` → `@asterisk/agent-*` 全量替换；sdk 具备 npm 发布条件 | 无 | [decision](../decisions/2026-10-08-package-scope-rename.md)（机械改动无 spec） | [x] |
-| T21 | 平台侧可落地批次 | 物化构建链路（npm ci + 转译 + agent.materialize.mjs 钩子）+ jira-polling/webhook 入口适配器（含开关）+ 信封 dataDir + 出口 null 跳过 + 出入口 schema 自描述 + 内部入口（上游业务）建模 + sdk 文档 + 控制台缓存清理 | T12 T16 T20 | 执行前编写（吸收 T18） | [ ] |
+| T21 | 平台侧可落地批次 | 物化构建链路（npm ci + agent.materialize.mjs 必带）+ jira-polling/webhook 入口适配器（含开关）+ 信封 dataDir + 出口 null 跳过 + 出入口 schema 自描述 + 内部入口（上游业务）建模 + sdk 文档 + 控制台缓存清理 | T12 T16 T20 | [spec](../specs/2026-10-08-t21-platform-landability-spec.md)（吸收 T18） | T21a-d [x] |
 | T22 | 首个业务迁移验证 | business/jira-ticket-review 独立仓库：包/工具/skill 三资产 + codex→pi + 真机验证（polling 入口 + 企微出口） | T21 | 执行前编写 | [ ] |
 
 ## 4. 执行批次（并发 ≤2）
