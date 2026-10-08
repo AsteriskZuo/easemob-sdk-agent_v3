@@ -14,7 +14,7 @@ import type { StdinEnvelope, StdoutResult } from "./contract.js";
 
 /** run 请求：装配根（T12）把 BusinessContext 拍平成它 */
 export interface RunRequest {
-  program: string; // 流程程序入口 JS 的绝对路径（上传时已转译）
+  program: string; // 流程程序入口 JS 的绝对路径（物化构建产物，由装配根经 ContextLoader 产出）
   programs: Record<string, string>; // 程序名→物化绝对路径映射（装配根经 ContextLoader 产出）
   event: EventEnvelope; // 触发信封（取 source/session_id 用于目录与日志键）
   business_id: string;
