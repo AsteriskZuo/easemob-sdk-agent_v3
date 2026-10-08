@@ -1,14 +1,14 @@
-import type { EventSource } from "@easemob/agent-contracts";
-import type { AssetRegistry } from "@easemob/agent-asset-registry";
-import { logger } from "@easemob/agent-logger";
+import type { EventSource } from "@asterisk/agent-contracts";
+import type { AssetRegistry } from "@asterisk/agent-asset-registry";
+import { logger } from "@asterisk/agent-logger";
 import type {
   BusinessPatch,
   BusinessProfile,
   BusinessRegistry,
   CreateBusinessInput,
   ExitBinding,
-} from "@easemob/agent-registry";
-import type { EnvProvider } from "@easemob/agent-runtime";
+} from "@asterisk/agent-registry";
+import type { EnvProvider } from "@asterisk/agent-runtime";
 import type { User } from "./accounts.js";
 import { validateBusinessWrite } from "./binding-validation.js";
 import { ApiError } from "./errors.js";
@@ -30,7 +30,7 @@ import {
 } from "./http.js";
 import type { Route } from "./router.js";
 
-// 与 @easemob/agent-contracts 的 EventSource 联合类型保持同步（contracts 未导出运行时列表）
+// 与 @asterisk/agent-contracts 的 EventSource 联合类型保持同步（contracts 未导出运行时列表）
 const EVENT_SOURCES: readonly EventSource[] = [
   "wecom",
   "jira",

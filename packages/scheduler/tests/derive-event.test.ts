@@ -1,6 +1,6 @@
-import type { EventEnvelope } from "@easemob/agent-contracts";
-import { newEventId, newUlid } from "@easemob/agent-contracts";
-import type { BusinessMatch } from "@easemob/agent-registry";
+import type { EventEnvelope } from "@asterisk/agent-contracts";
+import { newEventId, newUlid } from "@asterisk/agent-contracts";
+import type { BusinessMatch } from "@asterisk/agent-registry";
 import { deriveEvent } from "../src/index.js";
 import type { ExecutionResult } from "../src/index.js";
 

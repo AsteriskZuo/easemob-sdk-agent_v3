@@ -1,7 +1,7 @@
-import { migrate } from "@easemob/agent-database";
-import type { Database } from "@easemob/agent-database";
-import { newUlid } from "@easemob/agent-contracts";
-import type { EventSource } from "@easemob/agent-contracts";
+import { migrate } from "@asterisk/agent-database";
+import type { Database } from "@asterisk/agent-database";
+import { newUlid } from "@asterisk/agent-contracts";
+import type { EventSource } from "@asterisk/agent-contracts";
 
 /** 匹配视图：注册表执行视图的一行。无 order/depends_on 字段——链内并行，
  *  顺序靠事件订阅表达 */

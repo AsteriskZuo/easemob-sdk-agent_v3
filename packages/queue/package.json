@@ -1,5 +1,5 @@
 {
-  "name": "@easemob/agent-queue",
+  "name": "@asterisk/agent-queue",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,8 +12,8 @@
     }
   },
   "dependencies": {
-    "@easemob/agent-contracts": "0.1.0",
-    "@easemob/agent-database": "0.1.0"
+    "@asterisk/agent-contracts": "0.1.0",
+    "@asterisk/agent-database": "0.1.0"
   },
   "devDependencies": {
     "esbuild": "^0.28.1",

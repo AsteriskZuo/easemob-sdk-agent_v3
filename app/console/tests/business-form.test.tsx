@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import type userEvent from "@testing-library/user-event";
-import type { ExitToolMenuItem } from "@easemob/agent-console-api";
+import type { ExitToolMenuItem } from "@asterisk/agent-console-api";
 import {
   MEMBER_USER,
   installFetchMock,

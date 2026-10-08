@@ -1,8 +1,8 @@
-import { buildBusinessChannelId } from "@easemob/agent-contracts";
-import type { Channel, ChannelPool } from "@easemob/agent-channel";
-import type { Task, TaskQueue } from "@easemob/agent-queue";
-import type { BusinessMatch, BusinessRegistry } from "@easemob/agent-registry";
-import { logger } from "@easemob/agent-logger";
+import { buildBusinessChannelId } from "@asterisk/agent-contracts";
+import type { Channel, ChannelPool } from "@asterisk/agent-channel";
+import type { Task, TaskQueue } from "@asterisk/agent-queue";
+import type { BusinessMatch, BusinessRegistry } from "@asterisk/agent-registry";
+import { logger } from "@asterisk/agent-logger";
 import { createSemaphore } from "./semaphore.js";
 import type { Semaphore } from "./semaphore.js";
 import { deriveEvent } from "./derive-event.js";

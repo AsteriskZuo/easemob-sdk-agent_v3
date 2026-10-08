@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { App as AntdApp, Card, Descriptions, Tooltip } from "antd";
 import { QuestionCircleOutlined } from "@ant-design/icons";
-import type { EffectiveConfigView } from "@easemob/agent-console-api";
+import type { EffectiveConfigView } from "@asterisk/agent-console-api";
 import { apiFetch, ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import EnvEditor from "../components/EnvEditor";

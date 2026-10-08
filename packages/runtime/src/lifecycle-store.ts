@@ -1,4 +1,4 @@
-import type { Database } from "@easemob/agent-database";
+import type { Database } from "@asterisk/agent-database";
 import { migrateRuntimeSchema } from "./env-provider.js";
 
 /** 生命周期业务标记状态（created 是瞬时态：插入即 running，不落中间行） */

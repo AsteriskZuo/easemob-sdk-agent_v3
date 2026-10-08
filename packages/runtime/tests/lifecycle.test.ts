@@ -2,27 +2,27 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { openDatabase } from "@easemob/agent-database";
-import type { Database } from "@easemob/agent-database";
-import { initLogger, resetForTests } from "@easemob/agent-logger";
-import type { EventEnvelope } from "@easemob/agent-contracts";
-import type { EntryDriver } from "@easemob/agent-scheduler";
-import type { BusinessMatch } from "@easemob/agent-registry";
+import { openDatabase } from "@asterisk/agent-database";
+import type { Database } from "@asterisk/agent-database";
+import { initLogger, resetForTests } from "@asterisk/agent-logger";
+import type { EventEnvelope } from "@asterisk/agent-contracts";
+import type { EntryDriver } from "@asterisk/agent-scheduler";
+import type { BusinessMatch } from "@asterisk/agent-registry";
 import type {
   AgentServeContext,
   AgentService,
   RunningAgentService,
-} from "@easemob/agent-service";
+} from "@asterisk/agent-service";
 import type {
   RunOutcome,
   RunRequest,
   WorkflowRunner,
-} from "@easemob/agent-workflow-runner";
-import { createWorkflowRunner } from "@easemob/agent-workflow-runner";
+} from "@asterisk/agent-workflow-runner";
+import { createWorkflowRunner } from "@asterisk/agent-workflow-runner";
 import { createLifecycle, createLifecycleStore } from "../src/index.js";
 import type { ContextLoader, RunContext } from "../src/index.js";
 
-// EntryDriver.execute 的第一参类型（Task 归 @easemob/agent-queue，本包不直接依赖，结构取自契约）
+// EntryDriver.execute 的第一参类型（Task 归 @asterisk/agent-queue，本包不直接依赖，结构取自契约）
 type Task = Parameters<EntryDriver["execute"]>[0];
 
 let tmpDir: string;

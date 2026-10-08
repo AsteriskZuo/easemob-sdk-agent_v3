@@ -1,8 +1,8 @@
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { newUlid } from "@easemob/agent-contracts";
-import { migrate } from "@easemob/agent-database";
-import type { Database } from "@easemob/agent-database";
-import { logger } from "@easemob/agent-logger";
+import { newUlid } from "@asterisk/agent-contracts";
+import { migrate } from "@asterisk/agent-database";
+import type { Database } from "@asterisk/agent-database";
+import { logger } from "@asterisk/agent-logger";
 import { ApiError } from "./errors.js";
 
 /** 账号角色：admin = 平台管理；member = 业务/资产操作者 */

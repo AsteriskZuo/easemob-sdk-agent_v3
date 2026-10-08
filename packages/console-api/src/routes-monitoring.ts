@@ -1,5 +1,5 @@
-import type { LifecycleStore } from "@easemob/agent-runtime";
-import type { TaskQueue, TaskStatus } from "@easemob/agent-queue";
+import type { LifecycleStore } from "@asterisk/agent-runtime";
+import type { TaskQueue, TaskStatus } from "@asterisk/agent-queue";
 import { ApiError } from "./errors.js";
 import type { QueueCounts, QueuesStatus } from "./dto.js";
 import { sendJson } from "./http.js";

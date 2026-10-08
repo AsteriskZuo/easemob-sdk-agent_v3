@@ -9,7 +9,7 @@ cd "$TMP"
 node -e '
   const fs = require("fs");
   const p = JSON.parse(fs.readFileSync("package.json", "utf8"));
-  p.dependencies["@easemob/agent-sdk"] = "file:" + process.argv[1];
+  p.dependencies["@asterisk/agent-sdk"] = "file:" + process.argv[1];
   fs.writeFileSync("package.json", JSON.stringify(p, null, 2) + "\n");
 ' "$ROOT/packages/sdk"
 npm install --no-audit --no-fund

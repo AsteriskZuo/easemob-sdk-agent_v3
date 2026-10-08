@@ -2,26 +2,26 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { createAssetRegistry } from "@easemob/agent-asset-registry";
-import type { AssetRegistry } from "@easemob/agent-asset-registry";
-import type { EventEnvelope } from "@easemob/agent-contracts";
-import { openDatabase } from "@easemob/agent-database";
-import type { Database } from "@easemob/agent-database";
-import { createExitRegistry } from "@easemob/agent-exit-tools";
-import { initLogger, resetForTests } from "@easemob/agent-logger";
-import { createTaskQueue } from "@easemob/agent-queue";
-import type { TaskQueue } from "@easemob/agent-queue";
-import { createBusinessRegistry } from "@easemob/agent-registry";
-import type { BusinessRegistry } from "@easemob/agent-registry";
+import { createAssetRegistry } from "@asterisk/agent-asset-registry";
+import type { AssetRegistry } from "@asterisk/agent-asset-registry";
+import type { EventEnvelope } from "@asterisk/agent-contracts";
+import { openDatabase } from "@asterisk/agent-database";
+import type { Database } from "@asterisk/agent-database";
+import { createExitRegistry } from "@asterisk/agent-exit-tools";
+import { initLogger, resetForTests } from "@asterisk/agent-logger";
+import { createTaskQueue } from "@asterisk/agent-queue";
+import type { TaskQueue } from "@asterisk/agent-queue";
+import { createBusinessRegistry } from "@asterisk/agent-registry";
+import type { BusinessRegistry } from "@asterisk/agent-registry";
 import {
   createEnvProvider,
   createLifecycleStore,
-} from "@easemob/agent-runtime";
+} from "@asterisk/agent-runtime";
 import type {
   EnvProvider,
   LifecycleStore,
   LifecycleWriter,
-} from "@easemob/agent-runtime";
+} from "@asterisk/agent-runtime";
 import { createConsoleApi } from "../src/index.js";
 import type { ConsoleApi, EffectiveConfigView } from "../src/index.js";
 import { createAccountService } from "../src/accounts.js";

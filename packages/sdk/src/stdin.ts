@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 
 /** 平台 → 业务流程程序（或 sdk.run → 子程序）的 stdin 信封，两端契约递归同构。
- *  SDK 运行时零依赖，不 import @easemob/agent-contracts，此处为结构化本地类型 */
+ *  SDK 运行时零依赖，不 import @asterisk/agent-contracts，此处为结构化本地类型 */
 export interface StdinEnvelope {
   contract_version: "v1"; // 契约版本，恒为 "v1"
   input: unknown; // 平台→流程：入口事件信封（EventEnvelope 形状）；sdk.run→子程序：args.input 原样

@@ -1,7 +1,7 @@
-import type { Database } from "@easemob/agent-database";
-import { migrate } from "@easemob/agent-database";
-import type { EventEnvelope } from "@easemob/agent-contracts";
-import { newUlid, validateEnvelope } from "@easemob/agent-contracts";
+import type { Database } from "@asterisk/agent-database";
+import { migrate } from "@asterisk/agent-database";
+import type { EventEnvelope } from "@asterisk/agent-contracts";
+import { newUlid, validateEnvelope } from "@asterisk/agent-contracts";
 
 /** 任务消化状态：pending 待取 / processing 消化中 / done 完结 / dead 死信 */
 export type TaskStatus = "pending" | "processing" | "done" | "dead";

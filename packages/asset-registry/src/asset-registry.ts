@@ -6,8 +6,8 @@ import {
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
-import { migrate } from "@easemob/agent-database";
-import type { Database } from "@easemob/agent-database";
+import { migrate } from "@asterisk/agent-database";
+import type { Database } from "@asterisk/agent-database";
 import { computeAssetId } from "./asset-id.js";
 import { cloneAtCommit, resolveRef } from "./git.js";
 import { validateAsset } from "./validate.js";

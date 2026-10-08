@@ -1,6 +1,6 @@
 import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
-import type { CategoryLogger } from "@easemob/agent-logger";
+import type { CategoryLogger } from "@asterisk/agent-logger";
 import type { AgentServeContext, AgentServiceDeps } from "./index.js";
 import type { ServiceResponse } from "./socket-server.js";
 import { buildPiEnv, whitelistFlags } from "./pi-runner.js";

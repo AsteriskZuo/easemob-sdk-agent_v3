@@ -1,7 +1,7 @@
-import type { EventSource } from "@easemob/agent-contracts";
-import type { TaskQueue } from "@easemob/agent-queue";
-import type { BusinessRegistry } from "@easemob/agent-registry";
-import type { EnvProvider } from "@easemob/agent-runtime";
+import type { EventSource } from "@asterisk/agent-contracts";
+import type { TaskQueue } from "@asterisk/agent-queue";
+import type { BusinessRegistry } from "@asterisk/agent-registry";
+import type { EnvProvider } from "@asterisk/agent-runtime";
 
 /** 入口适配器契约：每个事件源一个实现（T18 webhook 起，后续 wecom/jira/github/cron/manual 各归其任务）。
  *  职责链：验签 → 包装信封（含 session_id）→ 落队，立即返回（落库才算收到，event_id 兼任入口幂等键）。

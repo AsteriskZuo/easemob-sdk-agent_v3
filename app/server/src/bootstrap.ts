@@ -1,31 +1,31 @@
 import { join } from "node:path";
-import { createAssetRegistry } from "@easemob/agent-asset-registry";
-import type { AssetRegistry } from "@easemob/agent-asset-registry";
-import { createChannelPool, createChannelStore } from "@easemob/agent-channel";
-import { createConsoleApi } from "@easemob/agent-console-api";
+import { createAssetRegistry } from "@asterisk/agent-asset-registry";
+import type { AssetRegistry } from "@asterisk/agent-asset-registry";
+import { createChannelPool, createChannelStore } from "@asterisk/agent-channel";
+import { createConsoleApi } from "@asterisk/agent-console-api";
 import type {
   ConsoleApi,
   EffectiveConfigView,
-} from "@easemob/agent-console-api";
-import { openDatabase } from "@easemob/agent-database";
-import type { Database } from "@easemob/agent-database";
-import { createExitRegistry } from "@easemob/agent-exit-tools";
-import { initLogger, logger } from "@easemob/agent-logger";
-import { createTaskQueue } from "@easemob/agent-queue";
-import type { TaskQueue } from "@easemob/agent-queue";
-import { createBusinessRegistry } from "@easemob/agent-registry";
-import type { BusinessRegistry } from "@easemob/agent-registry";
+} from "@asterisk/agent-console-api";
+import { openDatabase } from "@asterisk/agent-database";
+import type { Database } from "@asterisk/agent-database";
+import { createExitRegistry } from "@asterisk/agent-exit-tools";
+import { initLogger, logger } from "@asterisk/agent-logger";
+import { createTaskQueue } from "@asterisk/agent-queue";
+import type { TaskQueue } from "@asterisk/agent-queue";
+import { createBusinessRegistry } from "@asterisk/agent-registry";
+import type { BusinessRegistry } from "@asterisk/agent-registry";
 import {
   createContextLoader,
   createEnvProvider,
   createLifecycle,
   createLifecycleStore,
-} from "@easemob/agent-runtime";
-import type { EnvProvider } from "@easemob/agent-runtime";
-import { createEntryLoop, createExitLoop } from "@easemob/agent-scheduler";
-import type { PlatformConfig, SchedulerLoop } from "@easemob/agent-scheduler";
-import { createAgentService } from "@easemob/agent-service";
-import { createWorkflowRunner } from "@easemob/agent-workflow-runner";
+} from "@asterisk/agent-runtime";
+import type { EnvProvider } from "@asterisk/agent-runtime";
+import { createEntryLoop, createExitLoop } from "@asterisk/agent-scheduler";
+import type { PlatformConfig, SchedulerLoop } from "@asterisk/agent-scheduler";
+import { createAgentService } from "@asterisk/agent-service";
+import { createWorkflowRunner } from "@asterisk/agent-workflow-runner";
 import { resolveServerConfig } from "./config.js";
 import type { ServerConfig } from "./config.js";
 import type { EntryAdapter } from "./entry-adapter.js";

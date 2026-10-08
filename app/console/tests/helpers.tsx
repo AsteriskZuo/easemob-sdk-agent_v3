@@ -5,7 +5,7 @@ import userEvent, {
 import { App as AntdApp, ConfigProvider } from "antd";
 import zhCN from "antd/locale/zh_CN";
 import { MemoryRouter } from "react-router-dom";
-import type { User } from "@easemob/agent-console-api";
+import type { User } from "@asterisk/agent-console-api";
 import App from "../src/App";
 import { AuthProvider } from "../src/auth/AuthContext";
 

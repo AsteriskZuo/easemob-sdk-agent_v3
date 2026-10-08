@@ -9,12 +9,12 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { openDatabase } from "@easemob/agent-database";
-import type { Database } from "@easemob/agent-database";
-import { createBusinessRegistry } from "@easemob/agent-registry";
-import type { BusinessRegistry } from "@easemob/agent-registry";
-import { createAssetRegistry } from "@easemob/agent-asset-registry";
-import type { AssetRegistry } from "@easemob/agent-asset-registry";
+import { openDatabase } from "@asterisk/agent-database";
+import type { Database } from "@asterisk/agent-database";
+import { createBusinessRegistry } from "@asterisk/agent-registry";
+import type { BusinessRegistry } from "@asterisk/agent-registry";
+import { createAssetRegistry } from "@asterisk/agent-asset-registry";
+import type { AssetRegistry } from "@asterisk/agent-asset-registry";
 import { createContextLoader, createEnvProvider } from "../src/index.js";
 import type { ContextLoader, EnvProvider } from "../src/index.js";
 

@@ -1,13 +1,13 @@
-import { openDatabase } from "@easemob/agent-database";
-import type { Database } from "@easemob/agent-database";
+import { openDatabase } from "@asterisk/agent-database";
+import type { Database } from "@asterisk/agent-database";
 import type {
   ConfigField,
   ExitRegistry,
   ExitTool,
-} from "@easemob/agent-exit-tools";
-import type { ExitBinding } from "@easemob/agent-registry";
-import { createEnvProvider } from "@easemob/agent-runtime";
-import type { EnvProvider } from "@easemob/agent-runtime";
+} from "@asterisk/agent-exit-tools";
+import type { ExitBinding } from "@asterisk/agent-registry";
+import { createEnvProvider } from "@asterisk/agent-runtime";
+import type { EnvProvider } from "@asterisk/agent-runtime";
 import { createExitDriver, exitSecretKey } from "../src/index.js";
 
 const BUSINESS_ID = "b_test_exit";

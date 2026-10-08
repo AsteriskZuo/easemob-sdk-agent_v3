@@ -10,7 +10,7 @@ import {
 } from "antd";
 import { PlusOutlined, QuestionCircleOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
-import type { BusinessProfile } from "@easemob/agent-console-api";
+import type { BusinessProfile } from "@asterisk/agent-console-api";
 import { apiFetch, ApiError } from "../api/client";
 
 /** 业务列表（注册表视图）：名称/id/agent/model/包绑定状态/创建者；编辑、删除 */

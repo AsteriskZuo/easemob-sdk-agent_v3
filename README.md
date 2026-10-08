@@ -37,7 +37,7 @@ export AGENT_ADMIN_PASSWORD=your-initial-password
 server 单进程托管一切（API + 双循环 + 控制台静态文件）：
 
 ```bash
-AGENT_CONSOLE_STATIC_DIR=$(pwd)/app/console/dist yarn workspace @easemob/agent-server start
+AGENT_CONSOLE_STATIC_DIR=$(pwd)/app/console/dist yarn workspace @asterisk/agent-server start
 # 浏览器访问 http://localhost:6100
 ```
 
@@ -47,10 +47,10 @@ AGENT_CONSOLE_STATIC_DIR=$(pwd)/app/console/dist yarn workspace @easemob/agent-s
 
 ```bash
 # 终端 1：server（纯 API，不托管静态文件）
-yarn workspace @easemob/agent-server start
+yarn workspace @asterisk/agent-server start
 
 # 终端 2：console dev server（/api 自动代理到 localhost:6100）
-yarn workspace @easemob/agent-console dev
+yarn workspace @asterisk/agent-console dev
 ```
 
 ## 数据重置（调试手段）
@@ -108,7 +108,7 @@ rm -rf "$AGENT_WORKSPACE/data" "$AGENT_WORKSPACE/cache" "$AGENT_WORKSPACE/runs" 
 
 ## 开发一个业务
 
-1. 拷贝 `templates/agent-package/` 为独立 git 仓库，按其中 README 开发流程程序（`@easemob/agent-sdk`：`sdk.input` / `sdk.runInput` / `sdk.config` / `sdk.agent` / `sdk.run` / `sdk.log` / `sdk.return`）；
+1. 拷贝 `templates/agent-package/` 为独立 git 仓库，按其中 README 开发流程程序（`@asterisk/agent-sdk`：`sdk.input` / `sdk.runInput` / `sdk.config` / `sdk.agent` / `sdk.run` / `sdk.log` / `sdk.return`）；
 2. 把仓库推送到 git（github/gitee 均可），在控制台「资产管理」登记为**包**资产（可复用的子程序/skill 分别登记为**工具**/**skill** 资产，可共享）；
 3. 在控制台「业务管理」创建业务：绑定包与流程程序入口、配置入口（触发源）、出口（通知工具）、提示词总纲、key-value 两桶；
 4. 事件到达后平台自动调度执行，结果按出口绑定投递；控制台「监控仪表盘」查看任务与运行记录。
@@ -118,7 +118,7 @@ rm -rf "$AGENT_WORKSPACE/data" "$AGENT_WORKSPACE/cache" "$AGENT_WORKSPACE/runs" 
 ## 仓库结构
 
 ```text
-├── packages/           # 平台内部库（@easemob/agent-*，不对外发布）
+├── packages/           # 平台内部库（@asterisk/agent-*；仅 sdk 对外发布 npm）
 │   ├── contracts/      # 事件信封、channel_id、校验器（零依赖）
 │   ├── database/       # SQLite 薄封装，全平台唯一数据访问口
 │   ├── queue/          # 持久任务队列（入口/出口双实例）
@@ -132,7 +132,7 @@ rm -rf "$AGENT_WORKSPACE/data" "$AGENT_WORKSPACE/cache" "$AGENT_WORKSPACE/runs" 
 │   ├── exit-tools/     # 出口工具群（企微×2/邮件/webhook/jira/confluence/github）
 │   ├── agent-service/  # agent 调用服务（unix socket + spawn pi + 配额 + 审计）
 │   ├── workflow-runner/# 业务子进程运行时（spawn + socket 协议平台侧）
-│   ├── sdk/            # @easemob/agent-sdk（业务程序唯一 SDK）
+│   ├── sdk/            # @asterisk/agent-sdk（业务程序唯一 SDK）
 │   └── console-api/    # 管理 API（HTTP + 账号体系 + 全部管理路由）
 ├── app/
 │   ├── server/         # 平台装配根 + 进程入口

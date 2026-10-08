@@ -1,12 +1,12 @@
 import { join } from "node:path";
-import { resolveResource } from "@easemob/agent-asset-registry";
+import { resolveResource } from "@asterisk/agent-asset-registry";
 import type {
   AssetManifest,
   AssetRegistry,
   ResolvedAsset,
-} from "@easemob/agent-asset-registry";
-import type { BusinessRegistry } from "@easemob/agent-registry";
-import type { SkillRef } from "@easemob/agent-service";
+} from "@asterisk/agent-asset-registry";
+import type { BusinessRegistry } from "@asterisk/agent-registry";
+import type { SkillRef } from "@asterisk/agent-service";
 import type { EnvProvider } from "./env-provider.js";
 
 /** 可执行上下文：四步时序第①步的产物，Lifecycle 据此装配 serve 与 run 的入参 */

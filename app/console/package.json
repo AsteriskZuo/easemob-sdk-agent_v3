@@ -1,5 +1,5 @@
 {
-  "name": "@easemob/agent-console",
+  "name": "@asterisk/agent-console",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@ant-design/icons": "^5.5.1",
-    "@easemob/agent-console-api": "0.1.0",
+    "@asterisk/agent-console-api": "0.1.0",
     "antd": "^5.21.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

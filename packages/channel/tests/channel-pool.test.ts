@@ -1,11 +1,11 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openDatabase } from "@easemob/agent-database";
-import type { Database } from "@easemob/agent-database";
-import type { EventEnvelope } from "@easemob/agent-contracts";
-import { newEventId, newUlid } from "@easemob/agent-contracts";
-import type { Task } from "@easemob/agent-queue";
+import { openDatabase } from "@asterisk/agent-database";
+import type { Database } from "@asterisk/agent-database";
+import type { EventEnvelope } from "@asterisk/agent-contracts";
+import { newEventId, newUlid } from "@asterisk/agent-contracts";
+import type { Task } from "@asterisk/agent-queue";
 import { createChannelPool } from "../src/index.js";
 import type { Channel, ChannelItem, ChannelPool } from "../src/index.js";
 

@@ -1,4 +1,4 @@
-import { logger } from "@easemob/agent-logger";
+import { logger } from "@asterisk/agent-logger";
 import { bootstrap } from "./bootstrap.js";
 
 /** 运行期兜底日志：logger 可用走 system error，不可用（极端时序）退到 stderr */

@@ -1,14 +1,17 @@
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { buildBusinessChannelId, newUlid } from "@easemob/agent-contracts";
-import type { Database } from "@easemob/agent-database";
-import { logger } from "@easemob/agent-logger";
-import type { AgentService, RunningAgentService } from "@easemob/agent-service";
+import { buildBusinessChannelId, newUlid } from "@asterisk/agent-contracts";
+import type { Database } from "@asterisk/agent-database";
+import { logger } from "@asterisk/agent-logger";
+import type {
+  AgentService,
+  RunningAgentService,
+} from "@asterisk/agent-service";
 import type {
   RunOutcome,
   WorkflowRunner,
-} from "@easemob/agent-workflow-runner";
-import type { EntryDriver } from "@easemob/agent-scheduler";
+} from "@asterisk/agent-workflow-runner";
+import type { EntryDriver } from "@asterisk/agent-scheduler";
 import type { ContextLoader, RunContext } from "./context-loader.js";
 import { createLifecycleStore } from "./lifecycle-store.js";
 

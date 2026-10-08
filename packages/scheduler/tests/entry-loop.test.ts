@@ -2,17 +2,17 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
-import { openDatabase } from "@easemob/agent-database";
-import type { Database } from "@easemob/agent-database";
-import type { EventEnvelope } from "@easemob/agent-contracts";
-import { newEventId, newUlid } from "@easemob/agent-contracts";
-import { createTaskQueue } from "@easemob/agent-queue";
-import type { Task, TaskQueue } from "@easemob/agent-queue";
-import { createBusinessRegistry } from "@easemob/agent-registry";
-import type { BusinessMatch, BusinessRegistry } from "@easemob/agent-registry";
-import { createChannelPool } from "@easemob/agent-channel";
-import type { ChannelPool } from "@easemob/agent-channel";
-import { initLogger, resetForTests } from "@easemob/agent-logger";
+import { openDatabase } from "@asterisk/agent-database";
+import type { Database } from "@asterisk/agent-database";
+import type { EventEnvelope } from "@asterisk/agent-contracts";
+import { newEventId, newUlid } from "@asterisk/agent-contracts";
+import { createTaskQueue } from "@asterisk/agent-queue";
+import type { Task, TaskQueue } from "@asterisk/agent-queue";
+import { createBusinessRegistry } from "@asterisk/agent-registry";
+import type { BusinessMatch, BusinessRegistry } from "@asterisk/agent-registry";
+import { createChannelPool } from "@asterisk/agent-channel";
+import type { ChannelPool } from "@asterisk/agent-channel";
+import { initLogger, resetForTests } from "@asterisk/agent-logger";
 import { createEntryLoop } from "../src/index.js";
 import type {
   EntryDriver,

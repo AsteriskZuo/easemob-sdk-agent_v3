@@ -1,5 +1,5 @@
-import type { Task } from "@easemob/agent-queue";
-import type { BusinessMatch, ExitBinding } from "@easemob/agent-registry";
+import type { Task } from "@asterisk/agent-queue";
+import type { BusinessMatch, ExitBinding } from "@asterisk/agent-registry";
 
 /** 平台运行参数：装配根从环境/设置读好后注入；本包不读 process.env */
 export interface PlatformConfig {

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@easemob/agent-sdk": "^0.1.0"
+    "@asterisk/agent-sdk": "^0.1.0"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",

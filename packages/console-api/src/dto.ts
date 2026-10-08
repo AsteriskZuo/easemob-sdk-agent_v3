@@ -1,11 +1,11 @@
-import type { EventSource } from "@easemob/agent-contracts";
-import type { AssetKind } from "@easemob/agent-asset-registry";
-import type { ConfigField } from "@easemob/agent-exit-tools";
+import type { EventSource } from "@asterisk/agent-contracts";
+import type { AssetKind } from "@asterisk/agent-asset-registry";
+import type { ConfigField } from "@asterisk/agent-exit-tools";
 import type {
   BusinessMatch,
   BusinessProfile,
   ExitBinding,
-} from "@easemob/agent-registry";
+} from "@asterisk/agent-registry";
 import type { Role, User } from "./accounts.js";
 
 // ---------------------------------------------------------------------------

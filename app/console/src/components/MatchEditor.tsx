@@ -1,6 +1,6 @@
 import { Button, Input, Select, Tooltip } from "antd";
 import { DeleteOutlined, QuestionCircleOutlined } from "@ant-design/icons";
-import type { EventSource, MatchBody } from "@easemob/agent-console-api";
+import type { EventSource, MatchBody } from "@asterisk/agent-console-api";
 
 /** contracts 的 EventSource 七值（匹配行来源下拉） */
 export const EVENT_SOURCES: EventSource[] = [

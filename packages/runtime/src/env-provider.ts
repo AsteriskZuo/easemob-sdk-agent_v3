@@ -1,5 +1,5 @@
-import { migrate } from "@easemob/agent-database";
-import type { Database } from "@easemob/agent-database";
+import { migrate } from "@asterisk/agent-database";
+import type { Database } from "@asterisk/agent-database";
 
 /** 两桶环境配置（与 scheduler-loop-contracts §4 EnvConfig 同形） */
 export interface EnvConfig {

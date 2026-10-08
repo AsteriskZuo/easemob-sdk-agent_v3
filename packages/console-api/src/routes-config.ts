@@ -1,4 +1,4 @@
-import type { ExitRegistry } from "@easemob/agent-exit-tools";
+import type { ExitRegistry } from "@asterisk/agent-exit-tools";
 import type { EffectiveConfigView, ExitToolMenuItem } from "./dto.js";
 import { sendJson } from "./http.js";
 import type { Route } from "./router.js";

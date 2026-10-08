@@ -3,9 +3,9 @@ import type {
   AssetKind,
   AssetMeta,
   AssetRegistry,
-} from "@easemob/agent-asset-registry";
-import { logger } from "@easemob/agent-logger";
-import type { EnvProvider } from "@easemob/agent-runtime";
+} from "@asterisk/agent-asset-registry";
+import { logger } from "@asterisk/agent-logger";
+import type { EnvProvider } from "@asterisk/agent-runtime";
 import type { User } from "./accounts.js";
 import { ApiError } from "./errors.js";
 import type { RegisterAssetBody } from "./dto.js";

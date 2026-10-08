@@ -1,5 +1,5 @@
 {
-  "name": "@easemob/agent-workflow-runner",
+  "name": "@asterisk/agent-workflow-runner",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,8 +12,8 @@
     }
   },
   "dependencies": {
-    "@easemob/agent-contracts": "0.1.0",
-    "@easemob/agent-logger": "0.1.0"
+    "@asterisk/agent-contracts": "0.1.0",
+    "@asterisk/agent-logger": "0.1.0"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",
@@ -23,7 +23,7 @@
   },
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.json",
-    "test": "yarn workspace @easemob/agent-sdk run build && rm -rf dist-test && esbuild $(find src -name '*.ts') --outdir=dist-test/src --outbase=src --format=esm --platform=node --target=node24 --sourcemap --log-level=error && esbuild $(find tests -name '*.ts') --outdir=dist-test/tests --outbase=tests --format=esm --platform=node --target=node24 --sourcemap --log-level=error && NODE_OPTIONS='--experimental-vm-modules' jest --config ../../jest.compiled.config.mjs --rootDir .",
+    "test": "yarn workspace @asterisk/agent-sdk run build && rm -rf dist-test && esbuild $(find src -name '*.ts') --outdir=dist-test/src --outbase=src --format=esm --platform=node --target=node24 --sourcemap --log-level=error && esbuild $(find tests -name '*.ts') --outdir=dist-test/tests --outbase=tests --format=esm --platform=node --target=node24 --sourcemap --log-level=error && NODE_OPTIONS='--experimental-vm-modules' jest --config ../../jest.compiled.config.mjs --rootDir .",
     "typecheck": "tsc --noEmit"
   }
 }

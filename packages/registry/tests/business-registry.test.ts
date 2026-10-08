@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openDatabase } from "@easemob/agent-database";
+import { openDatabase } from "@asterisk/agent-database";
 import { createBusinessRegistry } from "../src/index.js";
 import type { BusinessRegistry } from "../src/index.js";
 

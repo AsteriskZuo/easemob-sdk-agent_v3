@@ -23,7 +23,7 @@ yarn build && yarn test && yarn typecheck && yarn lint && yarn format:check && y
 ## 硬性工程规则
 
 - **依赖方向单向**：`contracts ← database ← queue/registry/channel；… ← scheduler/exit-tools ← runtime ← console-api ← app/server`；包不得依赖 app。dpdm 强制检查；
-- **依赖管理四类归宿**（细则见 `docs/designs/2026-09-14-skill-platform-spec-v3/design/dependency-rules.md`）：环境变量只能经 `@easemob/agent-env` 读；日志经 `@easemob/agent-logger` 全局外观；上下文注入要克制；纯函数归 contracts；
+- **依赖管理四类归宿**（细则见 `docs/designs/2026-09-14-skill-platform-spec-v3/design/dependency-rules.md`）：环境变量只能经 `@asterisk/agent-env` 读；日志经 `@asterisk/agent-logger` 全局外观；上下文注入要克制；纯函数归 contracts；
 - **重大变更先确认**（AGENTS.md 核心原则 9）：触碰包间契约/公开接口/数据结构/目录/技术路线，先提出并获确认再动手；
 - **零第三方运行时依赖**：平台包（packages/*）原则上只用 node 内置模块；app/console 是浏览器应用，依赖政策单独放宽（React/antd 等）；
 - **active 设计文档同步**：改动若使 `docs/designs/` 中的设计过时，同批更新设计文档；一个内容只在一个地方说清楚，其他地方引用。
@@ -33,7 +33,7 @@ yarn build && yarn test && yarn typecheck && yarn lint && yarn format:check && y
 - TypeScript ^5.9，ESM + NodeNext（console 为 bundler 解析例外）；
 - 注释用中文；接口与公开函数的每个成员写中文注释（说明「是什么/何时用/边界」），不写复述代码的废话注释；
 - 格式化全部交给 prettier，不手调格式；
-- 新包命名 `@easemob/agent-*`，结构与脚本对齐既有包（参考 `packages/queue/`）。
+- 新包命名 `@asterisk/agent-*`，结构与脚本对齐既有包（参考 `packages/queue/`）。
 
 ## 测试约定
 

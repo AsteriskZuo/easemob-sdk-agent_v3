@@ -1,4 +1,4 @@
-import type { ApiErrorBody } from "@easemob/agent-console-api";
+import type { ApiErrorBody } from "@asterisk/agent-console-api";
 
 /** API 错误：错误体解析产物（code/status 保留，UI 据 code 分流提示） */
 export class ApiError extends Error {

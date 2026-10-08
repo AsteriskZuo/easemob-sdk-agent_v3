@@ -1,10 +1,16 @@
 {
-  "name": "@easemob/agent-sdk",
+  "name": "@asterisk/agent-sdk",
   "version": "0.1.0",
-  "private": true,
+  "description": "智能体平台业务侧 SDK：业务程序的唯一编程面（sdk.input/config/secret/agent/run/log/return）",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -19,6 +25,7 @@
   },
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build",
     "test": "yarn run build && rm -rf dist-test && esbuild $(find src -name '*.ts') --outdir=dist-test/src --outbase=src --format=esm --platform=node --target=node24 --sourcemap --log-level=error && esbuild $(find tests -name '*.ts') --outdir=dist-test/tests --outbase=tests --format=esm --platform=node --target=node24 --sourcemap --log-level=error && NODE_OPTIONS='--experimental-vm-modules' jest --config ../../jest.compiled.config.mjs --rootDir .",
     "typecheck": "tsc --noEmit"
   }

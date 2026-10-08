@@ -1,6 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { EnvError, getBoolean, getNumber, getString } from "@easemob/agent-env";
+import {
+  EnvError,
+  getBoolean,
+  getNumber,
+  getString,
+} from "@asterisk/agent-env";
 
 /** 平台运行配置：装配根的唯一配置来源（解析后只读，不再读环境变量） */
 export interface ServerConfig {

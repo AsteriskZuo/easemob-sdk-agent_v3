@@ -2,9 +2,9 @@ import { jest } from "@jest/globals";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openDatabase } from "@easemob/agent-database";
-import type { Database } from "@easemob/agent-database";
-import { initLogger, resetForTests } from "@easemob/agent-logger";
+import { openDatabase } from "@asterisk/agent-database";
+import type { Database } from "@asterisk/agent-database";
+import { initLogger, resetForTests } from "@asterisk/agent-logger";
 import { createAccountService } from "../src/accounts.js";
 import type { AccountService, User } from "../src/accounts.js";
 

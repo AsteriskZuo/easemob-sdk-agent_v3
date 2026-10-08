@@ -2,8 +2,8 @@ import type {
   AssetManifest,
   AssetObject,
   AssetRegistry,
-} from "@easemob/agent-asset-registry";
-import type { EnvProvider } from "@easemob/agent-runtime";
+} from "@asterisk/agent-asset-registry";
+import type { EnvProvider } from "@asterisk/agent-runtime";
 import type { User } from "./accounts.js";
 import type { EffectiveConfigView } from "./dto.js";
 import { ApiError } from "./errors.js";

@@ -1,6 +1,6 @@
-import { logger } from "@easemob/agent-logger";
-import type { EnvProvider } from "@easemob/agent-runtime";
-import type { BusinessRegistry } from "@easemob/agent-registry";
+import { logger } from "@asterisk/agent-logger";
+import type { EnvProvider } from "@asterisk/agent-runtime";
+import type { BusinessRegistry } from "@asterisk/agent-registry";
 import type { User } from "./accounts.js";
 import { ApiError } from "./errors.js";
 import type { EnvListView, EnvRemoveBody, EnvSetBody } from "./dto.js";
