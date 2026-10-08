@@ -314,3 +314,13 @@
 - commit：adce564
 - 范围：新包 entry-adapters（types/match-scan/webhook/jira-client/jira-poller/jira-polling + 4 测试文件）+ server（config 三键 + bootstrap 开关装配 + entry-adapter.ts 接口下沉删除）
 - 已知取舍：① spec §7.2「registry.list() 含 matches」与现状不符（BusinessProfile 读面不含匹配行），scanMatchRows 用 list()+逐业务 get() 现扫——T21c 的 path 查重复用此函数即可；② webhook 同 path 多行取首个（path 全平台查重归 T21c）；③ webhook 端口绑定失败记 error 不阻断装配（start() 是 void 契约）；④ jira-polling 新轮询器立即先跑一轮
+
+**T21c 出入口自描述 + 内部入口引导 + 缓存清理**
+
+- 状态：完成
+- 子 agent：agent-28（单发，一次通过）
+- 开始/完成：2026-10-08
+- 验收证据：主 agent 独立复验根六连全绿（exit 0，test 4m29s，无竞态重跑；console 34 条全过）；抽查 wecom-webhook resultDoc 与 deliver 消费逻辑一致、webhook path 查重实现（内联扫法，注释写明不复用 scanMatchRows 的依赖方向理由）；§12 T21c 测试清单逐条有落（console-api 79 条、新增 entry-exit-docs 5 条）
+- commit：c00e25a
+- 范围：exit-tools（resultDoc ×7）、asset-registry（clearCache）、console-api（/api/config 扩展 + 缓存清理路由 + path 查重）、console（MatchEditor 重写 + 内部入口引导 + resultDoc 渲染 + 设置页清理按钮）、server（开关状态透传）
+- 已知取舍：① console-api 内联扫法不复用 entry-adapters（避免依赖方向倒置）；② markdown 用 <pre> 原样展示不引依赖；③ secret 引用字段用显式名单正则（避免误标 session_id_key/event_id_key）；④ §8.2.5 确认后端本无外部入口限制，纯 internal 业务天然可建
