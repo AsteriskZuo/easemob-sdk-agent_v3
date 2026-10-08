@@ -294,3 +294,13 @@
 - commit：03860ec
 - 范围：114 文件 sed 替换（15 packages + app/* + templates + scripts + docs）；yarn.lock 重新生成；sdk package.json 移除 private、补 files/publishConfig(access public)/prepublishOnly(发布前强制 build)；README「不对外发布」表述修正为「仅 sdk 对外发布」
 - 待办：npm publish 由用户执行（需 npmjs @asterisk scope 登录态），必须早于 T22 真机验证（物化构建 npm ci 需从 registry 解析 sdk）
+
+**T21a 物化构建链路 + 信封 dataDir + 出口 null 跳过**
+
+- 状态：完成
+- 子 agent：agent-26（单发，一次通过）
+- 开始/完成：2026-10-08
+- 验收证据：主 agent 独立复验根六连全绿（exit 0；test 4m26s 含 console 28 条；circular 零循环）；抽查 materialize.ts / exit-loop.ts / sdk.ts 与 spec §4/§5/§6 逐条相符；spec §12 T21a 测试清单逐条有落（含独立 CLI 跑通、stderr 尾 30 行、skill 不构建、子程序信封不含 dataDir）
+- commit：63c3116
+- 范围：asset-registry（materializeFromGit 共享实现 + materialize-cli + validate 两阶段拆）、workflow-runner（信封 dataDir + 三维目录派生）、sdk（dataDir()）、scheduler（出口 null 跳过）、server（AGENT_NPM_REGISTRY + 自检⑥npm ⑦registry 可达，runSelfCheck 改 async）、模板（agent.materialize.mjs 默认实现 + README）
+- 已知取舍：npm ci 加 --no-audit --no-fund（零依赖场景不触网）；自检⑦有任何 HTTP 响应即算可达（不判状态码）；CLI kind 按「是否含 agent-package.json」探测（平台路径必传真实 kind）
