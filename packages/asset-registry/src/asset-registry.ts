@@ -1,15 +1,10 @@
-import {
-  existsSync,
-  mkdirSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import path from "node:path";
 import { migrate } from "@asterisk/agent-database";
 import type { Database } from "@asterisk/agent-database";
 import { computeAssetId } from "./asset-id.js";
-import { cloneAtCommit, resolveRef } from "./git.js";
+import { resolveRef } from "./git.js";
+import { materializeFromGit } from "./materialize.js";
 import { validateAsset } from "./validate.js";
 import type { AssetKind, AssetManifest } from "./validate.js";
 
@@ -72,6 +67,8 @@ export interface AssetRegistry {
   get(asset_id: string, opts?: { credential?: string }): AssetObject;
 
   /** 物化：确保资产内容在本地可用，返回资产根绝对路径（幂等；缓存缺失自动补拉）。
+   *  package/tool 资产补拉时走固定构建流程（clone → 清单形状校验 → npm ci → 业务初始化脚本
+   *  agent.materialize.mjs → 产物校验），skill 资产不构建；实现与独立 CLI（materialize-cli.js）共用。
    *  opts.credential 同 register（仅缓存缺失、需要真正 clone 时需要，见 §5.7） */
   materialize(asset_id: string, opts?: { credential?: string }): string;
 
@@ -142,6 +139,8 @@ class AssetRegistryImpl implements AssetRegistry {
   constructor(
     private readonly db: Database,
     private readonly cacheRoot: string,
+    /** npm registry 地址（物化 npm ci / 初始化脚本子进程的 NPM_CONFIG_REGISTRY；装配方注入，见 server AGENT_NPM_REGISTRY） */
+    private readonly npmRegistry?: string,
   ) {
     migrate(db, "asset-registry", MIGRATIONS);
   }
@@ -268,24 +267,17 @@ class AssetRegistryImpl implements AssetRegistry {
       throw new Error(`credential_required: ${row.credential_key}`);
     }
 
-    mkdirSync(this.cacheRoot, { recursive: true });
-    const tmp = path.join(this.cacheRoot, `.tmp-${asset_id}-${process.pid}`);
-    try {
-      cloneAtCommit(row.url, row.commit, tmp, opts?.credential);
-      // 物化时执行清单机械校验；不过即抛（临时目录在 finally 清理，不落 marker）
-      validateAsset(path.join(tmp, subpath), row.kind as AssetKind);
-      rmSync(path.join(tmp, ".git"), { recursive: true, force: true });
-      // 完成标记写在临时目录内，随 rename 一起就位（内容 = 完成时 ISO 时间戳）
-      writeFileSync(
-        path.join(tmp, ".materialized-ok"),
-        new Date().toISOString(),
-      );
-      rmSync(target, { recursive: true, force: true });
-      renameSync(tmp, target);
-      return path.join(target, subpath);
-    } finally {
-      rmSync(tmp, { recursive: true, force: true });
-    }
+    // 固定物化流程（clone → 形状校验 → npm ci → 业务初始化脚本 → 产物校验 → marker → rename）
+    // 与独立 CLI（materialize-cli.js）共用同一实现，资产 kind 取自登记行
+    return materializeFromGit({
+      url: row.url,
+      commit: row.commit,
+      ...(row.subpath !== null ? { subpath: row.subpath } : {}),
+      target,
+      credential: opts?.credential,
+      kind: row.kind as AssetKind,
+      npmRegistry: this.npmRegistry,
+    });
   }
 
   remove(asset_id: string): void {
@@ -303,10 +295,11 @@ class AssetRegistryImpl implements AssetRegistry {
   }
 }
 
-/** 工厂：db 为全平台唯一数据访问口；cache_root 为物化根（由装配方给，如 {workspace}/cache/assets） */
+/** 工厂：db 为全平台唯一数据访问口；cache_root 为物化根（由装配方给，如 {workspace}/cache/assets）；
+ *  npm_registry 可选（物化 npm ci / 初始化脚本子进程的 NPM_CONFIG_REGISTRY，装配方从 AGENT_NPM_REGISTRY 注入） */
 export function createAssetRegistry(
   db: Database,
-  paths: { cache_root: string },
+  paths: { cache_root: string; npm_registry?: string },
 ): AssetRegistry {
-  return new AssetRegistryImpl(db, paths.cache_root);
+  return new AssetRegistryImpl(db, paths.cache_root, paths.npm_registry);
 }

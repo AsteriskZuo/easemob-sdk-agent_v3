@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { openDatabase } from "@asterisk/agent-database";
 import type { Database } from "@asterisk/agent-database";
 import { createAssetRegistry } from "../src/index.js";
@@ -59,6 +60,10 @@ function makeRepo(files: Record<string, string>): {
   return { dir, commit: git(["rev-parse", "HEAD"], dir) };
 }
 
+/** 物化构建用的零依赖业务初始化脚本 fixture：产物已随仓库提交时用它（纯注释，node 跑即过） */
+const NOOP_MATERIALIZE_SCRIPT =
+  "// 测试 fixture：产物已随仓库提交，无需构建（物化纪律：package/tool 必带 agent.materialize.mjs）\n";
+
 /** 合法 package/tool 仓库的清单文件集合 */
 const PKG_FILES: Record<string, string> = {
   "agent-package.json": JSON.stringify({
@@ -67,6 +72,7 @@ const PKG_FILES: Record<string, string> = {
     programs: { main: "src/main.js" },
   }),
   "src/main.js": "console.log('hi');",
+  "agent.materialize.mjs": NOOP_MATERIALIZE_SCRIPT,
 };
 
 function pkgInput(
@@ -305,6 +311,7 @@ describe("list", () => {
     const repoPkg = makeRepo(PKG_FILES);
     const repoTool = makeRepo({
       "agent-package.json": JSON.stringify({ name: "tool-a" }),
+      "agent.materialize.mjs": NOOP_MATERIALIZE_SCRIPT,
     });
     const repoSkill = makeRepo({ "s1/SKILL.md": "# s1" });
     registry.register(pkgInput(repoPkg.dir, { owner_id: "alice" }));
@@ -342,6 +349,7 @@ describe("get", () => {
   it("get tool → programs 缺省归一（manifest 无 requires）", () => {
     const repo = makeRepo({
       "agent-package.json": JSON.stringify({ name: "bare-tool" }),
+      "agent.materialize.mjs": NOOP_MATERIALIZE_SCRIPT,
     });
     const meta = registry.register(pkgInput(repo.dir, { kind: "tool" }));
     const obj = registry.get(meta.asset_id);
@@ -402,6 +410,7 @@ describe("materialize", () => {
   it("带 subpath 时返回子路径", () => {
     const repo = makeRepo({
       "sub/agent-package.json": JSON.stringify({ name: "sub-pkg" }),
+      "sub/agent.materialize.mjs": NOOP_MATERIALIZE_SCRIPT,
       "readme.md": "root",
     });
     const meta = registry.register(pkgInput(repo.dir, { subpath: "sub" }));
@@ -421,16 +430,42 @@ describe("materialize", () => {
     );
   });
 
-  it("programs 路径不存在 → validation_failed", () => {
+  it("programs 路径不存在（初始化脚本未产出）→ validation_failed 且消息列出缺失清单", () => {
     const repo = makeRepo({
       "agent-package.json": JSON.stringify({
         name: "broken",
-        programs: { main: "nope.js" },
+        programs: { main: "nope.js", other: "absent/x.js" },
       }),
+      "agent.materialize.mjs": NOOP_MATERIALIZE_SCRIPT,
+    });
+    const meta = registry.register(pkgInput(repo.dir));
+    let message = "";
+    try {
+      registry.materialize(meta.asset_id);
+    } catch (err) {
+      message = (err as Error).message;
+    }
+    expect(message).toMatch(/^validation_failed: 产物校验失败/);
+    // 缺失清单全量列出
+    expect(message).toContain("nope.js");
+    expect(message).toContain("absent/x.js");
+    expect(existsSync(join(cacheRoot, meta.asset_id, ".materialized-ok"))).toBe(
+      false,
+    );
+  });
+
+  it("programs 路径非 .js → validation_failed（形状校验，构建前即失败）", () => {
+    const repo = makeRepo({
+      "agent-package.json": JSON.stringify({
+        name: "ts-entry",
+        programs: { main: "src/main.ts" },
+      }),
+      "src/main.ts": "console.log('hi');",
+      "agent.materialize.mjs": NOOP_MATERIALIZE_SCRIPT,
     });
     const meta = registry.register(pkgInput(repo.dir));
     expect(() => registry.materialize(meta.asset_id)).toThrow(
-      /^validation_failed/,
+      /^validation_failed: programs 路径必须是 \.js 产物/,
     );
     expect(existsSync(join(cacheRoot, meta.asset_id, ".materialized-ok"))).toBe(
       false,
@@ -477,6 +512,178 @@ describe("materialize", () => {
     rmSync(join(cacheRoot, meta.asset_id), { recursive: true, force: true });
     const root = registry.materialize(meta.asset_id);
     expect(existsSync(join(root, "agent-package.json"))).toBe(true);
+  });
+});
+
+describe("物化构建链路（npm ci + 业务初始化脚本 + 产物校验）", () => {
+  /** 零依赖 package.json + 手写最小 lock（npm ci 零依赖不触网） */
+  const NPM_ZERO_DEP_FILES: Record<string, string> = {
+    "package.json": JSON.stringify({ name: "fixture-pkg", version: "1.0.0" }),
+    "package-lock.json": JSON.stringify({
+      name: "fixture-pkg",
+      version: "1.0.0",
+      lockfileVersion: 3,
+      requires: true,
+      packages: { "": { name: "fixture-pkg", version: "1.0.0" } },
+    }),
+  };
+
+  /** 纯 node 初始化脚本：造 dist 产物（不依赖 esbuild） */
+  const BUILD_SCRIPT = `
+import { mkdirSync, writeFileSync } from "node:fs";
+mkdirSync("dist/programs", { recursive: true });
+writeFileSync("dist/programs/main.js", "console.log('built');\\n");
+`;
+
+  it("package 资产全链路：npm ci 跑过 + 初始化脚本产出 dist + 产物校验通过", () => {
+    const repo = makeRepo({
+      "agent-package.json": JSON.stringify({
+        name: "build-me",
+        programs: { main: "dist/programs/main.js" },
+      }),
+      ...NPM_ZERO_DEP_FILES,
+      "agent.materialize.mjs": BUILD_SCRIPT,
+    });
+    const meta = registry.register(pkgInput(repo.dir));
+    const root = registry.materialize(meta.asset_id);
+    // 初始化脚本产物就位（清单 programs 指向的 dist 产物由脚本构建出来，非仓库提交）
+    expect(existsSync(join(root, "dist", "programs", "main.js"))).toBe(true);
+    expect(existsSync(join(cacheRoot, meta.asset_id, ".materialized-ok"))).toBe(
+      true,
+    );
+  });
+
+  it("资产根含 package.json 但缺 package-lock.json → materialize_failed 明确提示", () => {
+    const repo = makeRepo({
+      "agent-package.json": JSON.stringify({ name: "no-lock" }),
+      "package.json": JSON.stringify({ name: "no-lock", version: "1.0.0" }),
+      "agent.materialize.mjs": NOOP_MATERIALIZE_SCRIPT,
+    });
+    const meta = registry.register(pkgInput(repo.dir));
+    expect(() => registry.materialize(meta.asset_id)).toThrow(
+      /materialize_failed: npm ci: .*package-lock\.json（v1 只支持 npm \+ package-lock\.json）/,
+    );
+  });
+
+  it.each(["package", "tool"] as const)(
+    "%s 资产缺 agent.materialize.mjs → materialize_failed 提示缺该文件",
+    (kind) => {
+      const repo = makeRepo({
+        "agent-package.json": JSON.stringify({ name: `no-script-${kind}` }),
+      });
+      const meta = registry.register(pkgInput(repo.dir, { kind }));
+      expect(() => registry.materialize(meta.asset_id)).toThrow(
+        /materialize_failed: 业务初始化脚本缺失: .*agent\.materialize\.mjs/,
+      );
+      expect(
+        existsSync(join(cacheRoot, meta.asset_id, ".materialized-ok")),
+      ).toBe(false);
+    },
+  );
+
+  it("初始化脚本 exit≠0 → materialize_failed 含阶段名与 stderr 尾部（只保留最后 30 行）", () => {
+    const failScript = `
+for (let i = 1; i <= 40; i++) {
+  console.error("errline-" + String(i).padStart(2, "0"));
+}
+process.exit(1);
+`;
+    const repo = makeRepo({
+      "agent-package.json": JSON.stringify({ name: "fail-script" }),
+      "agent.materialize.mjs": failScript,
+    });
+    const meta = registry.register(pkgInput(repo.dir));
+    let message = "";
+    try {
+      registry.materialize(meta.asset_id);
+    } catch (err) {
+      message = (err as Error).message;
+    }
+    expect(message).toMatch(/^materialize_failed: agent\.materialize\.mjs: /);
+    // 尾部 30 行 = errline-11..40：尾部在、头部被截掉
+    expect(message).toContain("errline-40");
+    expect(message).toContain("errline-11");
+    expect(message).not.toContain("errline-10");
+  });
+
+  it("skill 资产不要求初始化脚本、不构建（含 package.json 无 lock 也照样过）", () => {
+    const repo = makeRepo({
+      "s1/SKILL.md": "# s1",
+      // 干扰项：skill 是纯文档，即使仓里混了 package.json（无 lock）也不走 npm ci
+      "package.json": JSON.stringify({ name: "skill-doc", version: "1.0.0" }),
+    });
+    const meta = registry.register(pkgInput(repo.dir, { kind: "skill" }));
+    const root = registry.materialize(meta.asset_id);
+    expect(existsSync(join(root, "s1", "SKILL.md"))).toBe(true);
+    expect(existsSync(join(root, "node_modules"))).toBe(false);
+  });
+});
+
+describe("materialize-cli 独立执行", () => {
+  const CLI_PATH = fileURLToPath(
+    new URL("../src/materialize-cli.js", import.meta.url),
+  );
+
+  /** spawn CLI 子进程，返回 {code, stdout, stderr}（不继承 AGENT_ASSET_CREDENTIAL） */
+  function runCli(args: string[]): {
+    code: number;
+    stdout: string;
+    stderr: string;
+  } {
+    try {
+      const stdout = execFileSync(process.execPath, [CLI_PATH, ...args], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      return { code: 0, stdout, stderr: "" };
+    } catch (err) {
+      const e = err as { status?: number; stdout?: string; stderr?: string };
+      return {
+        code: e.status ?? -1,
+        stdout: e.stdout ?? "",
+        stderr: e.stderr ?? "",
+      };
+    }
+  }
+
+  it("同 fixture 手动跑通：--url --commit --target 物化成功并打出资产根路径", () => {
+    const repo = makeRepo(PKG_FILES);
+    const target = join(tmpDir, "cli-target");
+    const r = runCli([
+      "--url",
+      repo.dir,
+      "--commit",
+      repo.commit,
+      "--target",
+      target,
+    ]);
+    expect(r.code).toBe(0);
+    expect(r.stdout.trim()).toBe(target);
+    expect(existsSync(join(target, "agent-package.json"))).toBe(true);
+    expect(existsSync(join(target, ".materialized-ok"))).toBe(true);
+    expect(existsSync(join(target, ".git"))).toBe(false);
+  });
+
+  it("缺必填参数 → exit 1 且 stderr 含用法", () => {
+    const r = runCli(["--url", "/tmp/whatever"]);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("--commit");
+  });
+
+  it("物化失败（缺初始化脚本）→ exit 1 且 stderr 含阶段错误", () => {
+    const repo = makeRepo({
+      "agent-package.json": JSON.stringify({ name: "cli-no-script" }),
+    });
+    const r = runCli([
+      "--url",
+      repo.dir,
+      "--commit",
+      repo.commit,
+      "--target",
+      join(tmpDir, "cli-fail-target"),
+    ]);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("materialize_failed: 业务初始化脚本缺失");
   });
 });
 

@@ -95,6 +95,17 @@ export function createExitLoop(deps: {
         });
         return;
       }
+      // 空结果跳过投递（sdk.return(null) = 业务明确无产出）：不查绑定、不挂通道，
+      // 直接完结；入口下游照常收到该派生事件（payload=null，下游自行判断）
+      if (task.event.payload === null) {
+        queue.complete(task.task_id);
+        log.info("空结果跳过投递", {
+          event_id: task.event.event_id,
+          task_id: task.task_id,
+          producer_business_id: producer,
+        });
+        return;
+      }
       const bindings = registry.exitBindings(producer);
       if (bindings.length === 0) {
         queue.complete(task.task_id);

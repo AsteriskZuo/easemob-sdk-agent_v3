@@ -50,6 +50,19 @@ export const sdk = {
     return readStdinEnvelope().config ?? {};
   },
 
+  /** 业务级持久目录绝对路径（跨 run 状态落点，如审查去重记录；平台 run 启动时已建，
+   *  同通道 run 串行无需自锁，业务自管容量）。仅平台→流程程序注入；
+   *  信封缺失（sdk.run 子程序 / mock 信封没给）→ 抛错（与 input() 的 workspace 校验同风格） */
+  dataDir(): string {
+    const value = readStdinEnvelope().dataDir;
+    if (typeof value !== "string" || value.length === 0) {
+      throw new Error(
+        "stdin 信封缺少 dataDir（仅平台→流程程序注入；sdk.run 子程序无此字段）",
+      );
+    }
+    return value;
+  },
+
   /** 读本业务安全变量（平台注入）；未注入该名 → 抛错 */
   secret(name: string): string {
     const value = readStdinEnvelope().secrets?.[name];

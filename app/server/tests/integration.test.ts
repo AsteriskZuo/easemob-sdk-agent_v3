@@ -74,6 +74,11 @@ process.stdin.on("end", () => {
 });
 `,
   );
+  // 业务初始化脚本（物化纪律：package 资产必带）：产物 programs/main.js 已随仓库提交，无需构建
+  writeFileSync(
+    join(repoDir, "agent.materialize.mjs"),
+    "// 集成测试 fixture：产物已随仓库提交，无需构建\n",
+  );
   execFileSync("git", ["init", "--quiet"], { cwd: repoDir });
   execFileSync("git", ["add", "."], { cwd: repoDir });
   execFileSync(
@@ -103,10 +108,13 @@ function startReceiver(): Promise<string> {
         body += chunk;
       });
       req.on("end", () => {
-        try {
-          received.push(JSON.parse(body));
-        } catch {
-          received.push(body);
+        // 空 body（如自检的 registry HEAD 探测）不算投递，不入账
+        if (body !== "") {
+          try {
+            received.push(JSON.parse(body));
+          } catch {
+            received.push(body);
+          }
         }
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end("{}");
@@ -154,6 +162,8 @@ beforeAll(async () => {
       AGENT_PI_CLI_PATH: piCliPath,
       AGENT_PI_AGENT_DIR: piAgentDir,
       AGENT_CONSOLE_PORT: "0", // 随机端口，避免与本机/并发测试的 6100 冲突
+      // 自检的 registry 可达性检查指向本地接收服务器（测试不触外网）
+      AGENT_NPM_REGISTRY: receiverUrl,
       PATH: process.env.PATH ?? "",
       HOME: process.env.HOME ?? tmpDir,
     },

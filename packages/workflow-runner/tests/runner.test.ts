@@ -104,6 +104,17 @@ describe("WorkflowRunner", () => {
     expect((outcome.output as Record<string, any>).programs).toEqual(programs);
   });
 
+  it("2c. 信封含 dataDir 且目录已建：{root}/data/{source}/{session_id}/{business_id}", async () => {
+    const { root, runner } = setup();
+    const outcome = await runner.run(makeReq("echo-datadir.js"));
+    expect(outcome.status).toBe("success");
+    const output = outcome.output as Record<string, any>;
+    const expected = join(root, "data", "manual", "sess-1", "biz-1");
+    expect(output.dataDir).toBe(expected);
+    expect(output.exists).toBe(true);
+    expect(existsSync(expected)).toBe(true);
+  });
+
   it("3. 业务失败：sdk.fail → failed、reason 含原因", async () => {
     const { runner } = setup();
     const outcome = await runner.run(makeReq("biz-fail.js"));

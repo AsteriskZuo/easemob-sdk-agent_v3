@@ -19,10 +19,11 @@ function errorMessage(err: unknown): string {
  *  检查项全量收集后一次性报出，不遇一错即停：
  *  ① {workspace} 可建可写；② 数据分类子目录骨架（data/ cache/ runs/ logs/）可建；
  *  ③ pi_cli_path 存在且可执行；④ pi_agent_dir 存在且含可解析、非空的 models.json
- *  （可选模型列表的部署侧来源，loadModelList 验证）；⑤ git 可用。
+ *  （可选模型列表的部署侧来源，loadModelList 验证）；⑤ git 可用；
+ *  ⑥ npm 可用；⑦ npm registry 可达（HEAD，3s 超时）。
  *  （node 不单列：workflow-runner 用 process.execPath spawn 业务程序，server 能启动即 node 恒在；
  *   数据库可打开/迁移由各工厂创建时自然 fail-fast） */
-export function runSelfCheck(config: ServerConfig): void {
+export async function runSelfCheck(config: ServerConfig): Promise<void> {
   const failures: string[] = [];
 
   // ① {workspace} 可建可写（探测文件写删）
@@ -81,6 +82,27 @@ export function runSelfCheck(config: ServerConfig): void {
     execFileSync("git", ["--version"], { stdio: "ignore" });
   } catch (err) {
     failures.push(`git 不可用: ${errorMessage(err)}`);
+  }
+
+  // ⑥ npm 可用（物化构建跑 npm ci，缺失则 package/tool 资产物化必败）
+  try {
+    execFileSync("npm", ["--version"], { stdio: "ignore" });
+  } catch (err) {
+    failures.push(`npm 不可用: ${errorMessage(err)}`);
+  }
+
+  // ⑦ npm registry 可达（HEAD，3s 超时；物化 npm ci 依赖它解析依赖。
+  //  有任何 HTTP 响应即视为可达——只排网络层失败/超时，不替 registry 判状态码）
+  try {
+    await fetch(config.npm_registry, {
+      method: "HEAD",
+      redirect: "follow",
+      signal: AbortSignal.timeout(3000),
+    });
+  } catch (err) {
+    failures.push(
+      `npm registry 不可达: ${config.npm_registry}: ${errorMessage(err)}（物化 npm ci 依赖它；离线部署请用 AGENT_NPM_REGISTRY 指向内网镜像）`,
+    );
   }
 
   if (failures.length > 0) {

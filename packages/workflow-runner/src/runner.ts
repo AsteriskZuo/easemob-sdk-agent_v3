@@ -94,8 +94,12 @@ export function createWorkflowRunner(
       ...channelKey,
       `${runId}.log`,
     );
+    // 业务级持久目录（区别于 runs/ 临时、logs/ 可删）：同 dataDir 的 run 被通道键
+    // {source, session_id, business_id} 串行化，业务读写状态文件无需自锁；平台不做 TTL
+    const dataDir = join(opts.workspaceRoot, "data", ...channelKey);
     mkdirSync(workspace, { recursive: true });
     mkdirSync(join(logPath, ".."), { recursive: true });
+    mkdirSync(dataDir, { recursive: true });
 
     // 全局外观脱敏登记：装配根已 initLogger 时生效；未初始化场景静默跳过
     try {
@@ -118,6 +122,7 @@ export function createWorkflowRunner(
       secrets: req.secrets,
       endpoint: req.endpoint,
       programs: req.programs,
+      dataDir,
     };
 
     return new Promise<RunOutcome>((resolve, reject) => {

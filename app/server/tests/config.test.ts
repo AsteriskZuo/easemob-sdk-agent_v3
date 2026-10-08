@@ -68,6 +68,24 @@ describe("resolveServerConfig", () => {
       PATH: "/usr/bin:/bin",
       HOME: "/home/tester",
     });
+    expect(config.npm_registry).toBe("https://registry.npmjs.org/");
+  });
+
+  it("npm_registry：默认官方；env 覆盖；config.json 兜底", () => {
+    expect(
+      resolveServerConfig(
+        requiredEnv({ AGENT_NPM_REGISTRY: "https://npm.mirror.internal/" }),
+      ).npm_registry,
+    ).toBe("https://npm.mirror.internal/");
+
+    writeFileSync(
+      join(workspace, "config.json"),
+      JSON.stringify({ AGENT_NPM_REGISTRY: "https://npm.from-file/" }),
+      { flag: "wx" },
+    );
+    expect(resolveServerConfig(requiredEnv()).npm_registry).toBe(
+      "https://npm.from-file/",
+    );
   });
 
   it("config.json 兜底：文件值生效；同名环境变量优先；非法 JSON / 类型不符 → EnvError", () => {

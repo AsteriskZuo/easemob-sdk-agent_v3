@@ -278,7 +278,8 @@ export function makeRepo(
   return dir;
 }
 
-/** 合法 package 仓库的清单文件集合 */
+/** 合法 package 仓库的清单文件集合（物化纪律：package/tool 必带 agent.materialize.mjs；
+ *  本 fixture 产物已随仓库提交，用空脚本） */
 export const PKG_FILES: Record<string, string> = {
   "agent-package.json": JSON.stringify({
     name: "demo",
@@ -286,4 +287,5 @@ export const PKG_FILES: Record<string, string> = {
     programs: { main: "src/main.js" },
   }),
   "src/main.js": "console.log('hi');",
+  "agent.materialize.mjs": "// 测试 fixture：产物已随仓库提交，无需构建\n",
 };

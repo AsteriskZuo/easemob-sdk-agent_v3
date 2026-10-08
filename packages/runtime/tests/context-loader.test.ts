@@ -70,6 +70,9 @@ function makeRepo(files: Record<string, string>): string {
   return dir;
 }
 
+/** 物化纪律（package/tool 必带 agent.materialize.mjs）：产物已随仓库提交，用空脚本 */
+const NOOP_MATERIALIZE = "// 测试 fixture：产物已随仓库提交，无需构建\n";
+
 const PKG_FILES: Record<string, string> = {
   "agent-package.json": JSON.stringify({
     name: "demo",
@@ -77,6 +80,7 @@ const PKG_FILES: Record<string, string> = {
   }),
   "src/main.js": "console.log('hi');",
   "src/helper.js": "console.log('helper');",
+  "agent.materialize.mjs": NOOP_MATERIALIZE,
 };
 
 const TOOL_FILES: Record<string, string> = {
@@ -85,6 +89,7 @@ const TOOL_FILES: Record<string, string> = {
     programs: { do: "do.js" },
   }),
   "do.js": "console.log('do');",
+  "agent.materialize.mjs": NOOP_MATERIALIZE,
 };
 
 const SKILL_FILES: Record<string, string> = {
@@ -200,6 +205,7 @@ describe("全链路组装", () => {
           programs: { main: "main.js" },
         }),
         "main.js": "console.log('tool main');",
+        "agent.materialize.mjs": NOOP_MATERIALIZE,
       }),
       ref: "HEAD",
       owner_id: "alice",

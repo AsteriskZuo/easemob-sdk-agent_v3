@@ -96,7 +96,7 @@ export async function bootstrap(overrides?: {
 
   try {
     // 3. 启动自检（fail-fast，全量收集一次性报出）
-    runSelfCheck(config);
+    await runSelfCheck(config);
 
     // 3.5 可选模型全量列表（自检已保证 models.json 可解析且非空，此处必成功）；
     // 不读不记 apiKey——它只属 pi 子进程
@@ -123,6 +123,7 @@ export async function bootstrap(overrides?: {
     const channelStore = createChannelStore(db);
     const assets = createAssetRegistry(db, {
       cache_root: join(config.workspace, "cache", "assets"),
+      npm_registry: config.npm_registry,
     });
     const envProvider = createEnvProvider(db);
     const loader = createContextLoader({

@@ -169,6 +169,20 @@ afterEach(async () => {
 });
 
 describe("出口事件循环", () => {
+  it("0. payload=null（sdk.return(null) 空结果）→ 任务 done、不查绑定不投递", async () => {
+    // 有绑定也不投递：判空在查 exitBindings 之前
+    const businessId = createBusinessWithBindings([
+      { tool: "webhook-out", config: { dest: "destA" } },
+    ]);
+    const event = makeExitEvent(businessId, null);
+    exitQueue.enqueue(event);
+    startLoop();
+    await waitFor(() => taskStatus(event.event_id) === "done");
+    expect(driver.calls).toHaveLength(0);
+    const task = exitQueue.query({ event_id: event.event_id })[0];
+    expect(deadReason(task?.task_id ?? "")).toBeUndefined();
+  });
+
   it("1. 无出口绑定 → 任务 done、deliver 未被调", async () => {
     const businessId = createBusinessWithBindings([]);
     const event = makeExitEvent(businessId);

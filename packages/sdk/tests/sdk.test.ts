@@ -138,6 +138,27 @@ describe("sdk 读口", () => {
     expect(r.stdout).toContain("threw:");
     expect(r.stdout).toContain("无注入输入");
   });
+
+  it("dataDir 注入 → 原样返回；未注入 → 抛错", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "sdk-datadir-"));
+    const ok = await runFixture("probe-datadir.js", {
+      stdin: makeEnvelope({ dataDir }),
+    });
+    expect(ok.code).toBe(0);
+    const okOut = parseResult(ok.stdout).output as Record<string, any>;
+    expect(okOut.dataDir).toBe(dataDir);
+
+    const missing = await runFixture("probe-datadir.js", {
+      stdin: makeEnvelope(),
+    });
+    expect(missing.code).toBe(0);
+    const missingOut = parseResult(missing.stdout).output as Record<
+      string,
+      any
+    >;
+    expect(missingOut.threw).toBe(true);
+    expect(missingOut.message).toContain("dataDir");
+  });
 });
 
 describe("sdk 出口", () => {
@@ -347,10 +368,11 @@ describe("sdk.run", () => {
     expect(result.reason).toContain("slow");
   });
 
-  it("子程序信封不含 programs（工具是叶子，不能再按名组合）", async () => {
+  it("子程序信封不含 programs 与 dataDir（工具是叶子，不能再按名组合、无业务级持久语义）", async () => {
     const r = await runFixture("run-parent.js", {
       stdin: makeEnvelope({
         programs: PROGRAMS,
+        dataDir: mkdtempSync(join(tmpdir(), "sdk-parent-datadir-")),
         input: { child: "dump", args: { input: null } },
       }),
     });

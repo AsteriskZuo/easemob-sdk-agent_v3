@@ -33,7 +33,8 @@ afterAll(async () => {
   resetTestLogger();
 });
 
-/** 包清单：2 个 programs + requires（tool 名 do、skill 名 alpha） */
+/** 包清单：2 个 programs + requires（tool 名 do、skill 名 alpha）；
+ *  附必带的 agent.materialize.mjs（产物已随仓库提交，空脚本） */
 function pkgFiles(): Record<string, string> {
   return {
     "agent-package.json": JSON.stringify({
@@ -43,12 +44,14 @@ function pkgFiles(): Record<string, string> {
     }),
     "src/main.js": "console.log('main');",
     "src/helper.js": "console.log('helper');",
+    "agent.materialize.mjs": "// 测试 fixture：产物已随仓库提交，无需构建\n",
   };
 }
 
 function toolFiles(programs: Record<string, string>): Record<string, string> {
   const files: Record<string, string> = {
     "agent-package.json": JSON.stringify({ name: "tool", programs }),
+    "agent.materialize.mjs": "// 测试 fixture：产物已随仓库提交，无需构建\n",
   };
   for (const rel of Object.values(programs)) files[rel] = "console.log(1);";
   return files;

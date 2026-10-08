@@ -41,13 +41,18 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** 校验相对路径：非绝对、不含 .. 段、resolve 后仍在 assetRoot 内 */
+/** 校验相对路径形态：非绝对、不含 .. 段、扩展名 .js（清单 programs 形状规则，物化构建前校验） */
 function assertInnerRelativePath(assetRoot: string, p: string): string {
   if (path.isAbsolute(p)) {
     fail(`programs 路径必须是相对路径: ${p}`);
   }
   if (p.split(/[\\/]/).includes("..")) {
     fail(`programs 路径不允许含 .. 段: ${p}`);
+  }
+  if (!p.endsWith(".js")) {
+    fail(
+      `programs 路径必须是 .js 产物（所有 program 入口须 node 可执行）: ${p}`,
+    );
   }
   const resolved = path.resolve(assetRoot, p);
   if (resolved !== assetRoot && !resolved.startsWith(assetRoot + path.sep)) {
@@ -56,6 +61,8 @@ function assertInnerRelativePath(assetRoot: string, p: string): string {
   return resolved;
 }
 
+/** 清单形状校验（物化构建前）：只验形状不验产物存在性——
+ *  programs 指向的是物化构建产物，存在性归构建后的 assertProgramsBuilt */
 function validatePackageLike(
   assetRoot: string,
   kind: "package" | "tool",
@@ -96,16 +103,7 @@ function validatePackageLike(
       if (typeof value !== "string") {
         fail(`programs.${key} 必须是字符串`);
       }
-      const resolved = assertInnerRelativePath(assetRoot, value);
-      let stat;
-      try {
-        stat = statSync(resolved);
-      } catch {
-        fail(`programs.${key} 指向的文件不存在: ${value}`);
-      }
-      if (!stat.isFile()) {
-        fail(`programs.${key} 指向的不是文件: ${value}`);
-      }
+      assertInnerRelativePath(assetRoot, value);
       programs[key] = value;
     }
   }
@@ -172,8 +170,10 @@ function validateSkill(assetRoot: string): AssetManifest {
   return { kind: "skill", skills };
 }
 
-/** 按 kind 的内容校验（spec §5.4）：逐条不过即抛 validation_failed: <原因> */
-export function validateAsset(
+/** 清单形状校验（构建前阶段）：逐条不过即抛 validation_failed: <原因>。
+ *  package/tool 验 agent-package.json 形状（programs 相对路径/不含 ../必须 .js），不验产物存在性；
+ *  skill 走集合扫描（扫描本身即全部校验） */
+export function validateAssetShape(
   assetRoot: string,
   kind: AssetKind,
 ): AssetManifest {
@@ -181,4 +181,44 @@ export function validateAsset(
     return validateSkill(assetRoot);
   }
   return validatePackageLike(assetRoot, kind);
+}
+
+/** 产物校验（物化构建后阶段）：清单 programs 每个路径必须真实存在且是文件，
+ *  缺一即失败并列出全部缺失清单（skill 清单无 programs，恒过） */
+export function assertProgramsBuilt(
+  assetRoot: string,
+  manifest: AssetManifest,
+): void {
+  if (manifest.kind === "skill") {
+    return;
+  }
+  const missing: string[] = [];
+  for (const rel of Object.values(manifest.programs)) {
+    let isFile = false;
+    try {
+      isFile = statSync(path.resolve(assetRoot, rel)).isFile();
+    } catch {
+      // 不存在：进缺失清单
+    }
+    if (!isFile) {
+      missing.push(rel);
+    }
+  }
+  if (missing.length > 0) {
+    fail(
+      `产物校验失败：programs 产物缺失（构建后仍不存在）: ${missing.join(", ")}`,
+    );
+  }
+}
+
+/** 按 kind 的完整内容校验（spec §5.4）= 形状校验 + 产物存在性校验。
+ *  用于「取用」场景（get()）：此时物化构建已完成，产物必须存在；
+ *  物化流程内部请勿用它——构建前只能 validateAssetShape，产物存在性在构建后 assertProgramsBuilt */
+export function validateAsset(
+  assetRoot: string,
+  kind: AssetKind,
+): AssetManifest {
+  const manifest = validateAssetShape(assetRoot, kind);
+  assertProgramsBuilt(assetRoot, manifest);
+  return manifest;
 }
