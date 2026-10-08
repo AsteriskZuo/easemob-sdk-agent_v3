@@ -4,14 +4,14 @@
 
 ## 1. 目标
 
-产出 `@easemob/agent-queue` 包：SQLite 持久化任务队列。**平台有两条队列——入口队列与出口队列，同一实现、两个实例**（构造时传不同表名）。
+产出 `@asterisk/agent-queue` 包：SQLite 持久化任务队列。**平台有两条队列——入口队列与出口队列，同一实现、两个实例**（构造时传不同表名）。
 
 ## 2. 背景知识（执行所需的最小上下文）
 
 - 平台的"心脏"是两个调度循环（入口循环消化外部/内部事件，出口循环消化结果投递），各自从自己的队列摄取任务。队列是它们的统一缓冲带。
 - 队列信条：**事件进来即持久化，落库才算收到**——崩溃后可找回，杜绝"内存里丢了就永远丢了"；取出不删、完结才标记。事件的加入与获取是低频操作，持久化不是性能瓶颈。
-- 队列里的任务 = 事件信封 + 消化状态。事件信封 `EventEnvelope` 已在 `@easemob/agent-contracts` 定义（含 `validateEnvelope` 校验函数、`newUlid`），直接 import 使用。
-- 数据访问只能经 `@easemob/agent-database` 的 `Database` 接口（全平台唯一数据访问口），禁止直接 import `node:sqlite`。
+- 队列里的任务 = 事件信封 + 消化状态。事件信封 `EventEnvelope` 已在 `@asterisk/agent-contracts` 定义（含 `validateEnvelope` 校验函数、`newUlid`），直接 import 使用。
+- 数据访问只能经 `@asterisk/agent-database` 的 `Database` 接口（全平台唯一数据访问口），禁止直接 import `node:sqlite`。
 - **第一层入口幂等**：同一源生事件可能被上游重推（webhook 超时重发是常态）。队列在 `event_id` 上去重：同一队列实例内重复 `event_id` 的 `enqueue` 不产生新任务，幂等返回已有任务。
 - **数据增长**：任务只增不减会无限膨胀。保留策略（已定）：**done 任务超期清除**（保留天数是策略、归 server 调用方，默认建议 30 天；本包只提供 `purge` 原语）；**dead 任务不自动清**（量小、排查价值高，人工处置）；pending/processing 绝不动。归档导出（清除前导出 JSONL 留存）本版不做——出现真实审计需求时单独立项，`purge` 之前串一步导出即可，接口不变。
 
@@ -21,7 +21,7 @@
 
 **本任务不做**：
 
-- 调度循环逻辑（匹配、通道、并发闸门都在 `@easemob/agent-scheduler`，T7）；
+- 调度循环逻辑（匹配、通道、并发闸门都在 `@asterisk/agent-scheduler`，T7）；
 - 死信的告警通知（调用方职责）；
 - 阻塞式 take（空队列返回 `null` 即可，空转/阻塞策略归调度循环）；
 - 并行 worker 接口（第一阶段不预留，设计已定）。
@@ -30,7 +30,7 @@
 
 ```text
 packages/queue/
-├── package.json            # @easemob/agent-queue
+├── package.json            # @asterisk/agent-queue
 ├── tsconfig.json
 ├── src/
 │   ├── index.ts            # 统一导出
@@ -39,13 +39,13 @@ packages/queue/
     └── task-queue.test.ts
 ```
 
-工程约定同 T0 spec §4（含包级 devDependencies 自声明）。`dependencies` 声明：`@easemob/agent-contracts`、`@easemob/agent-database`（版本 `0.1.0`，yarn workspaces 透明解析）。
+工程约定同 T0 spec §4（含包级 devDependencies 自声明）。`dependencies` 声明：`@asterisk/agent-contracts`、`@asterisk/agent-database`（版本 `0.1.0`，yarn workspaces 透明解析）。
 
 ## 5. 详细规格
 
 ```ts
-import type { Database } from '@easemob/agent-database';
-import type { EventEnvelope } from '@easemob/agent-contracts';
+import type { Database } from '@asterisk/agent-database';
+import type { EventEnvelope } from '@asterisk/agent-contracts';
 
 export type TaskStatus = 'pending' | 'processing' | 'done' | 'dead';
 
@@ -124,5 +124,5 @@ export function createTaskQueue(db: Database, table: string): TaskQueue;
 ## 7. 验收标准
 
 1. 包级与根级六项检查全绿；
-2. 只 import `@easemob/agent-contracts`、`@easemob/agent-database`、`node:*`；
+2. 只 import `@asterisk/agent-contracts`、`@asterisk/agent-database`、`node:*`；
 3. 导出签名与本文 §5 一致。

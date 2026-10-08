@@ -12,13 +12,13 @@
 - **程序包是什么**：平台管理的**唯一资产单元**——一个 git 仓库或上传包，内含多个子程序（可执行入口）、多个 skill（给大模型的能力单元）、及包自己需要的其他资源。平台不认识包内容，只做三件事：登记（引用/上传母本 + 元数据）、清单机械校验（`agent-package.json`）、物化后吊起执行。
 - **为什么是程序包而不是 skill**：完整业务链路（取数/脱敏/门禁/分支循环）不是一个 skill 能承载的——skill 只是"给大模型用的能力"；链路里只有推理一环需要大模型，其余都是机械环节，由"代码即流程"的流程程序承载。skill 没有消失，是归位为包内的一种内容。
 - **一入一出契约四条**（模板骨架注释必须与之一致）：① stdin 一段 JSON 进（信封 + 平台注入上下文）；② stdout 一段 JSON 出（`sdk.return` / `sdk.fail`，只认第一次）；③ 失败语义机械（任何一步失败 = 整体失败，不重跑）；④ 日志走 `sdk.log`（stderr，平台采集、secrets 源头脱敏）。
-- **平台注入什么**：运行时平台把 `@easemob/agent-sdk`（esbuild bundle）注入解析路径——业务零安装；入口信封/config/secrets/endpoint 经 stdin 注入。包内 node_modules 的 sdk 只服务开发期类型与测试。
+- **平台注入什么**：运行时平台把 `@asterisk/agent-sdk`（esbuild bundle）注入解析路径——业务零安装；入口信封/config/secrets/endpoint 经 stdin 注入。包内 node_modules 的 sdk 只服务开发期类型与测试。
 - **模板的定位**：`design/package-model.md` §8 的物化——把作者指南落成文件。工具链与平台**同构同版本**：作者在本地跑绿的检查，就是平台要求的全套检查。
 - **skill 注入**（作者需要理解的边界）：`sdk.agent({skills:[...]})` 按名引用（可多个、可跨绑定包），平台白名单校验后逐个 `--skill` 注入 pi；没有运行时注册接口。
 
 ### 2.1 消费的上游包（真实签名，以此为准）
 
-`@easemob/agent-sdk`（导出单例对象 `sdk`；契约唯一定义处在 T10 spec §5.3）：
+`@asterisk/agent-sdk`（导出单例对象 `sdk`；契约唯一定义处在 T10 spec §5.3）：
 
 ```ts
 export const sdk: {
@@ -87,7 +87,7 @@ templates/agent-package/
   "private": true,
   "type": "module",
   "dependencies": {
-    "@easemob/agent-sdk": "^0.1.0"
+    "@asterisk/agent-sdk": "^0.1.0"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",
@@ -188,7 +188,7 @@ export default tseslint.config(
 ### 4.7 src/programs/main.ts（流程程序骨架，注释承载规则）
 
 ```ts
-import { sdk } from "@easemob/agent-sdk";
+import { sdk } from "@asterisk/agent-sdk";
 
 // 流程程序骨架（单轮审查工单形态）：检查 → 取数/脱敏 → 大模型 → 还原/门禁 → 唯一出口。
 // 约束四条：stdin 一段 JSON 进、stdout 一段 JSON 出（sdk.return/sdk.fail）、
@@ -275,7 +275,7 @@ describe("main 程序契约", () => {
 ### 4.10 README.md（章节提纲，执行者成文）
 
 1. 这是什么：程序包模板——平台管理的资产单元（子程序 + skill 的载体），拷贝即用；
-2. 快速开始：拷贝目录 → 改 `agent-package.json` 与 `package.json` 的 name → 安装依赖（平台未发布 npm 前，把 `@easemob/agent-sdk` 改为 `file:<平台仓>/packages/sdk`）→ 写 `src/` 与 `skills/` → `npm run build/test/typecheck/lint/format:check/circular` 全绿 → 推送 git → 控制台登记绑定；
+2. 快速开始：拷贝目录 → 改 `agent-package.json` 与 `package.json` 的 name → 安装依赖（平台未发布 npm 前，把 `@asterisk/agent-sdk` 改为 `file:<平台仓>/packages/sdk`）→ 写 `src/` 与 `skills/` → `npm run build/test/typecheck/lint/format:check/circular` 全绿 → 推送 git → 控制台登记绑定；
 3. 运行时说明：平台注入 sdk（开发期依赖只为类型与测试）、stdin/stdout 契约四条、skills 白名单与 `--skill` 注入、业务日志走 `sdk.log`；
 4. 目录说明：每个文件一句话。
 
@@ -295,7 +295,7 @@ cd "$TMP"
 node -e '
   const fs = require("fs");
   const p = JSON.parse(fs.readFileSync("package.json", "utf8"));
-  p.dependencies["@easemob/agent-sdk"] = "file:" + process.argv[1];
+  p.dependencies["@asterisk/agent-sdk"] = "file:" + process.argv[1];
   fs.writeFileSync("package.json", JSON.stringify(p, null, 2) + "\n");
 ' "$ROOT/packages/sdk"
 npm install --no-audit --no-fund
@@ -321,7 +321,7 @@ echo "模板验收通过"
 
 1. **非 workspace**：模板不是平台 monorepo 的包；根六连中只有 prettier 覆盖模板（eslint/dpdm 的 files 限定 packages/app）——模板文件必须 prettier 合格。
 2. **独立可运行**：拷贝出平台仓后自成工程——自带 tsconfig（不 extends 平台 base）、jest.config.mjs、eslint.config.js，不引用平台仓相对路径。
-3. **sdk 依赖**：`dependencies: { "@easemob/agent-sdk": "^0.1.0" }`；平台发布 npm 前，本地开发/验收改为 `file:` 指向平台仓 `packages/sdk`（README 写明，验收脚本自动做）。运行时平台注入同名模块（esbuild bundle），包内 node_modules 的 sdk 只服务开发期类型与测试。
+3. **sdk 依赖**：`dependencies: { "@asterisk/agent-sdk": "^0.1.0" }`；平台发布 npm 前，本地开发/验收改为 `file:` 指向平台仓 `packages/sdk`（README 写明，验收脚本自动做）。运行时平台注入同名模块（esbuild bundle），包内 node_modules 的 sdk 只服务开发期类型与测试。
 4. **脚本与平台同构**：devDeps 版本对齐根 package.json。唯一有意的偏差：test 脚本内用 `npm run build`（不用 `yarn run build`）——包管理器中立，作者用 npm/yarn/pnpm 均可。
 5. **不写 packageManager 字段、不带 lock 文件**：作者环境自择包管理器。
 6. **内容即文档**：骨架代码用注释承载规则（约束四条、skills 白名单、唯一出口），注释措辞必须与 package-model.md 一致。

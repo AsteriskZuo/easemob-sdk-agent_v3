@@ -4,7 +4,7 @@
 
 ## 1. 目标
 
-产出 `@easemob/agent-runtime` 包：**入口循环「过闸门之后」的全部重数据组装与执行编排**——EnvProvider（两桶环境配置）+ ContextLoader（组装 RunContext）+ Lifecycle（实现 scheduler 的 EntryDriver：四步时序 + 业务标记打标）。同时顺带完成两个既有包的小扩展：registry 扩业务资料字段（迁移 v2）、workflow-runner 的 RunRequest 加可选 `run_id`。
+产出 `@asterisk/agent-runtime` 包：**入口循环「过闸门之后」的全部重数据组装与执行编排**——EnvProvider（两桶环境配置）+ ContextLoader（组装 RunContext）+ Lifecycle（实现 scheduler 的 EntryDriver：四步时序 + 业务标记打标）。同时顺带完成两个既有包的小扩展：registry 扩业务资料字段（迁移 v2）、workflow-runner 的 RunRequest 加可选 `run_id`。
 
 本包是 scheduler（轻数据调度）与 workflow-runner / agent-service（执行原语）之间的**唯一粘合层**。心脏不认识业务：scheduler 只调 `EntryDriver.execute(task, watcher)`，业务细节全部封在本包内。
 
@@ -17,11 +17,11 @@
 - **channel_id**：业务通道 = `buildBusinessChannelId(source, session_id, business_id)`（contracts 提供纯函数）。scheduler 调 EntryDriver 时不传 channel_id，本包用同一纯函数自行计算，结果必然一致。
 - **配额解析**：`timeout_minutes` / `max_agent_calls` = 业务资料覆盖值 ?? 工厂注入的全局默认值。ConfigStore（设置模块）尚未实现，全局默认值由装配根经工厂参数注入，本包不读环境变量。
 - **业务标记**：生命周期状态机（created → running → success/failed/timeout）落库，是控制台任务监控的投影来源。
-- 数据访问只能经 `@easemob/agent-database`，禁止直接 import `node:sqlite`。
+- 数据访问只能经 `@asterisk/agent-database`，禁止直接 import `node:sqlite`。
 
 ### 2.1 消费的上游包真实签名
 
-`@easemob/agent-scheduler`（0.1.0，`packages/scheduler/src/types.ts`）：
+`@asterisk/agent-scheduler`（0.1.0，`packages/scheduler/src/types.ts`）：
 
 ```ts
 /** 执行结果（Lifecycle 的返回形状） */
@@ -39,7 +39,7 @@ export interface EntryDriver {
 }
 ```
 
-`@easemob/agent-workflow-runner`（0.1.0）：
+`@asterisk/agent-workflow-runner`（0.1.0）：
 
 ```ts
 export interface RunRequest {
@@ -68,7 +68,7 @@ export interface WorkflowRunner {
 
 runner 内部路径规则（本包必须与之对齐）：`workspace = {workspaceRoot}/runs/{source}/{session_id}/{business_id}/{run_id}/`；业务日志 = `{workspaceRoot}/logs/businesses/{同三维}/{run_id}.log`。
 
-`@easemob/agent-service`（0.1.0）：
+`@asterisk/agent-service`（0.1.0）：
 
 ```ts
 export interface SkillRef {
@@ -94,7 +94,7 @@ export interface AgentService {
 }
 ```
 
-`@easemob/agent-asset-registry`（0.1.0）：
+`@asterisk/agent-asset-registry`（0.1.0）：
 
 ```ts
 export type AssetKind = 'package' | 'tool' | 'skill';
@@ -140,7 +140,7 @@ export function resolveResource(
 ): { asset_id: string; name: string; path: string };
 ```
 
-`@easemob/agent-registry`（0.1.0，本任务扩展前的现有面）：
+`@asterisk/agent-registry`（0.1.0，本任务扩展前的现有面）：
 
 ```ts
 export interface BusinessMatch {
@@ -164,11 +164,11 @@ export function createBusinessRegistry(db: Database): BusinessRegistry;
 
 存储现状（迁移 v1，module `'registry'`）：`businesses`(business_id PK, business_name, creator_id, on_failure INTEGER, exit_bindings TEXT JSON)；`business_matches`(business_id, source, event_type, UNIQUE 三列)。
 
-`@easemob/agent-queue`（0.1.0）：`Task { task_id: string; event: EventEnvelope; status; enqueued_at: string; finished_at?: string }`。
+`@asterisk/agent-queue`（0.1.0）：`Task { task_id: string; event: EventEnvelope; status; enqueued_at: string; finished_at?: string }`。
 
-`@easemob/agent-contracts`（0.1.0）：`EventEnvelope`（contract_version/source/event_id/event_type/timestamp/session_id/correlation_id/hop_count/payload/producer_business_id?）、`buildBusinessChannelId(source, session_id, business_id): string`、`newUlid(): string`。
+`@asterisk/agent-contracts`（0.1.0）：`EventEnvelope`（contract_version/source/event_id/event_type/timestamp/session_id/correlation_id/hop_count/payload/producer_business_id?）、`buildBusinessChannelId(source, session_id, business_id): string`、`newUlid(): string`。
 
-`@easemob/agent-logger`（0.1.0）：全局外观 `logger.for({ module, ...固定字段 })` → CategoryLogger（error/warn/info/debug）。本包日志 module 名统一用 `'entry-loop'`（生命周期属入口循环侧，日志分类归入口循环日志）。
+`@asterisk/agent-logger`（0.1.0）：全局外观 `logger.for({ module, ...固定字段 })` → CategoryLogger（error/warn/info/debug）。本包日志 module 名统一用 `'entry-loop'`（生命周期属入口循环侧，日志分类归入口循环日志）。
 
 ## 3. 范围与不做清单
 
@@ -192,7 +192,7 @@ export function createBusinessRegistry(db: Database): BusinessRegistry;
 
 ```text
 packages/runtime/
-├── package.json            # @easemob/agent-runtime
+├── package.json            # @asterisk/agent-runtime
 ├── tsconfig.json           # extends ../../tsconfig.base.json
 ├── src/
 │   ├── index.ts            # 统一导出
@@ -206,7 +206,7 @@ packages/runtime/
     └── lifecycle.test.ts
 ```
 
-工程约定同 T0 spec §4。`dependencies`（版本号形式）：`@easemob/agent-contracts`、`@easemob/agent-database`、`@easemob/agent-registry`、`@easemob/agent-asset-registry`、`@easemob/agent-workflow-runner`、`@easemob/agent-service`、`@easemob/agent-scheduler`（**仅 import type** EntryDriver/ExecutionResult）、`@easemob/agent-logger`。
+工程约定同 T0 spec §4。`dependencies`（版本号形式）：`@asterisk/agent-contracts`、`@asterisk/agent-database`、`@asterisk/agent-registry`、`@asterisk/agent-asset-registry`、`@asterisk/agent-workflow-runner`、`@asterisk/agent-service`、`@asterisk/agent-scheduler`（**仅 import type** EntryDriver/ExecutionResult）、`@asterisk/agent-logger`。
 
 registry / workflow-runner 的扩展在原包内完成（各自的迁移与测试随包走）。
 
@@ -449,7 +449,7 @@ export interface LifecycleRecord {
 ## 7. 验收标准
 
 1. 根级六连全绿：`yarn build && yarn test && yarn typecheck && yarn lint && yarn format:check && yarn circular`；
-2. runtime 包运行时依赖不超出 §4 清单；`@easemob/agent-scheduler` 仅 import type（dpdm 无环）；
+2. runtime 包运行时依赖不超出 §4 清单；`@asterisk/agent-scheduler` 仅 import type（dpdm 无环）；
 3. registry / workflow-runner 的扩展向后兼容：两包既有测试零改动全过；
 4. 导出签名与本文 §5.2/§5.3/§5.4 一致；registry 新增面与 §5.1 一致。
 

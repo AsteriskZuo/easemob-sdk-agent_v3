@@ -4,7 +4,7 @@
 
 ## 1. 目标
 
-产出 `@easemob/agent-contracts` 包：事件信封 v1 类型与校验、channel_id 编解码、id 生成。**零运行时依赖、纯类型 + 机械函数**，是全部后续包的共同地基。
+产出 `@asterisk/agent-contracts` 包：事件信封 v1 类型与校验、channel_id 编解码、id 生成。**零运行时依赖、纯类型 + 机械函数**，是全部后续包的共同地基。
 
 ## 2. 背景知识（执行所需的最小上下文）
 
@@ -60,7 +60,7 @@ packages/contracts/
     └── id.test.ts
 ```
 
-`package.json`：`"name": "@easemob/agent-contracts"`，`"dependencies": {}`（必须为空）。
+`package.json`：`"name": "@asterisk/agent-contracts"`，`"dependencies": {}`（必须为空）。
 
 ## 5. 详细规格
 

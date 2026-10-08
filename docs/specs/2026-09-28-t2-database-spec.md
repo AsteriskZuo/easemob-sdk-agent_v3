@@ -4,7 +4,7 @@
 
 ## 1. 目标
 
-产出 `@easemob/agent-database` 包：SQLite 薄封装 + 最小迁移原语，**全平台唯一数据访问口**。queue / registry / channel 等所有需要持久化的包都经它访问数据库，不允许任何包直接 `import 'node:sqlite'`。
+产出 `@asterisk/agent-database` 包：SQLite 薄封装 + 最小迁移原语，**全平台唯一数据访问口**。queue / registry / channel 等所有需要持久化的包都经它访问数据库，不允许任何包直接 `import 'node:sqlite'`。
 
 ## 2. 背景知识（执行所需的最小上下文）
 
@@ -27,7 +27,7 @@
 
 ```text
 packages/database/
-├── package.json            # @easemob/agent-database
+├── package.json            # @asterisk/agent-database
 ├── tsconfig.json           # extends ../../tsconfig.base.json（同 contracts 模板）
 ├── src/
 │   ├── index.ts            # 统一导出

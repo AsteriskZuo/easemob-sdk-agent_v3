@@ -18,7 +18,7 @@
 | 循环依赖 | dpdm ^4 | |
 | 格式化 | prettier ^3 | 配置用默认值，只提供 `.prettierignore` |
 | lint | eslint ^10 + typescript-eslint ^8（flat config） | 参考 v2 `eslint.config.js` |
-| 包名 | `@easemob/agent-*` scope | npm 规则 scope 只能一层 |
+| 包名 | `@asterisk/agent-*` scope | npm 规则 scope 只能一层 |
 
 ## 3. 目录结构（本任务产出）
 
@@ -34,7 +34,7 @@
 ├── jest.compiled.config.mjs  # 共享 jest 配置（跑 dist-test 产物）
 ├── packages/
 │   └── contracts/            # 模板包：验证工具链的最小骨架，实现归 T1
-│       ├── package.json      # @easemob/agent-contracts，含包级脚本模板
+│       ├── package.json      # @asterisk/agent-contracts，含包级脚本模板
 │       ├── tsconfig.json     # extends ../../tsconfig.base.json
 │       ├── src/index.ts      # 空导出占位
 │       └── tests/smoke.test.ts
@@ -77,4 +77,4 @@
 2. `yarn build` 全部包编译出 dist；
 3. `yarn test` 编译态跑通 smoke 测试；
 4. `yarn typecheck`、`yarn lint`、`yarn format:check`、`yarn circular` 全部通过；
-5. 构建产物可被 import：根目录执行 `node --input-type=module -e "await import('@easemob/agent-contracts')"` 成功（验证 workspaces 软链 + exports 链路）。
+5. 构建产物可被 import：根目录执行 `node --input-type=module -e "await import('@asterisk/agent-contracts')"` 成功（验证 workspaces 软链 + exports 链路）。

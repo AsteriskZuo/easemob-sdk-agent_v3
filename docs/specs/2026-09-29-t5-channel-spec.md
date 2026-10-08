@@ -4,16 +4,16 @@
 
 ## 1. 目标
 
-产出 `@easemob/agent-channel` 包：平台的**通道**原语——`ChannelPool`/`Channel`（同通道严格串行的虚拟执行链）+ `ChannelStore`（业务通道 ↔ agent 会话映射）。调度循环（T7）是消费方，本包不实现任何循环逻辑。
+产出 `@asterisk/agent-channel` 包：平台的**通道**原语——`ChannelPool`/`Channel`（同通道严格串行的虚拟执行链）+ `ChannelStore`（业务通道 ↔ agent 会话映射）。调度循环（T7）是消费方，本包不实现任何循环逻辑。
 
 ## 2. 背景知识（执行所需的最小上下文）
 
-- **通道 = 平台的串行/隔离单位**，以 channel_id 字符串为键（由 `@easemob/agent-contracts` 的 `buildBusinessChannelId` / `buildExitChannelId` 产出，本包把它当不透明字符串，不解析）。规则：**同通道严格串行、跨通道自然并行**。
+- **通道 = 平台的串行/隔离单位**，以 channel_id 字符串为键（由 `@asterisk/agent-contracts` 的 `buildBusinessChannelId` / `buildExitChannelId` 产出，本包把它当不透明字符串，不解析）。规则：**同通道严格串行、跨通道自然并行**。
 - 调度循环是两层结构：摄取循环把 (task, 关注者) 挂入各通道；**消化循环 drain 由通道触发**（通道挂入任务时经 `onActivate` 回调通知循环启动 drain）。一条通道同一时刻最多一个 drain 在跑 = 同通道串行；十条通道 = 十个 drain 并行 = 跨通道并行。通道"**用完即焚**"：消化空即 drain 退出，后续再有任务挂入则重新触发 onActivate。
 - **Channel 是 AsyncIterable**：消化循环以 `for await (const { task, watcher } of channel)` 逐条取出挂入的项。
-- **通道创建即落库**（防意外丢失），后续只做状态变更；通道上排队的项不单独持久化——任务本体已在任务队列（@easemob/agent-queue）里持久化，崩溃恢复由队列的 `recover()` 承担。
+- **通道创建即落库**（防意外丢失），后续只做状态变更；通道上排队的项不单独持久化——任务本体已在任务队列（@asterisk/agent-queue）里持久化，崩溃恢复由队列的 `recover()` 承担。
 - **ChannelStore**：业务通道 channel_id ↔ agent-cli 会话 id 的映射表。大模型上下文由 agent-cli（pi）自己托管，平台只存映射。出口通道（`exit__` 前缀）不过 LLM、无 agent 会话，**不进本映射**。
-- 数据访问只能经 `@easemob/agent-database`（migrate 机制建表，module 名 `'channel'`），禁止直接 import `node:sqlite`。
+- 数据访问只能经 `@asterisk/agent-database`（migrate 机制建表，module 名 `'channel'`），禁止直接 import `node:sqlite`。
 
 ## 3. 范围与不做清单
 
@@ -30,7 +30,7 @@
 
 ```text
 packages/channel/
-├── package.json            # @easemob/agent-channel
+├── package.json            # @asterisk/agent-channel
 ├── tsconfig.json
 ├── src/
 │   ├── index.ts            # 统一导出
@@ -41,13 +41,13 @@ packages/channel/
     └── channel-store.test.ts
 ```
 
-工程约定同 T0 spec §4。`dependencies`：`@easemob/agent-contracts`、`@easemob/agent-database`、`@easemob/agent-queue`（Task 类型）。
+工程约定同 T0 spec §4。`dependencies`：`@asterisk/agent-contracts`、`@asterisk/agent-database`、`@asterisk/agent-queue`（Task 类型）。
 
 ## 5. 详细规格
 
 ```ts
-import type { Database } from '@easemob/agent-database';
-import type { Task } from '@easemob/agent-queue';
+import type { Database } from '@asterisk/agent-database';
+import type { Task } from '@asterisk/agent-queue';
 
 /** 挂入通道的一项：任务 + 关注者（关注者类型各循环自定，本包不解释） */
 export interface ChannelItem<T = unknown> {
@@ -71,7 +71,7 @@ export interface ChannelPool {
   onActivate(cb: (channel: Channel) => void): void;
 }
 
-/** 创建通道池。db 为全平台唯一数据访问口（@easemob/agent-database） */
+/** 创建通道池。db 为全平台唯一数据访问口（@asterisk/agent-database） */
 export function createChannelPool(db: Database): ChannelPool;
 
 /** 业务通道 channel_id ↔ agent-cli 会话 id 映射。只管业务通道（exit__ 前缀的键调用即抛错） */
@@ -121,6 +121,6 @@ export function createChannelStore(db: Database): ChannelStore;
 ## 7. 验收标准
 
 1. 包级与根级六项检查全绿；
-2. 只 import `@easemob/agent-contracts`、`@easemob/agent-database`、`@easemob/agent-queue`、`node:*`；
+2. 只 import `@asterisk/agent-contracts`、`@asterisk/agent-database`、`@asterisk/agent-queue`、`node:*`；
 3. 导出签名与本文 §5 一致；
 4. 串行性/竞态测试稳定通过（连跑 10 次不 flake）。

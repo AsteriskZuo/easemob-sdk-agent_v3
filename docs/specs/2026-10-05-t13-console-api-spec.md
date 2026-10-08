@@ -11,7 +11,7 @@
 
 实现平台管理 API：控制台（T14 浏览器 SPA）与平台服务之间的唯一交互口。产出：
 
-1. 新包 `packages/console-api`（`@easemob/agent-console-api`）：HTTP 服务 + 账号体系 + 全部管理路由，零第三方运行时依赖（node:http 自制轻量路由）；
+1. 新包 `packages/console-api`（`@asterisk/agent-console-api`）：HTTP 服务 + 账号体系 + 全部管理路由，零第三方运行时依赖（node:http 自制轻量路由）；
 2. `app/server` 装配扩展：配置新增管理 API 端口，bootstrap 启动/停止管理 API 服务；
 3. `packages/asset-registry` 增补 `remove` 方法（下架，见 §5.6——**契约增补，本规格是其唯一依据**）。
 
@@ -51,7 +51,7 @@ bootstrap 内部还创建了但未放进 AssembledContext 的实例，本任务�
 - `createExitRegistry()`（exit-tools，出口工具菜单）；
 - `createLifecycleStore(db)`（runtime，任务监控读口——同 module schema 幂等，再建一个实例即可，与 Lifecycle 内部实例共用同一张表）。
 
-### 2.2 registry（@easemob/agent-registry，真实签名）
+### 2.2 registry（@asterisk/agent-registry，真实签名）
 
 ```ts
 export interface BusinessMatch {
@@ -105,9 +105,9 @@ export interface BusinessRegistry {
 }
 ```
 
-`EventSource = "wecom" | "jira" | "github" | "webhook" | "cron" | "internal" | "manual"`（@easemob/agent-contracts）。
+`EventSource = "wecom" | "jira" | "github" | "webhook" | "cron" | "internal" | "manual"`（@asterisk/agent-contracts）。
 
-### 2.3 asset-registry（@easemob/agent-asset-registry，真实签名）
+### 2.3 asset-registry（@asterisk/agent-asset-registry，真实签名）
 
 ```ts
 export type AssetKind = "package" | "tool" | "skill";
@@ -140,7 +140,7 @@ export interface AssetRegistry {
 
 **本任务给该接口增补 `remove`（§5.6）。**
 
-### 2.4 runtime（@easemob/agent-runtime，真实签名）
+### 2.4 runtime（@asterisk/agent-runtime，真实签名）
 
 ```ts
 export interface EnvConfig {
@@ -166,7 +166,7 @@ export function createLifecycleStore(db: Database): LifecycleStore & LifecycleWr
 
 `EnvProvider.getFor("")` 传空串时 `scope IN ('', '')` 等价于只取通用层——**这是读取通用层 secrets 值的唯一现有通道**（list 不给 secrets 值），本任务用它解析私有资产的凭据（§5.5）。
 
-### 2.5 queue（@easemob/agent-queue，真实签名）
+### 2.5 queue（@asterisk/agent-queue，真实签名）
 
 ```ts
 export type TaskStatus = "pending" | "processing" | "done" | "dead";
@@ -182,7 +182,7 @@ export interface TaskQueue {
 }
 ```
 
-### 2.6 exit-tools（@easemob/agent-exit-tools，真实签名）
+### 2.6 exit-tools（@asterisk/agent-exit-tools，真实签名）
 
 ```ts
 export interface ConfigField {
@@ -220,7 +220,7 @@ export function createExitRegistry(): ExitRegistry;
 
 ```
 packages/console-api/
-├── package.json            # @easemob/agent-console-api，type: module
+├── package.json            # @asterisk/agent-console-api，type: module
 ├── tsconfig.json           # 继承根 tsconfig（TS ^5.9，ESM NodeNext）
 ├── src/
 │   ├── index.ts            # 公共出口：createConsoleApi + DTO 类型（console 复用）
@@ -249,9 +249,9 @@ packages/console-api/
     └── http.test.ts        # body 上限、非法 JSON、错误格式
 ```
 
-依赖（package.json dependencies）：`@easemob/agent-contracts`、`@easemob/agent-database`、`@easemob/agent-registry`、`@easemob/agent-asset-registry`、`@easemob/agent-runtime`、`@easemob/agent-queue`、`@easemob/agent-exit-tools`、`@easemob/agent-logger`。全部 workspace:*。**不依赖** env/scheduler/agent-service 等。
+依赖（package.json dependencies）：`@asterisk/agent-contracts`、`@asterisk/agent-database`、`@asterisk/agent-registry`、`@asterisk/agent-asset-registry`、`@asterisk/agent-runtime`、`@asterisk/agent-queue`、`@asterisk/agent-exit-tools`、`@asterisk/agent-logger`。全部 workspace:*。**不依赖** env/scheduler/agent-service 等。
 
-`app/server` 追加依赖 `@easemob/agent-console-api`。
+`app/server` 追加依赖 `@asterisk/agent-console-api`。
 
 ## 5. 详规
 
@@ -520,11 +520,11 @@ export function createConsoleApi(deps: ConsoleApiDeps, options: ConsoleApiOption
    - 启动完成日志补 `console_port: port`。
 3. 启动失败清理链 + `ServerHandle.stop()`：consoleApi.stop() 加在「适配器停止」之前（先关 API 入口，再停循环）。
 4. `AssembledContext` 不新增字段（consoleApi 是装配层局部资源，不暴露；与 EntryAdapter 同列管理）。
-5. `app/server/package.json` 加依赖 `@easemob/agent-console-api`、`@easemob/agent-runtime`（createLifecycleStore——检查是否已依赖，已依赖则不动）。
+5. `app/server/package.json` 加依赖 `@asterisk/agent-console-api`、`@asterisk/agent-runtime`（createLifecycleStore——检查是否已依赖，已依赖则不动）。
 
 ### 5.11 DTO 与类型导出（dto.ts）
 
-全部 API 请求/响应类型集中在 `dto.ts` 纯 type 定义，从包根导出。**console（T14）以 `import type { ... } from "@easemob/agent-console-api"` type-only 复用，API 契约不进 contracts 包**（contracts 保持事件域零依赖纯包；本决定更新总计划 T13 行「契约补入 contracts」的旧表述）。DTO 直接复用上游类型（User/BusinessProfile/BusinessMatch/ExitBinding/AssetMeta/AssetManifest/ConfigField/Task/LifecycleRecord），新定义的只有请求体与聚合响应：
+全部 API 请求/响应类型集中在 `dto.ts` 纯 type 定义，从包根导出。**console（T14）以 `import type { ... } from "@asterisk/agent-console-api"` type-only 复用，API 契约不进 contracts 包**（contracts 保持事件域零依赖纯包；本决定更新总计划 T13 行「契约补入 contracts」的旧表述）。DTO 直接复用上游类型（User/BusinessProfile/BusinessMatch/ExitBinding/AssetMeta/AssetManifest/ConfigField/Task/LifecycleRecord），新定义的只有请求体与聚合响应：
 
 ```ts
 // 请求体（示例，全部字段中文注释）

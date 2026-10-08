@@ -45,7 +45,7 @@
 - 状态：完成
 - 子 agent：agent-2（前台派发）
 - 开始：2026-09-28 12:04；完成：2026-09-28 12:15
-- 验收证据：主 agent 独立复验 `yarn build && yarn test && yarn typecheck && yarn lint && yarn format:check && yarn circular` + `import '@easemob/agent-contracts'` 全绿
+- 验收证据：主 agent 独立复验 `yarn build && yarn test && yarn typecheck && yarn lint && yarn format:check && yarn circular` + `import '@asterisk/agent-contracts'` 全绿
 - commit：1ca90f6
 - 备注：
   - yarn 4 下 `set version` 默认只写 packageManager 字段，用 `--yarn-path` 强制下载 release 到 .yarn/releases/（spec §2 的 3.6.1 技巧是 classic 起步备用方案，未用到）；
@@ -186,7 +186,7 @@
 - 备注：
   - **真 pi RPC compact smoke 未做**（需真实模型凭据，子代理不碰凭据）——留待人工/T12 联调验证；若 RPC 绑定既有会话有障碍，按 spec §8.8 降级为 pi SDK helper；
   - 子代理合理裁决（主 agent 确认）：审计 extension 路径向上查找解析（dist 与 dist-test 深度不同）；close 后新连接必 ECONNREFUSED，故 service_closed 只覆盖挂起请求；compact argv 补同套白名单 flag（纪律一致）；审计事件体 provider/model 防御式提取（真 pi smoke 时核对）；
-  - 依赖协议统一：agent-service 的 `@easemob/agent-logger` 改为 `0.1.0`（与 scheduler/workflow-runner 存量形式一致）；
+  - 依赖协议统一：agent-service 的 `@asterisk/agent-logger` 改为 `0.1.0`（与 scheduler/workflow-runner 存量形式一致）；
   - 并行冲突：T15 的 templates/ 自带 tsconfig 导致根 `yarn lint` 的 typescript-eslint 解析崩溃——根 eslint.config.js ignores 加 `templates/`（随 T15 提交）。
 
 ### T15 程序包模板
@@ -283,3 +283,14 @@
 - commit：8d8a38f
 - 范围：agent/model 下拉 /api/config 驱动（删除全部硬编码；创建模式 agent 默认 agents[0]、model 必选无默认；编辑态原值不在可选集合标黄）；包/工具/skill 空列表引导 + 跳资产管理链接；出口机密项 已配置/未配置 Tag + 键名 exit.{kind}.{field.key} 标注 + 创建/编辑去向提示；叹号提示按「是什么/何时用/配错的后果」三段式重写（13 个模块）；资产绑定卡 Alert 补包/工具/skill/入口程序关系说明
 - 实施中发现并处理：antd Select aria-label 命中多节点（测试取 INPUT，同 selectOption 惯例）；「请选择模型」占位文案与校验文案同词（断言限定 .ant-form-item-explain-error 内）；同步 getAllByLabelText 撞上 auth 加载态 spinner（先 await findByLabelText 业务名称）；同测试双 renderApp 撞查询范围（先 unmount 再挂）
+
+**T20 包名改名 + sdk 发布准备**
+
+- 状态：完成
+- 执行：主 agent 直接实施（机械改动不派子代理）
+- 开始/完成：2026-10-08
+- 依据：`docs/decisions/2026-10-08-package-scope-rename.md`（无 spec，决策文档即依据）
+- 验收证据：根六连全绿（build/test/typecheck/lint/format:check/circular exit 0；test 4m15s 含 console 28 条；sed 改名致 2 文件行宽越界，prettier --write 修复后复验）；`npm publish --dry-run` 通过（@asterisk/agent-sdk@0.1.0，12.2 kB，29 文件，registry npmjs + access public）；全仓 grep 无 `@easemob/agent-` 残留（`@easemob.com` 邮箱与 v2 参考包 `@easemob-agent/jira-mcp` 不受影响）
+- commit：03860ec
+- 范围：114 文件 sed 替换（15 packages + app/* + templates + scripts + docs）；yarn.lock 重新生成；sdk package.json 移除 private、补 files/publishConfig(access public)/prepublishOnly(发布前强制 build)；README「不对外发布」表述修正为「仅 sdk 对外发布」
+- 待办：npm publish 由用户执行（需 npmjs @asterisk scope 登录态），必须早于 T22 真机验证（物化构建 npm ci 需从 registry 解析 sdk）

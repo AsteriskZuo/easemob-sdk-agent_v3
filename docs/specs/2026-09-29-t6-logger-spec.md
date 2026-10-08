@@ -4,7 +4,7 @@
 
 ## 1. 目标
 
-产出 `@easemob/agent-logger` 包，三层结构：
+产出 `@asterisk/agent-logger` 包，三层结构：
 
 - **底层 `ConsoleLike`**（实例型工具）：与 Node `console` 方法签名严格一致的通用单文件日志器——可无缝替换 console.xxx、可移植到任何 Node 项目，管格式化、脱敏、等级、开关、写盘；
 - **中层 `CategoryLogger`**：绑定式分类日志器——模块初始化时绑定固定上下文，调用只传消息 + 增量字段；`with()` 链式再绑定；
@@ -39,7 +39,7 @@
 
 ```text
 packages/logger/
-├── package.json            # @easemob/agent-logger
+├── package.json            # @asterisk/agent-logger
 ├── tsconfig.json
 ├── src/
 │   ├── index.ts            # 统一导出
