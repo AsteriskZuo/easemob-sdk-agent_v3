@@ -1,6 +1,6 @@
 # 调度循环契约
 
-> 日期：2026-09-15（2026-09-26 修订：双循环、结果扇出、出口契约；移除 ResultDisposition。2026-09-27 修订：代码即流程——BusinessContext 面向流程程序 + agent 服务，Lifecycle = spawn 业务流程程序）
+> 日期：2026-09-15（2026-09-26 修订：双循环、结果扇出、出口契约；移除 ResultDisposition。2026-09-27 修订：代码即流程——BusinessContext 面向流程程序 + agent 服务，Lifecycle = spawn 业务流程程序。2026-10-08 修订：出口空结果跳过——派生事件 payload===null（sdk.return(null)）时出口循环不投递直接完结，入口下游照常）
 > 状态：定稿
 > 范围：**只覆盖两个调度循环（入口事件循环 / 出口事件循环）直接使用的契约**。入口内部、业务语义去重（后续单独设计）、控制台 UI、日志接口不在本文档。
 > 依据：`design/glossary.md`、`design/scheduler.md`、`design/processing-chain.md`、`design/lifecycle.md`、`design/event-contract.md`（v1）、`design/channel-model.md`。
@@ -237,7 +237,9 @@ interface ExecutionResult {
  *  入口队列无关注者则丢弃，出口队列无出口绑定则丢弃，互不影响。
  *  派生事件：hop_count+1、correlation_id 继承、source='internal'、
  *  session_id 继承上游源生标识、producer_business_id=产出方业务 id、
- *  event_type=业务id.产出类型（channel-model §4.1、glossary event_type 词条） */
+ *  event_type=业务id.产出类型（channel-model §4.1、glossary event_type 词条）。
+ *  空结果语义：业务 sdk.return(null) = 明确无产出 → 派生事件 payload === null，
+ *  出口循环跳过投递直接 complete（不查绑定、不挂通道）；入口下游照常收到（payload=null，自行判断） */
 
 /** 门禁/检查：不设平台契约、没有平台挂接点——它们是业务流程程序内部的环节，
  *  业务代码实现（唯一定义见 design/glossary.md 门禁词条；机制见 business-workflow §5）。
@@ -354,6 +356,7 @@ interface PlatformConfig {
 | 步骤 | 使用的契约 | 关键语义 |
 |------|-----------|---------|
 | 取任务 | `TaskQueue.take()`（出口队列） | 队列里只有派生事件（`producer_business_id` 必在） |
+| 空结果跳过 | 无（摄取处直判 `payload === null`） | `sdk.return(null)` = 业务明确无产出：`complete()` + 日志，不查绑定、不挂通道；入口下游照常收到该派生事件 |
 | 匹配 | `BusinessRegistry.exitBindings()` | 归属匹配；无绑定 → `complete()` + 日志（丢弃无害） |
 | 挂通道 | `ChannelPool.get('exit__' + destination)` | 同目标串行：保序 + 天然限流 |
 | 过闸门 | `Semaphore.acquire()`（出口闸门） | 毫秒级投递，取值可宽 |
@@ -480,6 +483,13 @@ class ExitSchedulerLoop {
     for (;;) {
       const task = this.queue.take();
       if (!task) continue;
+
+      // 空结果跳过投递（sdk.return(null) = 业务明确无产出）：不查绑定、不挂通道，
+      // 直接完结；入口下游照常收到该派生事件（payload=null，下游自行判断）
+      if (task.event.payload === null) {
+        this.queue.complete(task.task_id);
+        continue;
+      }
 
       // 出口队列只装派生事件，producer_business_id 必在（契约 §1）
       const bindings = this.registry.exitBindings(task.event.producer_business_id!);

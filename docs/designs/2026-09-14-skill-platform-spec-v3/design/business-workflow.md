@@ -28,10 +28,10 @@
 
 - **子进程契约**：stdin 一段 JSON（输入）、stdout 一段 JSON（结果）、exit code 非零或超时 = 失败（fail-closed）。这是平台与业务之间唯一的线；契约带 `contract_version: 'v1'`（版本纪律同事件契约，`design/event-contract.md` §2）；
 - **业务上下文业务自己管理**：流程中的中间数据（如脱敏 kv）就是程序内的变量，平台不持有、不传递；
-- **平台注入的额外上下文**：入口信封、业务环境配置与安全变量、run 工作目录、agent 服务端点、程序名→物化路径映射（`sdk.run` 按名查表的依据，见 `design/asset-model.md` §6）——经 stdin 与环境变量在启动时一次性注入；
+- **平台注入的额外上下文**：入口信封、业务环境配置与安全变量、run 工作目录、业务级持久目录（dataDir）、agent 服务端点、程序名→物化路径映射（`sdk.run` 按名查表的依据，见 `design/asset-model.md` §6）——经 stdin 在启动时一次性注入（环境变量清空注入，见 §6 边界）；
 - **结果校验**：平台只对 stdout 结果做 schema 校验与大小上限（大产物走引用，见 `design/event-contract.md`），不解析内容。
 
-**运行时形态**：业务流程程序来自业务绑定的**包**（`design/asset-model.md`：git 仓库登记，初始化时物化/转译就绪——TS 源码经 esbuild 转译存 JS，平台运行时零编译，类型检查是业务开发期的事）；业务 SDK 由平台注入 run 环境的依赖解析路径（sdk 连同其零依赖纯包依赖 esbuild bundle 注入），业务零安装、只 import；`WorkflowRunner.run({program})` 的 `program` = 绑定包中选定入口程序的物化产物文件。
+**运行时形态**：业务流程程序来自业务绑定的**包**（`design/asset-model.md`：git 仓库登记，初始化物化时经 `agent.materialize.mjs` 构建就绪——默认 esbuild 转译 TS 源码存 JS，平台运行时零编译，类型检查是业务开发期的事）；业务 SDK 是**普通 npm 依赖**（`@asterisk/agent-sdk` 安装进包内 node_modules，开发与运行时用同一份代码，平台不做注入/bundle）；`WorkflowRunner.run({program})` 的 `program` = 绑定包中选定入口程序的物化产物文件。
 
 **无挂起/恢复**：多轮交互的连续性由通道模块承接（`design/channel-model.md`），流程程序本身跨 run 无状态。
 
@@ -46,8 +46,16 @@ interface Sdk {
   /** 读入口：入口信封 + 平台注入上下文 */
   input(): RunInput;
 
+  /** 子程序侧读口：sdk.run 注入的 input 与 config（契约递归同构） */
+  runInput(): { input: unknown; config: Record<string, string> };
+
   /** 读控制台为本业务登记的配置（非机密） */
   config(): Record<string, string>;
+
+  /** 业务级持久目录绝对路径（跨 run 状态落点，如审查去重记录；平台 run 启动时已建，
+   *  同通道 run 串行无需自锁，业务自管容量）。仅平台→流程程序注入；
+   *  sdk.run 子程序信封无此字段（叶子无状态语义，确需持久由流程程序经 input 传路径） */
+  dataDir(): string;
 
   /** 读本业务安全变量（平台注入，业务不碰环境变量） */
   secret(name: string): string;

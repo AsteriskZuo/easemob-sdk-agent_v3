@@ -324,3 +324,13 @@
 - commit：c00e25a
 - 范围：exit-tools（resultDoc ×7）、asset-registry（clearCache）、console-api（/api/config 扩展 + 缓存清理路由 + path 查重）、console（MatchEditor 重写 + 内部入口引导 + resultDoc 渲染 + 设置页清理按钮）、server（开关状态透传）
 - 已知取舍：① console-api 内联扫法不复用 entry-adapters（避免依赖方向倒置）；② markdown 用 <pre> 原样展示不引依赖；③ secret 引用字段用显式名单正则（避免误标 session_id_key/event_id_key）；④ §8.2.5 确认后端本无外部入口限制，纯 internal 业务天然可建
+
+**T21d sdk 开发者主文档 + 设计文档回写**
+
+- 状态：完成
+- 子 agent：agent-29（单发，一次通过）
+- 开始/完成：2026-10-08
+- 验收证据：主 agent 独立复验根六连全绿（exit 0，test 4m42s）；抽查 sdk README §1-§2（平台包办清单表、契约四条、dataDir 串行保证）与源码逐条相符；自审修掉 6 处事实性错误（wecom url 非 secret 项误标、交叉引用错链、webhook 端口缺来源、两处物化残留矛盾、business-workflow env 注入失实、console-design 要点 1 残留）——规则 12 生效
+- commit：1d18807（sdk README + 模板引子 + runner 注释）；docs commit 见下一条
+- 范围：packages/sdk/README.md（548 行十章节）+ asset-model/business-workflow/console-design/scheduler-loop-contracts/glossary 五文档回写 + T15 spec 修订注记
+- 已知取舍：sdk README §6 声明自己是 eventDoc/resultDoc 的镜像并指向 API 为最新口径（防双源漂移）；business/jira-ticket-review 空壳以「落位目录」措辞引用未虚构内容

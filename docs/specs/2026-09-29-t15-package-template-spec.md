@@ -325,3 +325,10 @@ echo "模板验收通过"
 4. **脚本与平台同构**：devDeps 版本对齐根 package.json。唯一有意的偏差：test 脚本内用 `npm run build`（不用 `yarn run build`）——包管理器中立，作者用 npm/yarn/pnpm 均可。
 5. **不写 packageManager 字段、不带 lock 文件**：作者环境自择包管理器。
 6. **内容即文档**：骨架代码用注释承载规则（约束四条、skills 白名单、唯一出口），注释措辞必须与 package-model.md 一致。
+
+## 9. 修订注记（2026-10-08，T21 批次）
+
+spec 是历史记录，正文不改；以下两处已被后续批次修订，现行口径以引用文档为准：
+
+1. **初始化脚本必带**：模板新增 `agent.materialize.mjs`（资产根，package/tool 资产物化必带；默认实现 = esbuild 转译 `src/` → `dist/`，与 `npm run build` 同产物）。物化固定流程 = clone → 清单形状校验 → npm ci（要求 package-lock.json）→ 初始化脚本 → 产物校验。详见 `docs/specs/2026-10-08-t21-platform-landability-spec.md` §4 与 `docs/decisions/2026-10-08-asset-materialization-build.md`；机制唯一定义处 `design/asset-model.md` §9。
+2. **sdk 是普通 npm 依赖**：§2/§8.3 中「运行时平台注入同名模块（esbuild bundle），包内 node_modules 的 sdk 只服务开发期类型与测试」的表述**作废**——`@asterisk/agent-sdk` 从 npm registry 安装进包内 node_modules，开发与运行时用同一份代码，平台不做任何注入/bundle。包名 @asterisk/* 的作用域更名见 `docs/decisions/2026-10-08-package-scope-rename.md`。开发者完整文档 = `packages/sdk/README.md`。

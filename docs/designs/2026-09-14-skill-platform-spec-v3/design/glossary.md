@@ -172,6 +172,30 @@
 
 要点：**模型与作者指南的唯一定义处：`design/asset-model.md`**。资产单元从「程序包」演进为三族——包是业务单位（复用走 git 本身），工具与 skill 是可复用组件（平台内共享）；没有上传模式、没有可见性三级（属主 + 共享标记已表达全部）。托管平台无关（GitHub / Gitee / 内网 git 均走 git 协议）；私有仓库登记时声明 `is_private` + `credential_key`（key 的名字，值在安全桶），物化时按**操作者维度**解析注入，使用者之间互不相干（详见 `design/asset-model.md` §3.1）。
 
+## 物化 · Materialize
+
+一句话：把资产从 git 引用变成本地可执行内容的过程。
+
+精确义：平台按资产登记行（git url + commit + 子路径）把资产落到 `cache/assets/{asset_id}/` 的固定流程——package/tool：`clone → 清单形状校验 → npm ci（有 package.json 时，必须同时含 package-lock.json）→ 执行业务初始化脚本 agent.materialize.mjs → 产物校验（清单 programs 每条路径必须真实存在）→ 去 .git → 写 .materialized-ok → 原子 rename`；skill（纯文档）不构建。触发时机：业务创建/变更绑定（初始化物化，失败即创建失败）与运行时缓存缺失补拉。
+
+要点：**唯一定义处 `design/asset-model.md` §9**。构建产物与 node_modules 随缓存目录同生共死（缓存类，可清可重建——清理入口 = 控制台设置页「清理资产缓存」按钮 / `POST /api/cache/clear`，admin）；已知脆弱性：清理后重建依赖 npm registry 状态，缓解 = 锁文件钉死 + 保守清理。平台物化脚本可脱离平台独立 CLI 执行（`materialize-cli.js`），管理员手动复现物化失败。
+
+## 业务初始化脚本 · agent.materialize.mjs
+
+一句话：资产仓库自带的构建脚本——平台物化时执行它，把仓库内容变成可执行产物。
+
+精确义：位于资产根（subpath 之后）的 `agent.materialize.mjs`，**package/tool 资产必带**（缺失 = 物化失败），skill 不需要。物化流程以 `node agent.materialize.mjs` 执行（cwd = 资产根，env 仅 PATH/HOME/NPM_CONFIG_REGISTRY，timeout 10 分钟，exit≠0 = 失败）。职责 = 完成本仓库的一切初始化（转译/codegen/资源下载/其他语言产物的构建安装）；平台不传参、不理解过程，**只验收产物**（清单 programs 声明的文件必须就位）。
+
+要点：为什么必带——仓库内容不限语言、初始化方式各不相同，平台不可能枚举；模板 `templates/agent-package/` 自带默认实现（esbuild 转译 src/ → dist/，与 `npm run build` 同产物），简单项目原样可用。**语言边界**：所有 program 入口必须 node 可执行的 JS（其他语言 = 薄 JS wrapper + child_process）；**环境边界**：平台宿主只保证 node 24 + npm + git + pi，其余语言环境谁用谁装。
+
+## dataDir · 业务级持久目录
+
+一句话：业务跨 run 状态的落点（区别于 per-run 的 workspace）。
+
+精确义：平台为每条业务通道维护的持久目录 `{workspace}/data/{source}/{session_id}/{business_id}/`，run 启动时创建，经 stdin 信封 `dataDir` 字段注入（仅平台→流程程序；sdk.run 子程序拿不到——叶子无状态语义），业务经 `sdk.dataDir()` 读取。典型内容：审查去重记录、增量游标、处理进度等业务自管状态。
+
+要点：同通道（`{source, session_id, business_id}`）的 run 被通道串行化，读写 dataDir 状态文件**无需自锁**；**平台不做 TTL**，业务自管容量与清理；数据分类归属 `data/` = 业务级持久数据（区别于 runs/ 临时、logs/ 可删、cache/ 可重建）。
+
 ## 包 · Package
 
 一句话：业务代码单位——流程程序入口 + 胶水代码的载体，**能独立完成一个任务**。
@@ -184,7 +208,7 @@
 
 一句话：可复用的代码组件——不能独立完成业务任务，被 `sdk.run` 按名调用。
 
-精确义：与包同一份清单契约（`agent-package.json` + `programs`），同一子进程契约（契约递归同构：今天被某业务调用，明天被别的业务复用，无需修改）。与包的差别在 kind、共享标记、消费路径，以及 **requires 是包专属**——工具是叶子组件：代码级依赖（npm 包、多文件）自己解决（dist 自包含、node 直接跑），平台资产级引用不声明；`sdk.run` 子程序拿不到 secrets 与 endpoint——工具物理上调不了大模型，token/参数由调用方显式经 config 传入（机制见 `design/asset-model.md` §7.1）。
+精确义：与包同一份清单契约（`agent-package.json` + `programs`），同一子进程契约（契约递归同构：今天被某业务调用，明天被别的业务复用，无需修改）。与包的差别在 kind、共享标记、消费路径，以及 **requires 是包专属**——工具是叶子组件：代码级依赖（npm 包、多文件）自己解决（package.json + lockfile，物化时 `npm ci` 安装、初始化脚本构建产物，node 直接跑），平台资产级引用不声明；`sdk.run` 子程序拿不到 secrets、endpoint、programs 映射与 dataDir——工具物理上调不了大模型、无业务级持久落点，token/参数由调用方显式经 config 传入（机制见 `design/asset-model.md` §7.1）。
 
 要点：官方工具仓库（jira 工具、脱敏等）是普通 git 仓库，登记即用；共享后全平台可绑定。
 

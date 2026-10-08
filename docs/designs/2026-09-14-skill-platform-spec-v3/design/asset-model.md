@@ -92,7 +92,7 @@
 }
 ```
 
-**机械校验**（物化时执行，校验不过 = 物化失败）：清单存在且合法 JSON；`name` 非空；`programs` 每条路径在资产内真实存在且是文件；`requires`（若有）是字符串数组；**tool 清单出现 `requires` 字段即校验失败**（防误配：静默忽略会让作者误以为依赖声明生效）。
+**机械校验**（物化时执行，校验不过 = 物化失败）：清单存在且合法 JSON；`name` 非空；`programs` 每条路径是相对路径、不含 `..` 段、扩展名 `.js`（形状规则，构建前校验）；`requires`（若有）是字符串数组；**tool 清单出现 `requires` 字段即校验失败**（防误配：静默忽略会让作者误以为依赖声明生效）。`programs` 指向的是物化构建产物，**存在性在构建后校验**（每条路径必须真实存在且是文件，缺一即失败并列出缺失清单，见 §9）。
 
 **requires 的角色**（仅 package）：声明依赖的**身份**（名字），版本钉在**业务绑定**里——名字与版本分离，升一次 skill 版本只需控制台重绑，不逼着包仓库改代码。控制台在业务绑定配置期机械校验 requires 的名字是否都被绑定覆盖，缺绑 = 配置期报错（fail-fast 在配置期，不是运行时），并按名自动建议可绑资产。requires 同时是包作者的自文档：读清单即知此包要什么。
 
@@ -145,7 +145,9 @@ description: 审查 jira 工单并给出通过/驳回结论与理由
   "config": { "jira_site": "..." },                  // 控制台登记的业务非机密配置；无则缺省
   "secrets": { "jira_token": "..." },                // 业务安全变量；仅平台→流程程序注入，sdk.run 不向子程序传
   "endpoint": { "socket_path": "...", "token": "..." }, // agent 服务端点；sdk.agent()/session.* 使用
-  "programs": { "jira-fetch": "/abs/.../jira-fetch.js" } // 程序名→物化绝对路径映射（本包 ∪ 绑定工具，§6）；
+  "programs": { "jira-fetch": "/abs/.../jira-fetch.js" }, // 程序名→物化绝对路径映射（本包 ∪ 绑定工具，§6）；
+                                                          // 仅平台→流程程序注入，sdk.run 不向子程序传
+  "dataDir": "/abs/.../data/{source}/{session_id}/{business_id}/" // 业务级持久目录（跨 run 状态落点，run 启动时已建）；
                                                           // 仅平台→流程程序注入，sdk.run 不向子程序传
 }
 ```
@@ -154,9 +156,9 @@ description: 审查 jira 工单并给出通过/驳回结论与理由
 
 **平台→流程程序 与 sdk.run→子程序的注入差异**（机制强制，不是约定）：
 
-- sdk.run 的子程序**拿不到 `secrets`、`endpoint` 和 `programs` 映射**——物理上调不了 `sdk.agent`（无 endpoint 直接抛错）、摸不到业务安全桶、也不能再按名 `sdk.run` 别的程序（工具是叶子，组合编排只发生在包的胶水代码里）。「工具不碰大模型、机械零 token、不嵌套组合」由此物理成立，不靠自觉；
+- sdk.run 的子程序**拿不到 `secrets`、`endpoint`、`programs` 映射和 `dataDir`**——物理上调不了 `sdk.agent`（无 endpoint 直接抛错）、摸不到业务安全桶、也不能再按名 `sdk.run` 别的程序（工具是叶子，组合编排只发生在包的胶水代码里），且无业务级持久状态落点（叶子无状态语义；子程序确需持久由流程程序把路径经 input 传入）。「工具不碰大模型、机械零 token、不嵌套组合」由此物理成立，不靠自觉；
 - 工具需要的 token / 参数由**调用方显式传递**：包的胶水代码 `sdk.secret('jira_token')` 读出后放进 `sdk.run` 的 `config`——显式传递是刻意的：共享工具会被很多业务用，自动灌入全部 secrets 泄漏面就失控了，给什么由包作者决定；
-- **依赖的两个层面**：代码级依赖（npm 包、多文件）工具自己解决——repo 内 build 出自包含的 dist，平台物化后不跑 npm install；平台资产级引用（按名字引用别的工具/skill）只有包能声明（§5.1 requires），工具不能。
+- **依赖的两个层面**：代码级依赖（npm 包、多文件）工具自己解决——repo 内声明 package.json + lockfile，物化流程统一 `npm ci` 安装 + 初始化脚本构建产物（§9.2/§9.3），运行时 node 直接跑产物；平台资产级引用（按名字引用别的工具/skill）只有包能声明（§5.1 requires），工具不能。
 
 **路径纪律（业务开发与维护者注意）**：跨资产引用**禁止相对路径**——资产物理上不在一起（各自 git 仓库、各自物化目录），跨资产一律按名字经平台解析（`sdk.run` / `sdk.agent`），平台解析返回绝对路径；资产**内部**的相对路径可以使用但**不得越出资产根**（清单校验机械强制，见 §5.1）；平台注入的路径参数（workspace 等）一律是绝对路径，业务代码拼接路径以它们为锚。
 
@@ -178,6 +180,7 @@ description: 审查 jira 工单并给出通过/驳回结论与理由
 | 输出上限 | stdout 累计 1MB，超限即杀即判 |
 | 环境变量 | **清空注入**（`env: {}`）——平台环境不泄漏；凭据只走 stdin 的 secrets |
 | 工作目录 | cwd = run 工作区（`runs/{source}/{session_id}/{business_id}/{run_id}/`，run 结束按 TTL 清理） |
+| 持久目录 | `dataDir`（`data/{source}/{session_id}/{business_id}/`，业务级持久，平台不做 TTL；同通道 run 串行 ⇒ 读写状态文件无需自锁） |
 | 日志 | stderr（用 `sdk.log`，见 §7.4）；stdout 只承载结果 |
 
 ### 7.4 日志与审计
@@ -191,6 +194,7 @@ description: 审查 jira 工单并给出通过/驳回结论与理由
 |--------|------|------|
 | 入口事件 | stdin `input`（信封：source/session_id/event_type/payload/…） | 触发与上下文 |
 | 业务配置 / 安全变量 | stdin `config` / `secrets` | 业务参数与凭据（不碰环境变量） |
+| 业务级持久目录 | stdin `dataDir`（`sdk.dataDir()`） | 跨 run 状态落点（如审查去重记录）；区别于 workspace（per-run 临时） |
 | agent 调用 | `sdk.agent({skills, input, mode})`（模型凭据平台持有，不进业务进程；skills 可多个、可跨集合） | 大模型推理；`mode:'channel'` 多轮连续 / `'fresh'` 独立 |
 | 会话操作 | `sdk.session.compact()/clear()` | 多轮业务的上下文压缩/清空 |
 | 子程序组合 | `sdk.run(program, {input, config?, timeout_ms?})`——program 是**程序名**，SDK 从 stdin 注入的 `programs` 映射查绝对路径后 spawn（§6）；包内程序也可直接 import 进程内调用，包自由掌握 | 调用本包或绑定工具的程序（同一契约） |
@@ -224,7 +228,8 @@ description: 审查 jira 工单并给出通过/驳回结论与理由
 ```
 my-package/
 ├── agent-package.json      # 清单（§5.1）
-├── package.json            # dependencies: @asterisk/agent-sdk；
+├── agent.materialize.mjs   # 业务初始化脚本（必带，§9）：平台物化时执行，默认 esbuild 转译 src/ → dist/
+├── package.json            # dependencies: @asterisk/agent-sdk（普通 npm 依赖）；
 │                           # devDependencies 与脚本封装好：build(tsc) / test(jest+esbuild) /
 │                           # lint(eslint) / format(prettier) / circular(dpdm)——与平台同构
 ├── tsconfig.json           # ESM NodeNext（相对导入带 .js 后缀）
@@ -253,11 +258,51 @@ sdk.log("info", "run started", { event_id: (event as any).event_id });
 sdk.return({ summary: "…" });
 ```
 
-**规则**：模板的 lint/test/format/circular 配置与平台同构同版本——包在作者本地就能跑全检查，提交前即合格；`@asterisk/agent-sdk` 由平台发布（业务零安装、运行时由平台注入解析路径），本地开发期经 npm 或 file: 引用安装。工具资产的结构与包完全相同（同一清单契约），只是消费路径只有 `sdk.run`。
+**规则**：模板的 lint/test/format/circular 配置与平台同构同版本——包在作者本地就能跑全检查，提交前即合格；**`@asterisk/agent-sdk` 是普通 npm 依赖**（从 npm registry 安装进包内 node_modules，开发与运行时用同一份代码；平台不做任何注入/bundle；未发布时的离线兜底是 `file:` 引用，见模板 README）。工具资产的结构与包完全相同（同一清单契约），只是消费路径只有 `sdk.run`。
 
 ## 9. 物化与业务初始化
 
-**业务初始化**（创建/变更业务时执行）：物化该业务绑定的全部资产（包 + 工具 + skill 集合）到 `cache/assets/{asset_id}/`。初始化物化失败（拉取失败/清单校验不过）→ **业务创建/变更失败**（fail-fast，控制台可见）。运行时兜底：执行前发现物化缓存缺失（被清理）→ 先补物化再执行；补拉失败 → 本次 run failed，不影响平台与其他业务。
+**业务初始化**（创建/变更业务时执行）：物化该业务绑定的全部资产（包 + 工具 + skill 集合）到 `cache/assets/{asset_id}/`。初始化物化失败（拉取失败/清单校验不过/构建失败）→ **业务创建/变更失败**（fail-fast，控制台可见）。运行时兜底：执行前发现物化缓存缺失（被清理）→ 先补物化再执行；补拉失败 → 本次 run failed，不影响平台与其他业务。
+
+### 9.1 两个脚本
+
+- **平台物化脚本**：asset-registry 提供的独立可执行入口（编译产物 `dist/materialize-cli.js`），与 `AssetRegistry.materialize()` 内部走同一实现，**可脱离平台独立 CLI 执行**（`node packages/asset-registry/dist/materialize-cli.js --url <url> --commit <commit> [--subpath <p>] --target <dir>`；私有仓库凭据经环境变量 `AGENT_ASSET_CREDENTIAL`、npm registry 经 `AGENT_NPM_REGISTRY`）——绑定失败时管理员手动跑同一条命令即可复现完整输出，不用翻日志猜；
+- **业务初始化脚本**：`agent.materialize.mjs`（资产根，subpath 之后）。**package/tool 资产必带**，缺失 = 物化失败（错误消息明确提示缺这个文件）；skill 资产（纯文档）不需要。为什么必带：仓库内容不限语言、初始化方式各不相同（转译、装环境、git 操作、调项目自己的脚本），平台不可能枚举；模板自带默认实现（esbuild 转译 `src/` → `dist/`，与模板 `npm run build` 同产物布局），新仓库拷贝模板即零负担。
+
+### 9.2 物化固定流程
+
+kind ∈ {package, tool}（skill 维持原流程不构建）：
+
+```text
+clone → validateAssetShape（清单形状校验，§5.1）
+  → npm ci（§9.3，资产根含 package.json 时）
+  → 执行业务初始化脚本 agent.materialize.mjs（§9.4）
+  → 产物校验（清单 programs 每个路径必须真实存在，缺一即失败并列出缺失清单）
+  → 去 .git → 写 .materialized-ok → 原子 rename
+```
+
+任何一步失败：清理临时目录、不落 marker、抛错（消息含阶段名与 stderr 尾部最后 30 行）。
+
+### 9.3 npm ci
+
+- 同步执行（绑定校验本就同步阻塞），cwd = 资产根（含 subpath），timeout 10 分钟；
+- 资产根含 `package.json` 时必须同时含 `package-lock.json`，缺失 → 失败并明确提示「v1 只支持 npm + package-lock.json」；
+- 构建子进程 env = `{ PATH, HOME, NPM_CONFIG_REGISTRY? }`（registry 地址来自平台配置 `AGENT_NPM_REGISTRY`，默认官方 registry），不继承平台进程其他环境变量；
+- 平台不直接执行业务仓的 npm scripts（构建动作一律经 agent.materialize.mjs 表达）；依赖包自身的 postinstall 属固有代价。
+
+### 9.4 业务初始化脚本契约（agent.materialize.mjs）
+
+- 执行：`node agent.materialize.mjs`，cwd = 资产根，env 同 §9.3，timeout 10 分钟，exit≠0 = 物化失败（stderr 尾部透传）；
+- 职责：完成本仓库的一切初始化——TS 转译、其他语言产物的构建/安装、codegen、资源下载、git 操作等。平台不传参、不理解过程，**只验收产物**：脚本跑完后清单 programs 声明的每个产物文件必须存在；
+- **语言边界**：仓库内容不限语言，但**所有 program 入口必须是 node 可执行的 JS**（runner 与 sdk.run 均以 `node <program>` 拉起）。其他语言的接入方式 = 薄 JS wrapper + child_process 调用（wrapper 接信封、spawn 目标语言、回传结果），目标语言的产物/环境由初始化脚本准备；
+- **环境边界**：平台宿主只保证 node 24 + npm + git + pi（自检）；python/rust/go 等其他语言环境平台不提供、不检查——谁用谁装，缺失会在 bind 期被初始化脚本明确暴露（如 `python3: command not found` 进绑定错误）。
+
+### 9.5 缓存与治理
+
+- 构建产物进缓存：产物目录与 node_modules 随资产缓存目录（`cache/assets/{asset_id}/`）同生共死，资产下架（`remove()`）连带清理；
+- **缓存清理入口**：控制台设置页「清理资产缓存」按钮（admin；管理 API `POST /api/cache/clear`）清空 `cache/assets/`——登记行不动，清理后已创建业务下次 run 时触发重新物化 + 构建（懒重建，可能耗时分钟级）；
+- 已知脆弱性：缓存清理后重建依赖 npm registry 状态（依赖 unpublish 则老版本重建失败）；缓解 = 锁文件钉死 + 保守清理；
+- v1 不加并发锁：并发物化同一资产接受竞态（临时目录 + 原子 rename 兜底，最坏情况是重复构建）。
 
 ## 10. skill 在会话内的角色（注入机制与审计）
 
