@@ -304,3 +304,13 @@
 - commit：63c3116
 - 范围：asset-registry（materializeFromGit 共享实现 + materialize-cli + validate 两阶段拆）、workflow-runner（信封 dataDir + 三维目录派生）、sdk（dataDir()）、scheduler（出口 null 跳过）、server（AGENT_NPM_REGISTRY + 自检⑥npm ⑦registry 可达，runSelfCheck 改 async）、模板（agent.materialize.mjs 默认实现 + README）
 - 已知取舍：npm ci 加 --no-audit --no-fund（零依赖场景不触网）；自检⑦有任何 HTTP 响应即算可达（不判状态码）；CLI kind 按「是否含 agent-package.json」探测（平台路径必传真实 kind）
+
+**T21b 入口适配器（webhook + jira-polling + 开关）**
+
+- 状态：完成
+- 子 agent：agent-27（单发，一次通过）
+- 开始/完成：2026-10-08
+- 验收证据：主 agent 独立复验根六连全绿（exit 0，test 4m25s；首跑撞既有测试竞态「app/server 内嵌 rebuild 踩 dist」致 queue 包模块解析失败，重跑全绿——既有现象非本次引入）；抽查 bootstrap 开关装配、webhook/jira-poller 信封构造与 spec §7 逐条相符；§12 T21b 测试清单逐条有落（26 条新测试，webhook 真服务真请求、jira 全程本地 mock 不触网）
+- commit：adce564
+- 范围：新包 entry-adapters（types/match-scan/webhook/jira-client/jira-poller/jira-polling + 4 测试文件）+ server（config 三键 + bootstrap 开关装配 + entry-adapter.ts 接口下沉删除）
+- 已知取舍：① spec §7.2「registry.list() 含 matches」与现状不符（BusinessProfile 读面不含匹配行），scanMatchRows 用 list()+逐业务 get() 现扫——T21c 的 path 查重复用此函数即可；② webhook 同 path 多行取首个（path 全平台查重归 T21c）；③ webhook 端口绑定失败记 error 不阻断装配（start() 是 void 契约）；④ jira-polling 新轮询器立即先跑一轮
