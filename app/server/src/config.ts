@@ -33,6 +33,12 @@ export interface ServerConfig {
   pi_env: Record<string, string>;
   /** 管理 API（console-api）监听端口；0 = 随机（测试用） */
   console_port: number;
+  /** webhook 入口适配器监听端口；0 = 随机（测试用） */
+  webhook_port: number;
+  /** webhook 入口适配器开关（关闭 = 装配根不创建不启动，完全不检查其配置） */
+  entry_webhook_enabled: boolean;
+  /** jira-polling 入口适配器开关（默认关闭；同上语义） */
+  entry_jira_polling_enabled: boolean;
   /** npm registry 地址（物化 npm ci / 初始化脚本子进程的 NPM_CONFIG_REGISTRY；自检验可达） */
   npm_registry: string;
   /** 控制台静态资源目录（vite build 产物绝对路径；可缺省 = 纯 API 服务，开发期形态） */
@@ -286,6 +292,17 @@ export function resolveServerConfig(
     default: 6100,
     min: 0,
   });
+  const webhookPort = resolver.number("AGENT_WEBHOOK_PORT", {
+    default: 6200,
+    min: 0,
+  });
+  const entryWebhookEnabled = resolver.boolean("AGENT_ENTRY_WEBHOOK_ENABLED", {
+    default: true,
+  });
+  const entryJiraPollingEnabled = resolver.boolean(
+    "AGENT_ENTRY_JIRA_POLLING_ENABLED",
+    { default: false },
+  );
   const npmRegistry = resolver.string("AGENT_NPM_REGISTRY", {
     default: "https://registry.npmjs.org/",
   });
@@ -327,6 +344,9 @@ export function resolveServerConfig(
     pi_agent_dir: piAgentDir as string,
     pi_env: piEnv,
     console_port: consolePort as number,
+    webhook_port: webhookPort as number,
+    entry_webhook_enabled: entryWebhookEnabled ?? true,
+    entry_jira_polling_enabled: entryJiraPollingEnabled ?? false,
     npm_registry: npmRegistry as string,
     ...(consoleStaticDir !== undefined
       ? { console_static_dir: consoleStaticDir }

@@ -9,6 +9,8 @@ import type {
 } from "@asterisk/agent-console-api";
 import { openDatabase } from "@asterisk/agent-database";
 import type { Database } from "@asterisk/agent-database";
+import { ENTRY_ADAPTERS } from "@asterisk/agent-entry-adapters";
+import type { EntryAdapter } from "@asterisk/agent-entry-adapters";
 import { createExitRegistry } from "@asterisk/agent-exit-tools";
 import { initLogger, logger } from "@asterisk/agent-logger";
 import { createTaskQueue } from "@asterisk/agent-queue";
@@ -28,7 +30,6 @@ import { createAgentService } from "@asterisk/agent-service";
 import { createWorkflowRunner } from "@asterisk/agent-workflow-runner";
 import { resolveServerConfig } from "./config.js";
 import type { ServerConfig } from "./config.js";
-import type { EntryAdapter } from "./entry-adapter.js";
 import { createExitDriver } from "./exit-driver.js";
 import { loadModelList } from "./models.js";
 import { runSelfCheck } from "./self-check.js";
@@ -72,7 +73,7 @@ function errorMessage(err: unknown): string {
 export async function bootstrap(overrides?: {
   /** 环境变量映射（缺省 process.env，仅 config.ts 接触） */
   env?: Record<string, string | undefined>;
-  /** 入口适配器实例（本任务缺省为空——T18 起由 main 注入真实入口） */
+  /** 额外入口适配器实例（测试注入用；内置清单 ENTRY_ADAPTERS 按 §7.4 开关过滤后始终先行创建） */
   adapters?: EntryAdapter[];
 }): Promise<ServerHandle> {
   // 1. 配置解析（env > {workspace}/config.json > 默认）
@@ -184,7 +185,29 @@ export async function bootstrap(overrides?: {
     entryLoop.start();
     exitLoop.start();
 
-    // 8. 入口适配器逐一 start（本任务缺省为空集——T18 起注入真实入口）
+    // 8. 入口适配器：内置清单按开关过滤后创建启动（关闭 = 不创建不启动不检查其配置）。
+    //    开关键 = AGENT_ENTRY_{适配器 id 大写、'-' 转 '_'}_ENABLED，此处按 id 显式映射到 config 字段
+    const adapterEnabled: Record<string, boolean> = {
+      webhook: config.entry_webhook_enabled,
+      "jira-polling": config.entry_jira_polling_enabled,
+    };
+    const switchStates = ENTRY_ADAPTERS.map((factory) => ({
+      id: factory.spec.id,
+      enabled: adapterEnabled[factory.spec.id] ?? factory.spec.defaultEnabled,
+    }));
+    // 启动日志列出各适配器开关状态（含关闭的，便于核对部署意图）
+    log.info("入口适配器开关", { adapters: switchStates });
+    for (const [index, factory] of ENTRY_ADAPTERS.entries()) {
+      if (!(switchStates[index] as { enabled: boolean }).enabled) continue;
+      // webhook 端口来自 AGENT_WEBHOOK_PORT；其余适配器无全局运行参数
+      const adapter =
+        factory.spec.id === "webhook"
+          ? factory.create({ webhook_port: config.webhook_port })
+          : factory.create();
+      adapter.start({ queue: entryQueue, registry, env: envProvider });
+      startedAdapters.push(adapter);
+    }
+    // 测试注入的额外适配器随后启动
     for (const adapter of overrides?.adapters ?? []) {
       adapter.start({ queue: entryQueue, registry, env: envProvider });
       startedAdapters.push(adapter);

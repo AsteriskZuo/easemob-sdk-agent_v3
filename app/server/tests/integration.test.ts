@@ -162,6 +162,7 @@ beforeAll(async () => {
       AGENT_PI_CLI_PATH: piCliPath,
       AGENT_PI_AGENT_DIR: piAgentDir,
       AGENT_CONSOLE_PORT: "0", // 随机端口，避免与本机/并发测试的 6100 冲突
+      AGENT_WEBHOOK_PORT: "0", // webhook 入口适配器同理（T21b 起默认开启，随机端口避冲突）
       // 自检的 registry 可达性检查指向本地接收服务器（测试不触外网）
       AGENT_NPM_REGISTRY: receiverUrl,
       PATH: process.env.PATH ?? "",

@@ -205,6 +205,22 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@asterisk/agent-entry-adapters@npm:0.1.0, @asterisk/agent-entry-adapters@workspace:packages/entry-adapters":
+  version: 0.0.0-use.local
+  resolution: "@asterisk/agent-entry-adapters@workspace:packages/entry-adapters"
+  dependencies:
+    "@asterisk/agent-contracts": "npm:0.1.0"
+    "@asterisk/agent-exit-tools": "npm:0.1.0"
+    "@asterisk/agent-logger": "npm:0.1.0"
+    "@asterisk/agent-queue": "npm:0.1.0"
+    "@asterisk/agent-registry": "npm:0.1.0"
+    "@asterisk/agent-runtime": "npm:0.1.0"
+    esbuild: "npm:^0.28.1"
+    jest: "npm:^29.7.0"
+    typescript: "npm:^5.9.0"
+  languageName: unknown
+  linkType: soft
+
 "@asterisk/agent-env@npm:0.1.0, @asterisk/agent-env@workspace:packages/env":
   version: 0.0.0-use.local
   resolution: "@asterisk/agent-env@workspace:packages/env"
@@ -320,6 +336,7 @@ __metadata:
     "@asterisk/agent-console-api": "npm:0.1.0"
     "@asterisk/agent-contracts": "npm:0.1.0"
     "@asterisk/agent-database": "npm:0.1.0"
+    "@asterisk/agent-entry-adapters": "npm:0.1.0"
     "@asterisk/agent-env": "npm:0.1.0"
     "@asterisk/agent-exit-tools": "npm:0.1.0"
     "@asterisk/agent-logger": "npm:0.1.0"

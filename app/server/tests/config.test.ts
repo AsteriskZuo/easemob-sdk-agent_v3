@@ -202,6 +202,45 @@ describe("resolveServerConfig", () => {
     expect(() => resolveServerConfig(requiredEnv())).toThrow(EnvError);
   });
 
+  it("入口适配器配置：webhook_port 默认 6200；两开关默认 webhook 开 / jira-polling 关；env/config.json 覆盖", () => {
+    const defaults = resolveServerConfig(requiredEnv());
+    expect(defaults.webhook_port).toBe(6200);
+    expect(defaults.entry_webhook_enabled).toBe(true);
+    expect(defaults.entry_jira_polling_enabled).toBe(false);
+
+    const overridden = resolveServerConfig(
+      requiredEnv({
+        AGENT_WEBHOOK_PORT: "0", // 0 = 随机（测试用），min 0 合法
+        AGENT_ENTRY_WEBHOOK_ENABLED: "false",
+        AGENT_ENTRY_JIRA_POLLING_ENABLED: "true",
+      }),
+    );
+    expect(overridden.webhook_port).toBe(0);
+    expect(overridden.entry_webhook_enabled).toBe(false);
+    expect(overridden.entry_jira_polling_enabled).toBe(true);
+
+    // config.json 兜底（env 未设置时）
+    writeFileSync(
+      join(workspace, "config.json"),
+      JSON.stringify({
+        AGENT_WEBHOOK_PORT: 6300,
+        AGENT_ENTRY_JIRA_POLLING_ENABLED: true,
+      }),
+      { flag: "wx" },
+    );
+    const fromFile = resolveServerConfig(requiredEnv());
+    expect(fromFile.webhook_port).toBe(6300);
+    expect(fromFile.entry_jira_polling_enabled).toBe(true);
+
+    // 非法值 → EnvError
+    expect(() =>
+      resolveServerConfig(requiredEnv({ AGENT_WEBHOOK_PORT: "-1" })),
+    ).toThrow(EnvError);
+    expect(() =>
+      resolveServerConfig(requiredEnv({ AGENT_ENTRY_WEBHOOK_ENABLED: "yes" })),
+    ).toThrow(EnvError);
+  });
+
   it("bootstrap_admin：两键成对 → 注入；都缺省 → undefined；只给一个 → EnvError", () => {
     expect(resolveServerConfig(requiredEnv()).bootstrap_admin).toBeUndefined();
 

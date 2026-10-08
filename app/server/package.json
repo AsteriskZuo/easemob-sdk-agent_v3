@@ -17,6 +17,7 @@
     "@asterisk/agent-console-api": "0.1.0",
     "@asterisk/agent-contracts": "0.1.0",
     "@asterisk/agent-database": "0.1.0",
+    "@asterisk/agent-entry-adapters": "0.1.0",
     "@asterisk/agent-env": "0.1.0",
     "@asterisk/agent-exit-tools": "0.1.0",
     "@asterisk/agent-logger": "0.1.0",
