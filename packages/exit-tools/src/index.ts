@@ -11,11 +11,7 @@ export {
   type GithubClientOptions,
   type OctokitLike,
 } from "./github.js";
-export {
-  createJiraExitTool,
-  JiraClient,
-  type JiraClientOptions,
-} from "./jira.js";
+export { createJiraExitTool, type JiraWriteClient } from "./jira.js";
 export {
   createConfluenceExitTool,
   ConfluenceClient,

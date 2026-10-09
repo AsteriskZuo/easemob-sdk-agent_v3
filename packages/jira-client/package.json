@@ -1,0 +1,32 @@
+{
+  "name": "@asterisk/agent-jira-client",
+  "version": "0.1.0",
+  "description": "easemob jira 客户端：表单登录认证链（cookie 罐 + 401 自愈重登）+ 通用 REST 便利方法，零依赖可发布基础包",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "devDependencies": {
+    "@jest/globals": "^29.7.0",
+    "esbuild": "^0.28.1",
+    "jest": "^29.7.0",
+    "typescript": "^5.9.0"
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build",
+    "test": "yarn run build && rm -rf dist-test && esbuild $(find src -name '*.ts') --outdir=dist-test/src --outbase=src --format=esm --platform=node --target=node24 --sourcemap --log-level=error && esbuild $(find tests -name '*.ts') --outdir=dist-test/tests --outbase=tests --format=esm --platform=node --target=node24 --sourcemap --log-level=error && NODE_OPTIONS='--experimental-vm-modules' jest --config ../../jest.compiled.config.mjs --rootDir .",
+    "typecheck": "tsc --noEmit"
+  }
+}

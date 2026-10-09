@@ -346,3 +346,16 @@
 - 范围：`business/jira-ticket-review/`（package + skills + tools/jira-fetch 三资产）+ v3 `.gitignore` 加 `business/` + 计划/进度文档
 - 关键修正：spec §5 第 5 步补 `mode: 'fresh'`——agent-30 发现的 spec 遗漏：单轮审查无状态（v2 `resetSession: true` 语义），缺省 channel 模式会让同工单复审沿用历史会话（token 膨胀 + 陈旧上下文干扰）
 - 已知取舍/偏离：① person-mapping 定位上溯一级（dist/ 根）而非 spec §8 括注的「两级」（spec 两处表述自相矛盾，按实际模块落点）；② ReviewRecordStore 构造缺省 `sdk.dataDir()`，测试显式传临时目录；③ person-mapping 加 `createPersonLookup` 工厂（测试不读真实映射表做断言）；④ 交付物不含 package-lock.json（`@asterisk/agent-sdk` 未发布 npm，发布后 `npm install` 生成补交业务仓）；⑤ v2 行为差异认账：同 `(issueKey, updated)` 失败不自动重试，靠 updated 变化恢复（spec §4）
+
+**T23 jira 客户端抽取为可发布基础包（@asterisk/agent-jira-client）**
+
+- 状态：完成（npm 发布待用户手动执行）
+- spec：`docs/specs/2026-10-09-t23-jira-client-extraction-spec.md`
+- 子 agent：agent-31（单发，一次通过）
+- 开始/完成：2026-10-09
+- 验收证据：主 agent 独立复验根六连全绿（exit 0，test 4m34s 无竞态；circular 零循环，依赖树确认 exit-tools/jira.ts 与 entry-adapters/jira-poller.ts 唯一指向 packages/jira-client/dist）；亲自抽查：新包零 dependencies 且无 private（可发布硬约束）、两消费包无认证链代码残留（jira-polling.ts:73 是 eventDoc 用户文档、confluence.ts 是另一系统的既有登录链，均不属本任务）、npm pack dry-run 恰 6 文件（dist×4 + README + package.json）；新包 24 条 HTTP 级测试（本地 mock server 不触网）
+- commit：见 git log（feat + docs 同批）
+- 范围：新包 packages/jira-client（API：request 原语 + ping/getIssueRaw/searchIssues/addComment/createIssue，双态 JiraResult，8 错误码）+ exit-tools 重构（删 ~290 行内嵌客户端，KIND/configSchema/deliver 对外不动）+ entry-adapters 重构（删 406 行 + 245 行测试，poller 对外事件形状不变）+ core-modules.md 模块全景 + yarn.lock
+- 认证链合并取舍（以 v2 搬运链为准，详见 agent-31 汇报）：登录成功判据统一为 Dashboard 匿名态验证、超时取可配 AbortController（exit-tools 显式传 15s 保持原行为）、并入 404→ticket_not_found、空值请求头过滤保留
+- 已知观察：confluence.ts 自带同族表单登录链（os_username）——将来可考虑把认证链泛化为 easemob SSO 族共享，现按「第二消费者再抽」纪律不动
+- 后续任务（用户发布后）：business jira-fetch 重构为依赖 @asterisk/agent-jira-client@^0.1.0 → T22 真机验证

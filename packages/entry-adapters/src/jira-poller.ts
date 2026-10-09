@@ -1,14 +1,24 @@
 import { CONTRACT_VERSION } from "@asterisk/agent-contracts";
 import type { EventEnvelope } from "@asterisk/agent-contracts";
+import { JiraClient } from "@asterisk/agent-jira-client";
+import type {
+  JiraClientConfig,
+  JiraIssueLite,
+  JiraResult,
+  JiraSearchOptions,
+} from "@asterisk/agent-jira-client";
 import { logger } from "@asterisk/agent-logger";
 import type { TaskQueue } from "@asterisk/agent-queue";
 import type { EnvProvider } from "@asterisk/agent-runtime";
-import { createJiraSearchClient } from "./jira-client.js";
-import type {
-  JiraSearchClient,
-  JiraSearchClientConfig,
-} from "./jira-client.js";
 import { configString } from "./match-scan.js";
+
+/** 轮询器依赖的 jira 搜索客户端最小面（测试注入 fake；缺省 = @asterisk/agent-jira-client 的 JiraClient） */
+export interface JiraSearchClient {
+  /** JQL 搜索（轻量字段集）；error 由轮询器记日志跳过本轮 */
+  searchIssues(
+    options: JiraSearchOptions,
+  ): Promise<JiraResult<JiraIssueLite[]>>;
+}
 
 /** 轮询间隔缺省（秒）与下限（秒）：低于下限按下限执行 */
 export const JIRA_POLL_INTERVAL_DEFAULT_SECONDS = 60;
@@ -110,8 +120,8 @@ export interface JiraPollerOptions {
   entry_config?: Record<string, unknown>;
   /** 注入依赖 */
   deps: JiraPollerDeps;
-  /** jira 客户端工厂（测试注入假客户端；缺省 = 真实 createJiraSearchClient） */
-  clientFactory?: (config: JiraSearchClientConfig) => JiraSearchClient;
+  /** jira 客户端工厂（测试注入假客户端；缺省 = 共享包 JiraClient） */
+  clientFactory?: (config: JiraClientConfig) => JiraSearchClient;
 }
 
 /** 单匹配行轮询器：防重入（上一轮未完跳过本轮）；配置/凭据缺失记 warn 跳过，不抛错 */
@@ -127,7 +137,9 @@ export interface JiraPoller {
 /** 创建单匹配行轮询器 */
 export function createJiraPoller(options: JiraPollerOptions): JiraPoller {
   const log = logger.for({ module: "entry-adapter-jira" });
-  const clientFactory = options.clientFactory ?? createJiraSearchClient;
+  const clientFactory =
+    options.clientFactory ??
+    ((config: JiraClientConfig) => new JiraClient(config));
   const key = `${options.business_id}::${options.event_type}`;
   let running = false;
 
@@ -188,7 +200,7 @@ export function createJiraPoller(options: JiraPollerOptions): JiraPoller {
           return;
         }
 
-        for (const issue of result.issues) {
+        for (const issue of result.data) {
           // event_id = jira:{issueKey}:{updated}：同 updated 重推被队列幂等丢弃，
           // updated 变化 = 新事件，天然增量
           const eventId = `jira:${issue.key}:${issue.updated}`;
@@ -217,7 +229,7 @@ export function createJiraPoller(options: JiraPollerOptions): JiraPoller {
         log.info("jira 轮询完成", {
           business_id: options.business_id,
           event_type: options.event_type,
-          issues: result.issues.length,
+          issues: result.data.length,
         });
       } finally {
         running = false;

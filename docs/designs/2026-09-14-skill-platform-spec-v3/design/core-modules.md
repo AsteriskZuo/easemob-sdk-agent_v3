@@ -53,7 +53,9 @@ easemob-agent（monorepo：packages/* 模块 + app/* 进程）
 │   ├── 数据库       Database         # SQLite 薄封装，全平台唯一数据访问口
 │   ├── 契约         contracts        # 信封校验 + id 生成（newUlid/newEventId）+ channel_id 纯函数
 │   └── 环境变量     env              # 进程环境变量唯一读取口
-└── 业务 SDK（packages/sdk）          # 业务流程程序侧唯一依赖（sdk.agent/sdk.run/sdk.config/sdk.log…）
+└── 可发布基础包
+    ├── 业务 SDK（packages/sdk）            # 业务流程程序侧唯一依赖（sdk.agent/sdk.run/sdk.config/sdk.log…）
+    └── jira 客户端（packages/jira-client）  # easemob jira 表单登录认证链 + 通用 REST 便利方法，平台包与业务包共同依赖
 ```
 
 > 注：设计期曾列「标识生成 IdGen / 时钟 Clock」两个基础设施模块，落地时已收敛——id 由 contracts 纯函数承担、时间戳统一 `new Date().toISOString()`，不再单独立模块（§4.7 同步修订）。
@@ -86,6 +88,7 @@ easemob-agent（monorepo：packages/* 模块 + app/* 进程）
 | 20 | 环境变量 env | 基础设施 | 进程环境变量唯一读取口（类型解析 + 必需校验） | `env`（T7 spec） | 装配根（唯一调用方） |
 | 21 | 装配根 app/server | 装配层 | 配置解析 + 启动自检 + 依赖接线；管理 API / EntryAdapter 接口 / ExitDriver（机密回填） | 无（是组装方与消费方） | — |
 | 22 | 控制台 app/console | 控制台 | 开关与仪表盘集合，本身无业务逻辑；账号体系（`design/accounts.md`） | 无（是纯消费方，经管理 API 读写） | — |
+| 23 | jira 客户端 jira-client | 可发布基础包 | easemob jira 表单登录认证链（cookie 罐 + 401 自愈）+ 通用 REST 便利方法，零依赖双态结果 | `JiraClient`（T23 spec） | exit-tools、entry-adapters、业务包（jira-fetch 等） |
 
 ---
 

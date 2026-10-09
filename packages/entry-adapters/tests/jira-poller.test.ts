@@ -2,9 +2,9 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { initLogger, resetForTests } from "@asterisk/agent-logger";
+import type { JiraIssueLite, JiraResult } from "@asterisk/agent-jira-client";
 import { createJiraPoller, parseJiraEntryConfig } from "../src/jira-poller.js";
-import type { JiraPoller } from "../src/jira-poller.js";
-import type { JiraSearchClient, JiraSearchResult } from "../src/jira-client.js";
+import type { JiraPoller, JiraSearchClient } from "../src/jira-poller.js";
 import { FakeEnv, FakeQueue } from "./fakes.js";
 
 let tmpDir: string;
@@ -44,8 +44,8 @@ function makePoller(overrides?: {
     fakeEnv.setSecret(businessId, "jira_pass", "pw");
   }
   const client: JiraSearchClient = overrides?.client ?? {
-    searchIssues: (): Promise<JiraSearchResult> =>
-      Promise.resolve({ status: "success", issues: [] }),
+    searchIssues: (): Promise<JiraResult<JiraIssueLite[]>> =>
+      Promise.resolve({ status: "success", data: [] }),
   };
   return createJiraPoller({
     business_id: businessId,
@@ -62,7 +62,7 @@ describe("jira-poller", () => {
       searchIssues: () =>
         Promise.resolve({
           status: "success",
-          issues: [
+          data: [
             {
               key: "PRJ-1",
               summary: "摘要",
@@ -107,7 +107,7 @@ describe("jira-poller", () => {
       searchIssues: () =>
         Promise.resolve({
           status: "success",
-          issues: [
+          data: [
             {
               key: "PRJ-1",
               summary: "s",
@@ -134,12 +134,13 @@ describe("jira-poller", () => {
   });
 
   it("防重入：上一轮未完，本轮跳过（search 只调一次）", async () => {
-    let resolveSearch: ((result: JiraSearchResult) => void) | null = null;
+    let resolveSearch: ((result: JiraResult<JiraIssueLite[]>) => void) | null =
+      null;
     let searchCalls = 0;
     const client: JiraSearchClient = {
       searchIssues: () => {
         searchCalls += 1;
-        return new Promise<JiraSearchResult>((resolve) => {
+        return new Promise<JiraResult<JiraIssueLite[]>>((resolve) => {
           resolveSearch = resolve;
         });
       },
@@ -151,9 +152,9 @@ describe("jira-poller", () => {
     await poller.run(); // 进行中再调 → 直接返回
     expect(searchCalls).toBe(1);
 
-    (resolveSearch as unknown as (r: JiraSearchResult) => void)({
+    (resolveSearch as unknown as (r: JiraResult<JiraIssueLite[]>) => void)({
       status: "success",
-      issues: [],
+      data: [],
     });
     await first;
     expect(poller.running).toBe(false);

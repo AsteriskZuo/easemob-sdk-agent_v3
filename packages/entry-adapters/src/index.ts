@@ -11,21 +11,13 @@ export {
   WebhookEntryAdapter,
   WEBHOOK_ADAPTER_SPEC,
 } from "./webhook.js";
-export { createJiraSearchClient, buildJql } from "./jira-client.js";
-export type {
-  JiraIssueLite,
-  JiraSearchClient,
-  JiraSearchClientConfig,
-  JiraSearchErrorCode,
-  JiraSearchOptions,
-  JiraSearchResult,
-} from "./jira-client.js";
 export { createJiraPoller, parseJiraEntryConfig } from "./jira-poller.js";
 export type {
   JiraPollConfig,
   JiraPoller,
   JiraPollerDeps,
   JiraPollerOptions,
+  JiraSearchClient,
 } from "./jira-poller.js";
 export {
   createJiraPollingEntryAdapter,

@@ -66,6 +66,7 @@
 | T20 | 包名改名 + sdk 发布准备 | `@easemob/agent-*` → `@asterisk/agent-*` 全量替换；sdk 具备 npm 发布条件 | 无 | [decision](../decisions/2026-10-08-package-scope-rename.md)（机械改动无 spec） | [x] |
 | T21 | 平台侧可落地批次 | 物化构建链路（npm ci + agent.materialize.mjs 必带）+ jira-polling/webhook 入口适配器（含开关）+ 信封 dataDir + 出口 null 跳过 + 出入口 schema 自描述 + 内部入口（上游业务）建模 + sdk 文档 + 控制台缓存清理 | T12 T16 T20 | [spec](../specs/2026-10-08-t21-platform-landability-spec.md)（吸收 T18） | T21a-d [x] |
 | T22 | 首个业务迁移验证 | business/jira-ticket-review 独立仓库：包/工具/skill 三资产 + codex→pi + 真机验证（polling 入口 + 企微出口） | T21 | [spec](../specs/2026-10-09-t22-jira-ticket-review-migration-spec.md) | [x]（实现完成，真机验证待用户手动执行） |
+| T23 | jira 客户端抽取为可发布基础包 | `packages/jira-client`（`@asterisk/agent-jira-client`，发布 npm，零依赖）；exit-tools/entry-adapters 删内嵌客户端改依赖共享包；业务 jira-fetch 重构待用户发布后跟进 | T21 | [spec](../specs/2026-10-09-t23-jira-client-extraction-spec.md) | [x] |
 
 ## 4. 执行批次（并发 ≤2）
 
@@ -88,6 +89,7 @@
 批次15：T20               （机械改名，串行）
 批次16：T21               （吸收 T18；spec → 用户审 → 实现）
 批次17：T22               （首个业务真机验证）
+批次18：T23               （jira-client 抽取；用户决策先抽包再验证）
 ```
 
 ## 5. 验证策略
@@ -123,6 +125,7 @@
 - T20：无依赖（机械改名）
 - T21 ← T12, T16, T20
 - T22 ← T21
+- T23 ← T21
 
 ## 变更记录
 
@@ -133,3 +136,4 @@
 - 2026-09-30：**资产模型定案**（package-model.md → asset-model.md 重写）：资产单元从单一程序包演进为三族——包（业务代码单位，不共享）/ 工具（可复用代码组件）/ skill（可复用提示词组件）；git 三元组标识、属主 + 共享标记（创建时定不可改）；EnvProvider 三类并为普通/安全两桶（T17 纳入实现）；平台不再内置资产。T16 随之改为 asset-registry（spec 重写，原 package-registry spec 作废）；T17 描述同步（EnvProvider 两桶 + 资产绑定三族）。T15 模板需随资产模型小幅修订（清单删 skills、删内嵌示例 skill），随 T16 批次一并处理。
 - 2026-10-04：T12 范围收缩（owner 裁决）——webhook 入口适配器移出为 T18（外部业务推送形态复杂，验签/会话标识/幂等约定随 T18 单独设计），AibotConnector 维持归企微入口任务；T12 = 平台装配 + EntryAdapter 接口 + 启动自检 + ExitDriver。入口流量与管理 API 各自独立 HTTP 服务。范围外删除「github/jira/confluence 出口工具」一行（T9 已扩展为七工具全实现）。
 - 2026-10-08：插入 T20/T21/T22，T18 并入 T21——① T20 包名改名 @easemob→@asterisk + sdk 发布准备（决策 docs/decisions/2026-10-08-package-scope-rename.md，机械改动无 spec）；② T21 平台侧可落地批次（决策 docs/decisions/2026-10-08-asset-materialization-build.md）：v2 迁移验证暴露物化构建链路缺口（清单指 dist/ 但 git 忽略，无任何转译实现），连带回补 jira-polling/webhook 入口（T18 吸收）、适配器开关、信封 dataDir、出口 null 跳过、出入口 schema 自描述、内部入口（上游业务）建模、sdk 文档；③ T22 首个业务迁移验证（v2 单轮审查工单 → business/jira-ticket-review 独立仓库）。
+- 2026-10-09：插入 T23（jira 客户端抽取为可发布基础包 @asterisk/agent-jira-client）——用户决策：基础工具包可发布 npm，平台包与业务包共同依赖，认证链（表单登录 + cookie 罐 + 401 自愈）单点化；github/wecom 出现第二消费者再抽同模式；business jira-fetch 重构与 T22 真机验证待用户手动发布 sdk + agent-jira-client 后跟进。
