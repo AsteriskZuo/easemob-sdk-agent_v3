@@ -1,12 +1,12 @@
-import { JiraClient } from "@asterisk/agent-jira-client";
-import type { JiraResult } from "@asterisk/agent-jira-client";
+import { JiraClient } from "@asteriskzuo/agent-jira-client";
+import type { JiraResult } from "@asteriskzuo/agent-jira-client";
 import type { ConfigField, ExitTool } from "./types.js";
 
 const KIND = "jira";
 /** 出口客户端单请求超时（出口调用是短链路，比共享包缺省 30s 更紧） */
 const TIMEOUT_MS = 15_000;
 
-/** deliver 依赖的 jira 客户端最小面（测试注入 fake；缺省 = @asterisk/agent-jira-client 的 JiraClient） */
+/** deliver 依赖的 jira 客户端最小面（测试注入 fake；缺省 = @asteriskzuo/agent-jira-client 的 JiraClient） */
 export interface JiraWriteClient {
   /** 加评论；error 由 deliver 转 throw */
   addComment(issueKey: string, body: string): Promise<JiraResult<unknown>>;

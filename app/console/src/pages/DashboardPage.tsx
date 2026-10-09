@@ -19,7 +19,7 @@ import type {
   QueuesStatus,
   Task,
   TaskStatus,
-} from "@asterisk/agent-console-api";
+} from "@asteriskzuo/agent-console-api";
 import { apiFetch, ApiError } from "../api/client";
 
 /** 队列四状态计数卡片 */

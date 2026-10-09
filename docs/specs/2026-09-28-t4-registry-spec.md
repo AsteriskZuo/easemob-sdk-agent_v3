@@ -4,7 +4,7 @@
 
 ## 1. 目标
 
-产出 `@asterisk/agent-registry` 包：业务注册表——**业务配置（含出口绑定）的统一读写口 + 两个调度循环的匹配视图**。查询与修改只有这一个接口，内部模块与（将来的）控制台共用，没有第二套。
+产出 `@asteriskzuo/agent-registry` 包：业务注册表——**业务配置（含出口绑定）的统一读写口 + 两个调度循环的匹配视图**。查询与修改只有这一个接口，内部模块与（将来的）控制台共用，没有第二套。
 
 ## 2. 背景知识（执行所需的最小上下文）
 
@@ -14,8 +14,8 @@
 - `on_failure`：业务执行失败时是否也派生结果事件（默认 false = 失败不扇出）。
 - **出口绑定 ExitBinding** = 出口工具 kind + 非机密配置（Record<string, string>）。机密项（token 等）不在此处存储（归环境配置模块，后续任务）。
 - 匹配是热路径：**匹配视图常驻内存**，写操作 write-through（先落库后更新内存）；SQLite 落库保证重启不丢。
-- 数据访问只能经 `@asterisk/agent-database`，禁止直接 import `node:sqlite`。
-- `EventSource` 类型从 `@asterisk/agent-contracts` import。
+- 数据访问只能经 `@asteriskzuo/agent-database`，禁止直接 import `node:sqlite`。
+- `EventSource` 类型从 `@asteriskzuo/agent-contracts` import。
 
 ## 3. 范围与不做清单
 
@@ -31,7 +31,7 @@
 
 ```text
 packages/registry/
-├── package.json            # @asterisk/agent-registry
+├── package.json            # @asteriskzuo/agent-registry
 ├── tsconfig.json
 ├── src/
 │   ├── index.ts            # 统一导出
@@ -40,13 +40,13 @@ packages/registry/
     └── business-registry.test.ts
 ```
 
-工程约定同 T0 spec §4。`dependencies`：`@asterisk/agent-contracts`、`@asterisk/agent-database`。
+工程约定同 T0 spec §4。`dependencies`：`@asteriskzuo/agent-contracts`、`@asteriskzuo/agent-database`。
 
 ## 5. 详细规格
 
 ```ts
-import type { Database } from '@asterisk/agent-database';
-import type { EventSource } from '@asterisk/agent-contracts';
+import type { Database } from '@asteriskzuo/agent-database';
+import type { EventSource } from '@asteriskzuo/agent-contracts';
 
 /** 匹配视图：注册表执行视图的一行。无 order/depends_on 字段——链内并行，
  *  顺序靠事件订阅表达 */
@@ -135,5 +135,5 @@ export function createBusinessRegistry(db: Database): BusinessRegistry;
 ## 7. 验收标准
 
 1. 包级与根级六项检查全绿；
-2. 只 import `@asterisk/agent-contracts`、`@asterisk/agent-database`、`node:*`；
+2. 只 import `@asteriskzuo/agent-contracts`、`@asteriskzuo/agent-database`、`node:*`；
 3. 导出签名与本文 §5 一致。

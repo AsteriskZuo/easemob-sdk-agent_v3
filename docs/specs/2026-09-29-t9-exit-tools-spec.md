@@ -6,7 +6,7 @@
 
 ## 1. 目标
 
-产出 `@asterisk/agent-exit-tools` 包：**出口工具注册表 + 全部七个内置出口工具的真实实现**（企微群 webhook / 邮件 / 自定义 webhook / 企微智能机器人 / github / jira / confluence）。出口工具相互独立、互不依赖。出口事件循环（T8 已完成）经 `ExitDriver` 间接调用本包；控制台（T14）用注册表菜单渲染配置表单。
+产出 `@asteriskzuo/agent-exit-tools` 包：**出口工具注册表 + 全部七个内置出口工具的真实实现**（企微群 webhook / 邮件 / 自定义 webhook / 企微智能机器人 / github / jira / confluence）。出口工具相互独立、互不依赖。出口事件循环（T8 已完成）经 `ExitDriver` 间接调用本包；控制台（T14）用注册表菜单渲染配置表单。
 
 ## 2. 背景知识（执行所需的最小上下文）
 
@@ -43,7 +43,7 @@
 
 ```text
 packages/exit-tools/
-├── package.json            # @asterisk/agent-exit-tools
+├── package.json            # @asteriskzuo/agent-exit-tools
 ├── tsconfig.json
 ├── src/
 │   ├── index.ts            # 导出清单见 §8

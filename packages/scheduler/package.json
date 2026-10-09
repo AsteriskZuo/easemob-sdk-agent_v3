@@ -1,5 +1,5 @@
 {
-  "name": "@asterisk/agent-scheduler",
+  "name": "@asteriskzuo/agent-scheduler",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,14 +12,14 @@
     }
   },
   "dependencies": {
-    "@asterisk/agent-channel": "0.1.0",
-    "@asterisk/agent-contracts": "0.1.0",
-    "@asterisk/agent-logger": "0.1.0",
-    "@asterisk/agent-queue": "0.1.0",
-    "@asterisk/agent-registry": "0.1.0"
+    "@asteriskzuo/agent-channel": "0.1.0",
+    "@asteriskzuo/agent-contracts": "0.1.0",
+    "@asteriskzuo/agent-logger": "0.1.0",
+    "@asteriskzuo/agent-queue": "0.1.0",
+    "@asteriskzuo/agent-registry": "0.1.0"
   },
   "devDependencies": {
-    "@asterisk/agent-database": "0.1.0",
+    "@asteriskzuo/agent-database": "0.1.0",
     "@jest/globals": "^29.7.0",
     "esbuild": "^0.28.1",
     "jest": "^29.7.0",

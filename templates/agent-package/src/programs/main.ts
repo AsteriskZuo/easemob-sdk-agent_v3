@@ -1,4 +1,4 @@
-import { sdk } from "@asterisk/agent-sdk";
+import { sdk } from "@asteriskzuo/agent-sdk";
 
 // 流程程序骨架（单轮审查工单形态）：检查 → 取数/脱敏 → 大模型 → 还原/门禁 → 唯一出口。
 // 约束四条：stdin 一段 JSON 进、stdout 一段 JSON 出（sdk.return/sdk.fail）、

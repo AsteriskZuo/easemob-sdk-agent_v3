@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openDatabase } from "@asterisk/agent-database";
+import { openDatabase } from "@asteriskzuo/agent-database";
 import { createEnvProvider } from "../src/index.js";
 import type { EnvProvider } from "../src/index.js";
 

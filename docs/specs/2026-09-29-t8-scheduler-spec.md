@@ -4,19 +4,19 @@
 
 ## 1. 目标
 
-产出 `@asterisk/agent-scheduler` 包：**平台的心脏——入口事件循环与出口事件循环**。两个循环是同一副机械（摄取 run + 通道消化 drain 两层结构），只有匹配规则与执行器不同。本包只做循环机械：取任务、匹配、挂通道、过闸门、调执行器、结果扇出、完结/死信。**不实现**业务上下文组装、生命周期执行、出口工具——它们是注入的执行器回调（后续任务实现，装配根接线）。
+产出 `@asteriskzuo/agent-scheduler` 包：**平台的心脏——入口事件循环与出口事件循环**。两个循环是同一副机械（摄取 run + 通道消化 drain 两层结构），只有匹配规则与执行器不同。本包只做循环机械：取任务、匹配、挂通道、过闸门、调执行器、结果扇出、完结/死信。**不实现**业务上下文组装、生命周期执行、出口工具——它们是注入的执行器回调（后续任务实现，装配根接线）。
 
 ## 2. 背景知识（执行所需的最小上下文）
 
-- 平台有两条任务队列（入口队列 entry_tasks / 出口队列 exit_tasks，同为 `@asterisk/agent-queue` 的 TaskQueue 实例）。外部事件入入口队列；业务执行完结后派生事件**无脑投两个队列**，各循环自行过滤（无关注者/无出口绑定即丢弃）。
-- 同通道严格串行、跨通道自然并行。业务通道 id = `source__session_id__business_id`；出口通道 id = `exit__<destination_id>`。用 `@asterisk/agent-contracts` 的 `buildBusinessChannelId` / `buildExitChannelId` 构造。
+- 平台有两条任务队列（入口队列 entry_tasks / 出口队列 exit_tasks，同为 `@asteriskzuo/agent-queue` 的 TaskQueue 实例）。外部事件入入口队列；业务执行完结后派生事件**无脑投两个队列**，各循环自行过滤（无关注者/无出口绑定即丢弃）。
+- 同通道严格串行、跨通道自然并行。业务通道 id = `source__session_id__business_id`；出口通道 id = `exit__<destination_id>`。用 `@asteriskzuo/agent-contracts` 的 `buildBusinessChannelId` / `buildExitChannelId` 构造。
 - 链内并行：一个事件的多个关注者（入口 = BusinessMatch，出口 = ExitBinding）各挂各的通道。
 - 失败处理第一阶段只做日志留痕，唯一例外：**出口投递有界重试**（指数退避、次数上限、原地重试、耗尽死信）。
 - 平台稳定性是设计目标：业务执行失败、执行器抛异常、匹配异常都**不得**让循环崩溃或退出。
 
 ### 2.1 消费的上游包（真实签名，以此为准）
 
-`@asterisk/agent-queue`：
+`@asteriskzuo/agent-queue`：
 
 ```ts
 export interface Task { task_id: string; event: EventEnvelope; status: TaskStatus; enqueued_at: string; finished_at?: string }
@@ -31,7 +31,7 @@ export interface TaskQueue {
 }
 ```
 
-`@asterisk/agent-registry`：
+`@asteriskzuo/agent-registry`：
 
 ```ts
 export interface BusinessMatch {
@@ -46,7 +46,7 @@ export interface BusinessRegistry {
 }
 ```
 
-`@asterisk/agent-channel`：
+`@asteriskzuo/agent-channel`：
 
 ```ts
 export interface ChannelItem<T = unknown> { task: Task; watcher: T }
@@ -60,9 +60,9 @@ export interface ChannelPool {
 }
 ```
 
-`@asterisk/agent-contracts`：`EventEnvelope`（字段见 §5.2）、`EventSource`、`newUlid()` / `newEventId()`（事件 id 用后者，`evt_` 前缀）、`buildBusinessChannelId(source, sessionId, businessId)`、`buildExitChannelId(destinationId)`。
+`@asteriskzuo/agent-contracts`：`EventEnvelope`（字段见 §5.2）、`EventSource`、`newUlid()` / `newEventId()`（事件 id 用后者，`evt_` 前缀）、`buildBusinessChannelId(source, sessionId, businessId)`、`buildExitChannelId(destinationId)`。
 
-`@asterisk/agent-logger`（全局外观，装配根已 initLogger，本包直接用）：
+`@asteriskzuo/agent-logger`（全局外观，装配根已 initLogger，本包直接用）：
 
 ```ts
 logger.for({ module: 'entry-loop' }).info('消息', { event_id, task_id, ... }) // fields 可选
@@ -90,7 +90,7 @@ logger.for({ module: 'entry-loop' }).info('消息', { event_id, task_id, ... }) 
 
 ```text
 packages/scheduler/
-├── package.json            # @asterisk/agent-scheduler
+├── package.json            # @asteriskzuo/agent-scheduler
 ├── tsconfig.json
 ├── src/
 │   ├── index.ts            # 导出清单见 §8
@@ -106,16 +106,16 @@ packages/scheduler/
     └── exit-loop.test.ts
 ```
 
-工程约定同 T0 spec §4。`dependencies`：`@asterisk/agent-contracts`、`@asterisk/agent-queue`、`@asterisk/agent-registry`、`@asterisk/agent-channel`、`@asterisk/agent-logger`（全部 `workspace:*`）。`devDependencies` 另加 `@asterisk/agent-database`（测试用它建内存库造真实 queue/registry/channel 实例）。
+工程约定同 T0 spec §4。`dependencies`：`@asteriskzuo/agent-contracts`、`@asteriskzuo/agent-queue`、`@asteriskzuo/agent-registry`、`@asteriskzuo/agent-channel`、`@asteriskzuo/agent-logger`（全部 `workspace:*`）。`devDependencies` 另加 `@asteriskzuo/agent-database`（测试用它建内存库造真实 queue/registry/channel 实例）。
 
 ## 5. 详细规格
 
 ### 5.1 类型（types.ts）
 
 ```ts
-import type { EventEnvelope } from '@asterisk/agent-contracts';
-import type { Task } from '@asterisk/agent-queue';
-import type { BusinessMatch, ExitBinding } from '@asterisk/agent-registry';
+import type { EventEnvelope } from '@asteriskzuo/agent-contracts';
+import type { Task } from '@asteriskzuo/agent-queue';
+import type { BusinessMatch, ExitBinding } from '@asteriskzuo/agent-registry';
 
 /** 平台运行参数：装配根从环境/设置读好后注入；本包不读 process.env */
 export interface PlatformConfig {

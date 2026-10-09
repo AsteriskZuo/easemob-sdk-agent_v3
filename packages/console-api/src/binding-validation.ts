@@ -2,9 +2,9 @@ import type {
   AssetManifest,
   AssetObject,
   AssetRegistry,
-} from "@asterisk/agent-asset-registry";
-import type { BusinessRegistry } from "@asterisk/agent-registry";
-import type { EnvProvider } from "@asterisk/agent-runtime";
+} from "@asteriskzuo/agent-asset-registry";
+import type { BusinessRegistry } from "@asteriskzuo/agent-registry";
+import type { EnvProvider } from "@asteriskzuo/agent-runtime";
 import type { User } from "./accounts.js";
 import type { EffectiveConfigView } from "./dto.js";
 import { ApiError } from "./errors.js";

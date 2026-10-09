@@ -10,7 +10,7 @@ import net from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { initLogger, resetForTests } from "@asterisk/agent-logger";
+import { initLogger, resetForTests } from "@asteriskzuo/agent-logger";
 import { createAgentService } from "../src/index.js";
 import type {
   AgentServeContext,

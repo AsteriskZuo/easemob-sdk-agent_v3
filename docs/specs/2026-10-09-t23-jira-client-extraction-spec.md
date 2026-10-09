@@ -1,4 +1,4 @@
-# T23 spec：jira 客户端抽取为可发布基础包（@asterisk/agent-jira-client）
+# T23 spec：jira 客户端抽取为可发布基础包（@asteriskzuo/agent-jira-client）
 
 - **日期**：2026-10-09
 - **状态**：已实现（用户授权：先抽包 → 用户手动发布 sdk + agent-jira-client → 再继续后续任务）
@@ -20,7 +20,7 @@ jira 客户端现有三份，各自重复实现同一套认证机制（表单登
 
 **做**：
 
-- 新包 `packages/jira-client`（`@asterisk/agent-jira-client`，version 0.1.0，**发布 npm**）
+- 新包 `packages/jira-client`（`@asteriskzuo/agent-jira-client`，version 0.1.0，**发布 npm**）
 - `exit-tools` 重构：删除内嵌 JiraClient，改依赖共享包
 - `entry-adapters` 重构：删除内嵌 jira-client，改依赖共享包
 - 文档回写：`core-modules.md` 模块全景加包、计划/进度文档
@@ -137,14 +137,14 @@ export interface JiraIssueLite {
 
 - `src/jira.ts` 删除内嵌 `JiraClient` 类及其私有方法（约 400 行），保留 ExitTool 包装（`KIND`、`configSchema`、`destinationOf`、`bind`、deliver 逻辑、resultDoc——接口与配置面一字不动）。
 - deliver 内部：`new JiraClient(...)`（共享包）调 addComment/createIssue；`status: "error"` → `throw new Error(\`${code}: ${message}\`)`（出口 deliver 本就是 try/catch 失败语义）。
-- package.json dependencies 加 `"@asterisk/agent-jira-client": "0.1.0"`（monorepo 内部精确版本号惯例，yarn workspace 解析）。
+- package.json dependencies 加 `"@asteriskzuo/agent-jira-client": "0.1.0"`（monorepo 内部精确版本号惯例，yarn workspace 解析）。
 - 测试：exit-tools 的 jira 单测改为 mock 共享客户端（或构造 fake JiraClient 注入）；原 HTTP 级认证链测试**迁移到共享包**（见 §6），不在 exit-tools 重复。
 
 ## 5. entry-adapters 重构
 
-- 删除 `src/jira-client.ts`（406 行）；`jira-poller.ts` 改为从 `@asterisk/agent-jira-client` 导入 `JiraClient` / `JiraIssueLite` / 错误码类型。
+- 删除 `src/jira-client.ts`（406 行）；`jira-poller.ts` 改为从 `@asteriskzuo/agent-jira-client` 导入 `JiraClient` / `JiraIssueLite` / 错误码类型。
 - 适配器原有的 `JiraSearchClientConfig` / `JiraSearchOptions` / `JiraSearchResult` 等类型如与共享包重复则删除，以共享包为准；jira-poller 对外行为（事件形状、event_id、错误日志）不变。
-- package.json dependencies 加 `"@asterisk/agent-jira-client": "0.1.0"`。
+- package.json dependencies 加 `"@asteriskzuo/agent-jira-client": "0.1.0"`。
 - 测试：jira-poller 单测改为 mock 共享客户端接口；原 `tests/jira-client` 的 HTTP 级测试（表单登录 → search 两段、401 重登、错误码映射）**迁移到共享包**。
 
 ## 6. 测试清单（最低线）
@@ -178,5 +178,5 @@ export interface JiraIssueLite {
 ## 9. 依赖关系与后续任务
 
 - T23 ← T21（无代码依赖，顺序依赖：避免与 T22 真机验证并行动 jira 代码——用户已决策先抽包）
-- **后续任务（用户发布 sdk + agent-jira-client 后启动）**：business jira-fetch 重构为依赖 `@asterisk/agent-jira-client@^0.1.0`（删 666 行内嵌客户端，保留 mapIssue/masking/identity 旁路）→ 业务仓六连 → T22 真机验证
+- **后续任务（用户发布 sdk + agent-jira-client 后启动）**：business jira-fetch 重构为依赖 `@asteriskzuo/agent-jira-client@^0.1.0`（删 666 行内嵌客户端，保留 mapIssue/masking/identity 旁路）→ 业务仓六连 → T22 真机验证
 - 版本纪律：monorepo 内 jira-client 版本号与 npm 发布号同步递增；平台包用精确版本号经 workspace 解析，业务包用 `^` 范围经 npm 解析

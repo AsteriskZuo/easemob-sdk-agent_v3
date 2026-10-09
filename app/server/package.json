@@ -1,5 +1,5 @@
 {
-  "name": "@asterisk/agent-server",
+  "name": "@asteriskzuo/agent-server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,21 +12,21 @@
     }
   },
   "dependencies": {
-    "@asterisk/agent-asset-registry": "0.1.0",
-    "@asterisk/agent-channel": "0.1.0",
-    "@asterisk/agent-console-api": "0.1.0",
-    "@asterisk/agent-contracts": "0.1.0",
-    "@asterisk/agent-database": "0.1.0",
-    "@asterisk/agent-entry-adapters": "0.1.0",
-    "@asterisk/agent-env": "0.1.0",
-    "@asterisk/agent-exit-tools": "0.1.0",
-    "@asterisk/agent-logger": "0.1.0",
-    "@asterisk/agent-queue": "0.1.0",
-    "@asterisk/agent-registry": "0.1.0",
-    "@asterisk/agent-runtime": "0.1.0",
-    "@asterisk/agent-scheduler": "0.1.0",
-    "@asterisk/agent-service": "0.1.0",
-    "@asterisk/agent-workflow-runner": "0.1.0"
+    "@asteriskzuo/agent-asset-registry": "0.1.0",
+    "@asteriskzuo/agent-channel": "0.1.0",
+    "@asteriskzuo/agent-console-api": "0.1.0",
+    "@asteriskzuo/agent-contracts": "0.1.0",
+    "@asteriskzuo/agent-database": "0.1.0",
+    "@asteriskzuo/agent-entry-adapters": "0.1.0",
+    "@asteriskzuo/agent-env": "0.1.0",
+    "@asteriskzuo/agent-exit-tools": "0.1.0",
+    "@asteriskzuo/agent-logger": "0.1.0",
+    "@asteriskzuo/agent-queue": "0.1.0",
+    "@asteriskzuo/agent-registry": "0.1.0",
+    "@asteriskzuo/agent-runtime": "0.1.0",
+    "@asteriskzuo/agent-scheduler": "0.1.0",
+    "@asteriskzuo/agent-service": "0.1.0",
+    "@asteriskzuo/agent-workflow-runner": "0.1.0"
   },
   "devDependencies": {
     "esbuild": "^0.28.1",

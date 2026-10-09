@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { CategoryLogger } from "@asterisk/agent-logger";
+import type { CategoryLogger } from "@asteriskzuo/agent-logger";
 import type {
   AgentServeContext,
   AgentServiceDeps,
@@ -28,7 +28,7 @@ export function resolveAuditExtensionPath(): string {
     if (parent === dir) break;
     dir = parent;
   }
-  throw new Error("@asterisk/agent-service: 未找到 extensions/audit.js");
+  throw new Error("@asteriskzuo/agent-service: 未找到 extensions/audit.js");
 }
 
 /** pi 子进程 env：deps 注入的基础 env + PI_CODING_AGENT_DIR + AUDIT_LOG_PATH（不继承其他环境） */

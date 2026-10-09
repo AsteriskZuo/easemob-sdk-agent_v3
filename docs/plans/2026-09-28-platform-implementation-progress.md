@@ -45,7 +45,7 @@
 - 状态：完成
 - 子 agent：agent-2（前台派发）
 - 开始：2026-09-28 12:04；完成：2026-09-28 12:15
-- 验收证据：主 agent 独立复验 `yarn build && yarn test && yarn typecheck && yarn lint && yarn format:check && yarn circular` + `import '@asterisk/agent-contracts'` 全绿
+- 验收证据：主 agent 独立复验 `yarn build && yarn test && yarn typecheck && yarn lint && yarn format:check && yarn circular` + `import '@asteriskzuo/agent-contracts'` 全绿
 - commit：1ca90f6
 - 备注：
   - yarn 4 下 `set version` 默认只写 packageManager 字段，用 `--yarn-path` 强制下载 release 到 .yarn/releases/（spec §2 的 3.6.1 技巧是 classic 起步备用方案，未用到）；
@@ -186,7 +186,7 @@
 - 备注：
   - **真 pi RPC compact smoke 未做**（需真实模型凭据，子代理不碰凭据）——留待人工/T12 联调验证；若 RPC 绑定既有会话有障碍，按 spec §8.8 降级为 pi SDK helper；
   - 子代理合理裁决（主 agent 确认）：审计 extension 路径向上查找解析（dist 与 dist-test 深度不同）；close 后新连接必 ECONNREFUSED，故 service_closed 只覆盖挂起请求；compact argv 补同套白名单 flag（纪律一致）；审计事件体 provider/model 防御式提取（真 pi smoke 时核对）；
-  - 依赖协议统一：agent-service 的 `@asterisk/agent-logger` 改为 `0.1.0`（与 scheduler/workflow-runner 存量形式一致）；
+  - 依赖协议统一：agent-service 的 `@asteriskzuo/agent-logger` 改为 `0.1.0`（与 scheduler/workflow-runner 存量形式一致）；
   - 并行冲突：T15 的 templates/ 自带 tsconfig 导致根 `yarn lint` 的 typescript-eslint 解析崩溃——根 eslint.config.js ignores 加 `templates/`（随 T15 提交）。
 
 ### T15 程序包模板
@@ -290,7 +290,7 @@
 - 执行：主 agent 直接实施（机械改动不派子代理）
 - 开始/完成：2026-10-08
 - 依据：`docs/decisions/2026-10-08-package-scope-rename.md`（无 spec，决策文档即依据）
-- 验收证据：根六连全绿（build/test/typecheck/lint/format:check/circular exit 0；test 4m15s 含 console 28 条；sed 改名致 2 文件行宽越界，prettier --write 修复后复验）；`npm publish --dry-run` 通过（@asterisk/agent-sdk@0.1.0，12.2 kB，29 文件，registry npmjs + access public）；全仓 grep 无 `@easemob/agent-` 残留（`@easemob.com` 邮箱与 v2 参考包 `@easemob-agent/jira-mcp` 不受影响）
+- 验收证据：根六连全绿（build/test/typecheck/lint/format:check/circular exit 0；test 4m15s 含 console 28 条；sed 改名致 2 文件行宽越界，prettier --write 修复后复验）；`npm publish --dry-run` 通过（@asteriskzuo/agent-sdk@0.1.0，12.2 kB，29 文件，registry npmjs + access public）；全仓 grep 无 `@easemob/agent-` 残留（`@easemob.com` 邮箱与 v2 参考包 `@easemob-agent/jira-mcp` 不受影响）
 - commit：03860ec
 - 范围：114 文件 sed 替换（15 packages + app/* + templates + scripts + docs）；yarn.lock 重新生成；sdk package.json 移除 private、补 files/publishConfig(access public)/prepublishOnly(发布前强制 build)；README「不对外发布」表述修正为「仅 sdk 对外发布」
 - 待办：npm publish 由用户执行（需 npmjs @asterisk scope 登录态），必须早于 T22 真机验证（物化构建 npm ci 需从 registry 解析 sdk）
@@ -345,9 +345,9 @@
 - commit：业务仓 `dbf9ccd`（独立 git 仓 root commit，37 文件）；v3 侧为 docs + .gitignore
 - 范围：`business/jira-ticket-review/`（package + skills + tools/jira-fetch 三资产）+ v3 `.gitignore` 加 `business/` + 计划/进度文档
 - 关键修正：spec §5 第 5 步补 `mode: 'fresh'`——agent-30 发现的 spec 遗漏：单轮审查无状态（v2 `resetSession: true` 语义），缺省 channel 模式会让同工单复审沿用历史会话（token 膨胀 + 陈旧上下文干扰）
-- 已知取舍/偏离：① person-mapping 定位上溯一级（dist/ 根）而非 spec §8 括注的「两级」（spec 两处表述自相矛盾，按实际模块落点）；② ReviewRecordStore 构造缺省 `sdk.dataDir()`，测试显式传临时目录；③ person-mapping 加 `createPersonLookup` 工厂（测试不读真实映射表做断言）；④ 交付物不含 package-lock.json（`@asterisk/agent-sdk` 未发布 npm，发布后 `npm install` 生成补交业务仓）；⑤ v2 行为差异认账：同 `(issueKey, updated)` 失败不自动重试，靠 updated 变化恢复（spec §4）
+- 已知取舍/偏离：① person-mapping 定位上溯一级（dist/ 根）而非 spec §8 括注的「两级」（spec 两处表述自相矛盾，按实际模块落点）；② ReviewRecordStore 构造缺省 `sdk.dataDir()`，测试显式传临时目录；③ person-mapping 加 `createPersonLookup` 工厂（测试不读真实映射表做断言）；④ 交付物不含 package-lock.json（`@asteriskzuo/agent-sdk` 未发布 npm，发布后 `npm install` 生成补交业务仓）；⑤ v2 行为差异认账：同 `(issueKey, updated)` 失败不自动重试，靠 updated 变化恢复（spec §4）
 
-**T23 jira 客户端抽取为可发布基础包（@asterisk/agent-jira-client）**
+**T23 jira 客户端抽取为可发布基础包（@asteriskzuo/agent-jira-client）**
 
 - 状态：完成（npm 发布待用户手动执行）
 - spec：`docs/specs/2026-10-09-t23-jira-client-extraction-spec.md`
@@ -358,4 +358,12 @@
 - 范围：新包 packages/jira-client（API：request 原语 + ping/getIssueRaw/searchIssues/addComment/createIssue，双态 JiraResult，8 错误码）+ exit-tools 重构（删 ~290 行内嵌客户端，KIND/configSchema/deliver 对外不动）+ entry-adapters 重构（删 406 行 + 245 行测试，poller 对外事件形状不变）+ core-modules.md 模块全景 + yarn.lock
 - 认证链合并取舍（以 v2 搬运链为准，详见 agent-31 汇报）：登录成功判据统一为 Dashboard 匿名态验证、超时取可配 AbortController（exit-tools 显式传 15s 保持原行为）、并入 404→ticket_not_found、空值请求头过滤保留
 - 已知观察：confluence.ts 自带同族表单登录链（os_username）——将来可考虑把认证链泛化为 easemob SSO 族共享，现按「第二消费者再抽」纪律不动
-- 后续任务（用户发布后）：business jira-fetch 重构为依赖 @asterisk/agent-jira-client@^0.1.0 → T22 真机验证
+- 后续任务（用户发布后）：business jira-fetch 重构为依赖 @asteriskzuo/agent-jira-client@^0.1.0 → T22 真机验证
+
+**npm 发布前缀改为 @asteriskzuo（2026-10-09，机械改动无 spec）**
+
+- 起因：首次 npm publish 失败 E404——npm scope 必须归属发布账号，`npm whoami` 实证账号为 `asteriskzuo`，`@asterisk` 不属于本账号
+- 决策文档：`docs/decisions/2026-10-09-scope-rename-asteriskzuo.md`
+- 范围：`@asterisk/*` → `@asteriskzuo/*` 全量机械替换（全部 package.json name 与依赖引用、模板、verify-template.sh、现行文档、历史 spec；唯一例外 T20 决策文档保留原貌）；yarn.lock 经 yarn install 重新生成；9 个文件因行宽变化经 prettier 重排
+- 验收证据：根六连全绿（test 4m16s 全过；首跑再撞既有 rebuild 竞态重跑即过；format:check 修复后 typecheck/lint/format/circular exit 0）；残留检查仅 T20 决策文档与两处历史记录（计划变更记录、T20 进度条目）保留 @asterisk 字样，属正确的历史事实
+- 业务仓同步改名并单独提交

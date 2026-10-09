@@ -31,7 +31,7 @@
 - **平台注入的额外上下文**：入口信封、业务环境配置与安全变量、run 工作目录、业务级持久目录（dataDir）、agent 服务端点、程序名→物化路径映射（`sdk.run` 按名查表的依据，见 `design/asset-model.md` §6）——经 stdin 在启动时一次性注入（环境变量清空注入，见 §6 边界）；
 - **结果校验**：平台只对 stdout 结果做 schema 校验与大小上限（大产物走引用，见 `design/event-contract.md`），不解析内容。
 
-**运行时形态**：业务流程程序来自业务绑定的**包**（`design/asset-model.md`：git 仓库登记，初始化物化时经 `agent.materialize.mjs` 构建就绪——默认 esbuild 转译 TS 源码存 JS，平台运行时零编译，类型检查是业务开发期的事）；业务 SDK 是**普通 npm 依赖**（`@asterisk/agent-sdk` 安装进包内 node_modules，开发与运行时用同一份代码，平台不做注入/bundle）；`WorkflowRunner.run({program})` 的 `program` = 绑定包中选定入口程序的物化产物文件。
+**运行时形态**：业务流程程序来自业务绑定的**包**（`design/asset-model.md`：git 仓库登记，初始化物化时经 `agent.materialize.mjs` 构建就绪——默认 esbuild 转译 TS 源码存 JS，平台运行时零编译，类型检查是业务开发期的事）；业务 SDK 是**普通 npm 依赖**（`@asteriskzuo/agent-sdk` 安装进包内 node_modules，开发与运行时用同一份代码，平台不做注入/bundle）；`WorkflowRunner.run({program})` 的 `program` = 绑定包中选定入口程序的物化产物文件。
 
 **无挂起/恢复**：多轮交互的连续性由通道模块承接（`design/channel-model.md`），流程程序本身跨 run 无状态。
 

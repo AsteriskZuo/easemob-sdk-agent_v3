@@ -1,10 +1,10 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { openDatabase } from "@asterisk/agent-database";
-import type { Database } from "@asterisk/agent-database";
-import type { EventEnvelope } from "@asterisk/agent-contracts";
-import { newEventId, newUlid } from "@asterisk/agent-contracts";
+import { openDatabase } from "@asteriskzuo/agent-database";
+import type { Database } from "@asteriskzuo/agent-database";
+import type { EventEnvelope } from "@asteriskzuo/agent-contracts";
+import { newEventId, newUlid } from "@asteriskzuo/agent-contracts";
 import { createTaskQueue } from "../src/index.js";
 import type { TaskQueue } from "../src/index.js";
 

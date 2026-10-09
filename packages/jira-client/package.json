@@ -1,5 +1,5 @@
 {
-  "name": "@asterisk/agent-jira-client",
+  "name": "@asteriskzuo/agent-jira-client",
   "version": "0.1.0",
   "description": "easemob jira 客户端：表单登录认证链（cookie 罐 + 401 自愈重登）+ 通用 REST 便利方法，零依赖可发布基础包",
   "type": "module",

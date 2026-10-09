@@ -40,7 +40,7 @@ interface FacadeState {
 let state: FacadeState | null = null; // null = 未初始化（调用任何方法抛错）
 
 const NOT_INITIALIZED =
-  "@asterisk/agent-logger: logger 未初始化，请先在装配根调用 initLogger()";
+  "@asteriskzuo/agent-logger: logger 未初始化，请先在装配根调用 initLogger()";
 
 /** 路由：module 'entry-loop'→entry-loop.log、'exit-loop'→exit-loop.log、其余一律归 system.log */
 function routeFile(module: string): string {
@@ -82,7 +82,7 @@ function makeCategoryLogger(
  *  fail-fast：logsDir 不可创建/不可写 → 抛错（启动自检） */
 export function initLogger(options: LoggerInitOptions): void {
   if (state) {
-    throw new Error("@asterisk/agent-logger: initLogger() 只能调用一次");
+    throw new Error("@asteriskzuo/agent-logger: initLogger() 只能调用一次");
   }
   try {
     // fail-fast 自检：建目录 + 写测文件 + 删除，任何一步失败 = 启动自检失败
@@ -92,7 +92,7 @@ export function initLogger(options: LoggerInitOptions): void {
     rmSync(probe);
   } catch (err) {
     throw new Error(
-      `@asterisk/agent-logger: logsDir 不可创建/不可写: ${options.logsDir}: ${err instanceof Error ? err.message : String(err)}`,
+      `@asteriskzuo/agent-logger: logsDir 不可创建/不可写: ${options.logsDir}: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
   state = {

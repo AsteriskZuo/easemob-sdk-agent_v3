@@ -11,7 +11,7 @@ import type {
   ChangePasswordBody,
   LoginResult,
   User,
-} from "@asterisk/agent-console-api";
+} from "@asteriskzuo/agent-console-api";
 import { apiFetch, setUnauthorizedHandler } from "../api/client";
 
 /** 认证上下文：当前用户 + 加载态 + 登录/登出/改密码动作 */

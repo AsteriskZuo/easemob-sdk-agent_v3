@@ -2,17 +2,20 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
-import { openDatabase } from "@asterisk/agent-database";
-import type { Database } from "@asterisk/agent-database";
-import type { EventEnvelope } from "@asterisk/agent-contracts";
-import { newEventId, newUlid } from "@asterisk/agent-contracts";
-import { createTaskQueue } from "@asterisk/agent-queue";
-import type { TaskQueue } from "@asterisk/agent-queue";
-import { createBusinessRegistry } from "@asterisk/agent-registry";
-import type { BusinessRegistry, ExitBinding } from "@asterisk/agent-registry";
-import { createChannelPool } from "@asterisk/agent-channel";
-import type { ChannelPool } from "@asterisk/agent-channel";
-import { initLogger, resetForTests } from "@asterisk/agent-logger";
+import { openDatabase } from "@asteriskzuo/agent-database";
+import type { Database } from "@asteriskzuo/agent-database";
+import type { EventEnvelope } from "@asteriskzuo/agent-contracts";
+import { newEventId, newUlid } from "@asteriskzuo/agent-contracts";
+import { createTaskQueue } from "@asteriskzuo/agent-queue";
+import type { TaskQueue } from "@asteriskzuo/agent-queue";
+import { createBusinessRegistry } from "@asteriskzuo/agent-registry";
+import type {
+  BusinessRegistry,
+  ExitBinding,
+} from "@asteriskzuo/agent-registry";
+import { createChannelPool } from "@asteriskzuo/agent-channel";
+import type { ChannelPool } from "@asteriskzuo/agent-channel";
+import { initLogger, resetForTests } from "@asteriskzuo/agent-logger";
 import { createExitLoop } from "../src/index.js";
 import type { ExitDriver, SchedulerLoop } from "../src/index.js";
 

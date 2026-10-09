@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, rmSync } from "node:fs";
 import path from "node:path";
-import { migrate } from "@asterisk/agent-database";
-import type { Database } from "@asterisk/agent-database";
+import { migrate } from "@asteriskzuo/agent-database";
+import type { Database } from "@asteriskzuo/agent-database";
 import { computeAssetId } from "./asset-id.js";
 import { resolveRef } from "./git.js";
 import { materializeFromGit } from "./materialize.js";

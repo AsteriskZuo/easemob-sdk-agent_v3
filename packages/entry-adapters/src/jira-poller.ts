@@ -1,18 +1,18 @@
-import { CONTRACT_VERSION } from "@asterisk/agent-contracts";
-import type { EventEnvelope } from "@asterisk/agent-contracts";
-import { JiraClient } from "@asterisk/agent-jira-client";
+import { CONTRACT_VERSION } from "@asteriskzuo/agent-contracts";
+import type { EventEnvelope } from "@asteriskzuo/agent-contracts";
+import { JiraClient } from "@asteriskzuo/agent-jira-client";
 import type {
   JiraClientConfig,
   JiraIssueLite,
   JiraResult,
   JiraSearchOptions,
-} from "@asterisk/agent-jira-client";
-import { logger } from "@asterisk/agent-logger";
-import type { TaskQueue } from "@asterisk/agent-queue";
-import type { EnvProvider } from "@asterisk/agent-runtime";
+} from "@asteriskzuo/agent-jira-client";
+import { logger } from "@asteriskzuo/agent-logger";
+import type { TaskQueue } from "@asteriskzuo/agent-queue";
+import type { EnvProvider } from "@asteriskzuo/agent-runtime";
 import { configString } from "./match-scan.js";
 
-/** 轮询器依赖的 jira 搜索客户端最小面（测试注入 fake；缺省 = @asterisk/agent-jira-client 的 JiraClient） */
+/** 轮询器依赖的 jira 搜索客户端最小面（测试注入 fake；缺省 = @asteriskzuo/agent-jira-client 的 JiraClient） */
 export interface JiraSearchClient {
   /** JQL 搜索（轻量字段集）；error 由轮询器记日志跳过本轮 */
   searchIssues(

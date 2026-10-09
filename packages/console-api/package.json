@@ -1,5 +1,5 @@
 {
-  "name": "@asterisk/agent-console-api",
+  "name": "@asteriskzuo/agent-console-api",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,14 +12,14 @@
     }
   },
   "dependencies": {
-    "@asterisk/agent-asset-registry": "0.1.0",
-    "@asterisk/agent-contracts": "0.1.0",
-    "@asterisk/agent-database": "0.1.0",
-    "@asterisk/agent-exit-tools": "0.1.0",
-    "@asterisk/agent-logger": "0.1.0",
-    "@asterisk/agent-queue": "0.1.0",
-    "@asterisk/agent-registry": "0.1.0",
-    "@asterisk/agent-runtime": "0.1.0"
+    "@asteriskzuo/agent-asset-registry": "0.1.0",
+    "@asteriskzuo/agent-contracts": "0.1.0",
+    "@asteriskzuo/agent-database": "0.1.0",
+    "@asteriskzuo/agent-exit-tools": "0.1.0",
+    "@asteriskzuo/agent-logger": "0.1.0",
+    "@asteriskzuo/agent-queue": "0.1.0",
+    "@asteriskzuo/agent-registry": "0.1.0",
+    "@asteriskzuo/agent-runtime": "0.1.0"
   },
   "devDependencies": {
     "esbuild": "^0.28.1",

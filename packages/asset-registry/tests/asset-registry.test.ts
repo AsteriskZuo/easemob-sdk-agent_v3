@@ -10,8 +10,8 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { openDatabase } from "@asterisk/agent-database";
-import type { Database } from "@asterisk/agent-database";
+import { openDatabase } from "@asteriskzuo/agent-database";
+import type { Database } from "@asteriskzuo/agent-database";
 import { createAssetRegistry } from "../src/index.js";
 import type { AssetInput, AssetRegistry } from "../src/index.js";
 

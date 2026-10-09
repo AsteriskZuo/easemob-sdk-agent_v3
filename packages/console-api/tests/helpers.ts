@@ -2,26 +2,26 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { createAssetRegistry } from "@asterisk/agent-asset-registry";
-import type { AssetRegistry } from "@asterisk/agent-asset-registry";
-import type { EventEnvelope } from "@asterisk/agent-contracts";
-import { openDatabase } from "@asterisk/agent-database";
-import type { Database } from "@asterisk/agent-database";
-import { createExitRegistry } from "@asterisk/agent-exit-tools";
-import { initLogger, resetForTests } from "@asterisk/agent-logger";
-import { createTaskQueue } from "@asterisk/agent-queue";
-import type { TaskQueue } from "@asterisk/agent-queue";
-import { createBusinessRegistry } from "@asterisk/agent-registry";
-import type { BusinessRegistry } from "@asterisk/agent-registry";
+import { createAssetRegistry } from "@asteriskzuo/agent-asset-registry";
+import type { AssetRegistry } from "@asteriskzuo/agent-asset-registry";
+import type { EventEnvelope } from "@asteriskzuo/agent-contracts";
+import { openDatabase } from "@asteriskzuo/agent-database";
+import type { Database } from "@asteriskzuo/agent-database";
+import { createExitRegistry } from "@asteriskzuo/agent-exit-tools";
+import { initLogger, resetForTests } from "@asteriskzuo/agent-logger";
+import { createTaskQueue } from "@asteriskzuo/agent-queue";
+import type { TaskQueue } from "@asteriskzuo/agent-queue";
+import { createBusinessRegistry } from "@asteriskzuo/agent-registry";
+import type { BusinessRegistry } from "@asteriskzuo/agent-registry";
 import {
   createEnvProvider,
   createLifecycleStore,
-} from "@asterisk/agent-runtime";
+} from "@asteriskzuo/agent-runtime";
 import type {
   EnvProvider,
   LifecycleStore,
   LifecycleWriter,
-} from "@asterisk/agent-runtime";
+} from "@asteriskzuo/agent-runtime";
 import { createConsoleApi } from "../src/index.js";
 import type { ConsoleApi, EffectiveConfigView } from "../src/index.js";
 import { createAccountService } from "../src/accounts.js";

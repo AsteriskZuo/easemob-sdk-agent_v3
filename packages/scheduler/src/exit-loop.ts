@@ -1,8 +1,11 @@
-import { buildExitChannelId } from "@asterisk/agent-contracts";
-import type { Channel, ChannelPool } from "@asterisk/agent-channel";
-import type { Task, TaskQueue } from "@asterisk/agent-queue";
-import type { BusinessRegistry, ExitBinding } from "@asterisk/agent-registry";
-import { logger } from "@asterisk/agent-logger";
+import { buildExitChannelId } from "@asteriskzuo/agent-contracts";
+import type { Channel, ChannelPool } from "@asteriskzuo/agent-channel";
+import type { Task, TaskQueue } from "@asteriskzuo/agent-queue";
+import type {
+  BusinessRegistry,
+  ExitBinding,
+} from "@asteriskzuo/agent-registry";
+import { logger } from "@asteriskzuo/agent-logger";
 import { createSemaphore } from "./semaphore.js";
 import type { Semaphore } from "./semaphore.js";
 import type {

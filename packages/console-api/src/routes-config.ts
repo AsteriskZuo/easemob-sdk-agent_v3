@@ -1,5 +1,5 @@
-import type { AssetRegistry } from "@asterisk/agent-asset-registry";
-import type { ExitRegistry } from "@asterisk/agent-exit-tools";
+import type { AssetRegistry } from "@asteriskzuo/agent-asset-registry";
+import type { ExitRegistry } from "@asteriskzuo/agent-exit-tools";
 import type { User } from "./accounts.js";
 import type { EffectiveConfigView, ExitToolMenuItem } from "./dto.js";
 import { ApiError } from "./errors.js";

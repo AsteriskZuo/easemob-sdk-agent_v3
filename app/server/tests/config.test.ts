@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { EnvError } from "@asterisk/agent-env";
+import { EnvError } from "@asteriskzuo/agent-env";
 import { resolveServerConfig } from "../src/index.js";
 
 let tmpDir: string;

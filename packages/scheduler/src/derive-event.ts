@@ -1,6 +1,6 @@
-import type { EventEnvelope } from "@asterisk/agent-contracts";
-import { newEventId } from "@asterisk/agent-contracts";
-import type { BusinessMatch } from "@asterisk/agent-registry";
+import type { EventEnvelope } from "@asteriskzuo/agent-contracts";
+import { newEventId } from "@asteriskzuo/agent-contracts";
+import type { BusinessMatch } from "@asteriskzuo/agent-registry";
 import type { ExecutionResult } from "./types.js";
 
 /** 结果扇出的派生事件构造（纯函数）。调用方：入口循环 drain，业务执行完结后；

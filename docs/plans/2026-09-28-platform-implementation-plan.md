@@ -8,7 +8,7 @@
 ## 1. 工程结构（目标形态）
 
 ```text
-├── packages/               # 平台内部库（@asterisk/agent-*，不对外发布）
+├── packages/               # 平台内部库（@asteriskzuo/agent-*，不对外发布）
 │   ├── contracts/          # 事件信封 v1、channel_id、校验器（零依赖）
 │   ├── database/           # SQLite 薄封装（node:sqlite），全平台唯一数据访问口
 │   ├── queue/              # 持久任务队列（entry/exit 双实例共用）
@@ -20,7 +20,7 @@
 │   ├── runtime/            # Lifecycle 四步时序 + ContextLoader + EnvProvider 两桶
 │   ├── asset-registry/     # 资产注册表：三族资产（包/工具/skill）登记/校验/物化/名解析
 │   └── exit-tools/         # 出口工具群（统一 ExitTool 接口）
-├── sdk/                    # @asterisk/agent-sdk，业务 SDK（唯一面向业务用户的包）
+├── sdk/                    # @asteriskzuo/agent-sdk，业务 SDK（唯一面向业务用户的包）
 ├── app/
 │   ├── server/             # 后台守护进程：装配 + webhook 入口 + 管理 API
 │   └── console/            # 浏览器控制台 SPA（React + Vite）
@@ -44,29 +44,29 @@
 | # | 任务 | 产出 | 依赖 | spec | 状态 |
 |---|------|------|------|------|------|
 | T0 | 工程骨架 | yarn 4.14.1 workspaces + tsconfig + jest/esbuild + eslint + prettier + dpdm + 根脚本 | — | [spec](../specs/2026-09-28-t0-engineering-skeleton-spec.md) | [x] |
-| T1 | `@asterisk/agent-contracts` | 信封 v1 类型与校验、channel_id 编解码、ULID | T0 | [spec](../specs/2026-09-28-t1-contracts-spec.md) | [x] |
-| T2 | `@asterisk/agent-database` | SQLite 薄封装 + 迁移原语，全平台唯一数据访问口 | T1 | [spec](../specs/2026-09-28-t2-database-spec.md) | [x] |
-| T3 | `@asterisk/agent-queue` | 持久任务队列（入队/take/complete/deadLetter/query/recover/purge） | T2 | [spec](../specs/2026-09-28-t3-queue-spec.md) | [x] |
-| T4 | `@asterisk/agent-registry` | 业务注册表 + 入口匹配 + 出口绑定存取 | T2 | [spec](../specs/2026-09-28-t4-registry-spec.md) | [x] |
-| T5 | `@asterisk/agent-channel` | ChannelPool/Channel（异步可迭代串行链）+ ChannelStore（会话映射） | T2 T3 | [spec](../specs/2026-09-29-t5-channel-spec.md) | [x] |
-| T6 | `@asterisk/agent-logger` | ConsoleLike 底层 + 全局外观（initLogger/logger.for）+ 脱敏 + fail-fast | T1 | [spec](../specs/2026-09-29-t6-logger-spec.md) | [x] |
-| T7 | `@asterisk/agent-env` | 环境变量唯一读取口（类型解析 + 必需校验 fail-fast） | T1 | [spec](../specs/2026-09-29-t7-env-spec.md) | [x] |
-| T8 | `@asterisk/agent-scheduler` | 入口/出口双调度循环 + 并发闸门 + hop_count + on_failure | T3 T4 T5 | [spec](../specs/2026-09-29-t8-scheduler-spec.md) | [x] |
-| T9 | `@asterisk/agent-exit-tools` | ExitTool 接口 + 3 实现（企微群 webhook/邮件/自定义 webhook）+ 4 占位 | T1 | [spec](../specs/2026-09-29-t9-exit-tools-spec.md) | [x] |
-| T10 | WorkflowRunner + `@asterisk/agent-sdk` | 业务子进程契约两侧同批实现（socket wire 协议唯一定义） | T1 T6 | [spec](../specs/2026-09-29-t10-workflow-runner-sdk-spec.md) | [x] |
+| T1 | `@asteriskzuo/agent-contracts` | 信封 v1 类型与校验、channel_id 编解码、ULID | T0 | [spec](../specs/2026-09-28-t1-contracts-spec.md) | [x] |
+| T2 | `@asteriskzuo/agent-database` | SQLite 薄封装 + 迁移原语，全平台唯一数据访问口 | T1 | [spec](../specs/2026-09-28-t2-database-spec.md) | [x] |
+| T3 | `@asteriskzuo/agent-queue` | 持久任务队列（入队/take/complete/deadLetter/query/recover/purge） | T2 | [spec](../specs/2026-09-28-t3-queue-spec.md) | [x] |
+| T4 | `@asteriskzuo/agent-registry` | 业务注册表 + 入口匹配 + 出口绑定存取 | T2 | [spec](../specs/2026-09-28-t4-registry-spec.md) | [x] |
+| T5 | `@asteriskzuo/agent-channel` | ChannelPool/Channel（异步可迭代串行链）+ ChannelStore（会话映射） | T2 T3 | [spec](../specs/2026-09-29-t5-channel-spec.md) | [x] |
+| T6 | `@asteriskzuo/agent-logger` | ConsoleLike 底层 + 全局外观（initLogger/logger.for）+ 脱敏 + fail-fast | T1 | [spec](../specs/2026-09-29-t6-logger-spec.md) | [x] |
+| T7 | `@asteriskzuo/agent-env` | 环境变量唯一读取口（类型解析 + 必需校验 fail-fast） | T1 | [spec](../specs/2026-09-29-t7-env-spec.md) | [x] |
+| T8 | `@asteriskzuo/agent-scheduler` | 入口/出口双调度循环 + 并发闸门 + hop_count + on_failure | T3 T4 T5 | [spec](../specs/2026-09-29-t8-scheduler-spec.md) | [x] |
+| T9 | `@asteriskzuo/agent-exit-tools` | ExitTool 接口 + 3 实现（企微群 webhook/邮件/自定义 webhook）+ 4 占位 | T1 | [spec](../specs/2026-09-29-t9-exit-tools-spec.md) | [x] |
+| T10 | WorkflowRunner + `@asteriskzuo/agent-sdk` | 业务子进程契约两侧同批实现（socket wire 协议唯一定义） | T1 T6 | [spec](../specs/2026-09-29-t10-workflow-runner-sdk-spec.md) | [x] |
 | T11 | AgentService（packages/agent-service） | unix socket + 一次性 token + spawn pi + 配额 + 审计落盘 | T10 | 2026-09-29-t11-agent-service-spec.md | [x] |
 | T15 | 程序包模板 | `templates/agent-package/`：拷贝即用的包骨架（清单 + sdk 依赖 + lint/test/format/circular 同平台 + 示例 program/skill） | T10 | 2026-09-29-t15-package-template-spec.md | [x] |
-| T16 | `@asterisk/agent-asset-registry` | 资产注册表：三族资产（包/工具/skill）git 三元组登记 + 清单校验 + 物化 + 名解析纯函数 | T2 | [spec](../specs/2026-09-30-t16-asset-registry-spec.md) | [x] |
-| T17 | `@asterisk/agent-runtime` | Lifecycle 四步时序 + ContextLoader + EnvProvider 两桶；顺带扩 registry 业务资料字段（prompt/model/资产绑定/quota/入口配置） | T4 T10 T11 T16 | [spec](../specs/2026-09-30-t17-runtime-spec.md) | [x] |
+| T16 | `@asteriskzuo/agent-asset-registry` | 资产注册表：三族资产（包/工具/skill）git 三元组登记 + 清单校验 + 物化 + 名解析纯函数 | T2 | [spec](../specs/2026-09-30-t16-asset-registry-spec.md) | [x] |
+| T17 | `@asteriskzuo/agent-runtime` | Lifecycle 四步时序 + ContextLoader + EnvProvider 两桶；顺带扩 registry 业务资料字段（prompt/model/资产绑定/quota/入口配置） | T4 T10 T11 T16 | [spec](../specs/2026-09-30-t17-runtime-spec.md) | [x] |
 | T12 | `app/server` | 平台装配 + EntryAdapter 接口 + 启动自检 + ExitDriver 机密回填 | T7 T8 T9 T17 | [spec](../specs/2026-10-03-t12-server-spec.md) | [x] |
 | T13 | 管理 API | `packages/console-api`（账号体系 + 全部管理路由）+ server 装配扩展（DTO 由包导出，console type-only 复用，不进 contracts） | T12 | [spec](../specs/2026-10-05-t13-console-api-spec.md) | [x] |
 | T14 | `app/console` | React + Vite SPA，调管理 API（六页 MVP 一次做全；console-api 顺带扩静态托管） | T13 | [spec](../specs/2026-10-07-t14-console-spec.md) | [x] |
 | T18 | webhook 入口适配器 | EntryAdapter 首个实现：验签 + 会话标识 + 幂等约定（entry_config schema 随本任务定）——**并入 T21** | T12 | 并入 T21 spec | [ ] |
 | T19 | 组合机制回炉（真机验证驱动） | T19a 平台侧：信封 programs 映射 + sdk.run 按名查表 + ContextLoader 全量映射 + registry 去模型硬编码 + console-api 绑定配置期校验 + server models.json 解析；T19b console 业务编辑页重做 | T14 | [spec](../specs/2026-10-07-t19-composition-rework-spec.md) | T19a [x] T19b [x] |
-| T20 | 包名改名 + sdk 发布准备 | `@easemob/agent-*` → `@asterisk/agent-*` 全量替换；sdk 具备 npm 发布条件 | 无 | [decision](../decisions/2026-10-08-package-scope-rename.md)（机械改动无 spec） | [x] |
+| T20 | 包名改名 + sdk 发布准备 | `@easemob/agent-*` → `@asteriskzuo/agent-*` 全量替换；sdk 具备 npm 发布条件 | 无 | [decision](../decisions/2026-10-08-package-scope-rename.md)（机械改动无 spec） | [x] |
 | T21 | 平台侧可落地批次 | 物化构建链路（npm ci + agent.materialize.mjs 必带）+ jira-polling/webhook 入口适配器（含开关）+ 信封 dataDir + 出口 null 跳过 + 出入口 schema 自描述 + 内部入口（上游业务）建模 + sdk 文档 + 控制台缓存清理 | T12 T16 T20 | [spec](../specs/2026-10-08-t21-platform-landability-spec.md)（吸收 T18） | T21a-d [x] |
 | T22 | 首个业务迁移验证 | business/jira-ticket-review 独立仓库：包/工具/skill 三资产 + codex→pi + 真机验证（polling 入口 + 企微出口） | T21 | [spec](../specs/2026-10-09-t22-jira-ticket-review-migration-spec.md) | [x]（实现完成，真机验证待用户手动执行） |
-| T23 | jira 客户端抽取为可发布基础包 | `packages/jira-client`（`@asterisk/agent-jira-client`，发布 npm，零依赖）；exit-tools/entry-adapters 删内嵌客户端改依赖共享包；业务 jira-fetch 重构待用户发布后跟进 | T21 | [spec](../specs/2026-10-09-t23-jira-client-extraction-spec.md) | [x] |
+| T23 | jira 客户端抽取为可发布基础包 | `packages/jira-client`（`@asteriskzuo/agent-jira-client`，发布 npm，零依赖）；exit-tools/entry-adapters 删内嵌客户端改依赖共享包；业务 jira-fetch 重构待用户发布后跟进 | T21 | [spec](../specs/2026-10-09-t23-jira-client-extraction-spec.md) | [x] |
 
 ## 4. 执行批次（并发 ≤2）
 
@@ -136,4 +136,4 @@
 - 2026-09-30：**资产模型定案**（package-model.md → asset-model.md 重写）：资产单元从单一程序包演进为三族——包（业务代码单位，不共享）/ 工具（可复用代码组件）/ skill（可复用提示词组件）；git 三元组标识、属主 + 共享标记（创建时定不可改）；EnvProvider 三类并为普通/安全两桶（T17 纳入实现）；平台不再内置资产。T16 随之改为 asset-registry（spec 重写，原 package-registry spec 作废）；T17 描述同步（EnvProvider 两桶 + 资产绑定三族）。T15 模板需随资产模型小幅修订（清单删 skills、删内嵌示例 skill），随 T16 批次一并处理。
 - 2026-10-04：T12 范围收缩（owner 裁决）——webhook 入口适配器移出为 T18（外部业务推送形态复杂，验签/会话标识/幂等约定随 T18 单独设计），AibotConnector 维持归企微入口任务；T12 = 平台装配 + EntryAdapter 接口 + 启动自检 + ExitDriver。入口流量与管理 API 各自独立 HTTP 服务。范围外删除「github/jira/confluence 出口工具」一行（T9 已扩展为七工具全实现）。
 - 2026-10-08：插入 T20/T21/T22，T18 并入 T21——① T20 包名改名 @easemob→@asterisk + sdk 发布准备（决策 docs/decisions/2026-10-08-package-scope-rename.md，机械改动无 spec）；② T21 平台侧可落地批次（决策 docs/decisions/2026-10-08-asset-materialization-build.md）：v2 迁移验证暴露物化构建链路缺口（清单指 dist/ 但 git 忽略，无任何转译实现），连带回补 jira-polling/webhook 入口（T18 吸收）、适配器开关、信封 dataDir、出口 null 跳过、出入口 schema 自描述、内部入口（上游业务）建模、sdk 文档；③ T22 首个业务迁移验证（v2 单轮审查工单 → business/jira-ticket-review 独立仓库）。
-- 2026-10-09：插入 T23（jira 客户端抽取为可发布基础包 @asterisk/agent-jira-client）——用户决策：基础工具包可发布 npm，平台包与业务包共同依赖，认证链（表单登录 + cookie 罐 + 401 自愈）单点化；github/wecom 出现第二消费者再抽同模式；business jira-fetch 重构与 T22 真机验证待用户手动发布 sdk + agent-jira-client 后跟进。
+- 2026-10-09：插入 T23（jira 客户端抽取为可发布基础包 @asteriskzuo/agent-jira-client）——用户决策：基础工具包可发布 npm，平台包与业务包共同依赖，认证链（表单登录 + cookie 罐 + 401 自愈）单点化；github/wecom 出现第二消费者再抽同模式；business jira-fetch 重构与 T22 真机验证待用户手动发布 sdk + agent-jira-client 后跟进。

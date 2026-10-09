@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { initLogger, resetForTests } from "@asterisk/agent-logger";
+import { initLogger, resetForTests } from "@asteriskzuo/agent-logger";
 import { WebhookEntryAdapter } from "../src/webhook.js";
 import type { EntryDeps } from "../src/types.js";
 import { FakeEnv, FakeQueue, FakeRegistry } from "./fakes.js";

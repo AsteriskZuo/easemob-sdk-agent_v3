@@ -6,7 +6,7 @@
 
 ## 1. 目标
 
-产出 `app/server`（`@asterisk/agent-server`，private 不发布）：**平台的装配根与进程入口**——把全部已完成的 packages 接线成可运行的服务，外加：
+产出 `app/server`（`@asteriskzuo/agent-server`，private 不发布）：**平台的装配根与进程入口**——把全部已完成的 packages 接线成可运行的服务，外加：
 
 1. **配置解析**：环境变量 > `{workspace}/config.json` > 代码默认值（console-design §6「配置」类）；
 2. **启动自检**：fail-fast，任一前提不满足记 error 日志并停止启动（logging.md §5）；
@@ -66,9 +66,9 @@ T12 交付的 server 启动后是**空跑态**：registry 无业务、两桶无�
 
 ### 2.1 消费的上游包真实签名（以 packages/ 源码为准，此处为最小引用面）
 
-`@asterisk/agent-env`：`getString(name, { default?, required? })` / `getNumber(name, { default?, required?, min?, max? })` / `getBoolean(...)`，失败抛 `EnvError`（message 含变量名与原因）。
+`@asteriskzuo/agent-env`：`getString(name, { default?, required? })` / `getNumber(name, { default?, required?, min?, max? })` / `getBoolean(...)`，失败抛 `EnvError`（message 含变量名与原因）。
 
-`@asterisk/agent-logger`：
+`@asteriskzuo/agent-logger`：
 
 ```ts
 initLogger(options: { logsDir: string; level?: 'error'|'warn'|'info'|'debug'; enabled?: boolean; secrets?: readonly string[] }): void;
@@ -76,9 +76,9 @@ initLogger(options: { logsDir: string; level?: 'error'|'warn'|'info'|'debug'; en
 logger.for({ module: string, ...固定字段 }): CategoryLogger;  // error/warn/info/debug(message, fields?) + .with(fields)
 ```
 
-`@asterisk/agent-database`：`openDatabase(path): Database`（父目录自动创建；打不开抛错）；`Database { run/get/all/transaction/exec/close }`。
+`@asteriskzuo/agent-database`：`openDatabase(path): Database`（父目录自动创建；打不开抛错）；`Database { run/get/all/transaction/exec/close }`。
 
-`@asterisk/agent-queue`：
+`@asteriskzuo/agent-queue`：
 
 ```ts
 createTaskQueue(db: Database, table: string): TaskQueue;  // 平台用 'entry_tasks' / 'exit_tasks'
@@ -86,7 +86,7 @@ createTaskQueue(db: Database, table: string): TaskQueue;  // 平台用 'entry_ta
 // TaskQueue.recover()：processing 残留重置回 pending，返回条数——装配根启动时调一次
 ```
 
-`@asterisk/agent-registry`：
+`@asteriskzuo/agent-registry`：
 
 ```ts
 createBusinessRegistry(db: Database): BusinessRegistry;
@@ -98,11 +98,11 @@ interface ExitBinding { business_id: string; tool: string; config: Record<string
 // 术语对齐：返回的关注者集合即设计中的「处理链」（ProcessingChain = 一个事件的关注者集合，链内并行）
 ```
 
-`@asterisk/agent-channel`：`createChannelPool(db): ChannelPool`（两个循环各持一个实例，共用一张表、channel_id 前缀分域）；`createChannelStore(db): ChannelStore`——`bindAgentSession/getAgentSession/clear` 三个方法，结构兼容 agent-service 的 `AgentSessionMapping`，直接注入。
+`@asteriskzuo/agent-channel`：`createChannelPool(db): ChannelPool`（两个循环各持一个实例，共用一张表、channel_id 前缀分域）；`createChannelStore(db): ChannelStore`——`bindAgentSession/getAgentSession/clear` 三个方法，结构兼容 agent-service 的 `AgentSessionMapping`，直接注入。
 
-`@asterisk/agent-contracts`：`newEventId()`（`evt_` 前缀）、`buildBusinessChannelId(source, sessionId, businessId)`、`EventEnvelope`、`EventSource`、`CONTRACT_VERSION`。
+`@asteriskzuo/agent-contracts`：`newEventId()`（`evt_` 前缀）、`buildBusinessChannelId(source, sessionId, businessId)`、`EventEnvelope`、`EventSource`、`CONTRACT_VERSION`。
 
-`@asterisk/agent-scheduler`：
+`@asteriskzuo/agent-scheduler`：
 
 ```ts
 interface PlatformConfig { hop_limit: number; task_concurrency: number; result_concurrency: number }
@@ -117,7 +117,7 @@ createExitLoop(deps: { queue; registry; channels; config: PlatformConfig; driver
 // 装配纪律（本任务履行）：① start 前 initLogger + 两条队列各 recover()；② 两个循环各持专用 ChannelPool
 ```
 
-`@asterisk/agent-runtime`：
+`@asteriskzuo/agent-runtime`：
 
 ```ts
 createEnvProvider(db: Database): EnvProvider;
@@ -133,13 +133,13 @@ createLifecycle(deps: { loader: ContextLoader; runner: WorkflowRunner; agentServ
   workspaceRoot: string; db: Database }): EntryDriver;  // 四步时序 + 业务标记打标
 ```
 
-`@asterisk/agent-workflow-runner`：`createWorkflowRunner({ workspaceRoot, maxOutputBytes?, killGraceMs?, nodePath? }): WorkflowRunner`。
+`@asteriskzuo/agent-workflow-runner`：`createWorkflowRunner({ workspaceRoot, maxOutputBytes?, killGraceMs?, nodePath? }): WorkflowRunner`。
 
-`@asterisk/agent-service`：`createAgentService({ pi_cli_path, pi_agent_dir, pi_env, mapping }): AgentService`。`pi_env` = pi 子进程基础环境（PATH/HOME 等）；模型凭据由 `pi_agent_dir` 下的 `models.json` 承载（平台管理文件，不进环境变量）。
+`@asteriskzuo/agent-service`：`createAgentService({ pi_cli_path, pi_agent_dir, pi_env, mapping }): AgentService`。`pi_env` = pi 子进程基础环境（PATH/HOME 等）；模型凭据由 `pi_agent_dir` 下的 `models.json` 承载（平台管理文件，不进环境变量）。
 
-`@asterisk/agent-asset-registry`：`createAssetRegistry(db, { cache_root }): AssetRegistry`（`register/list/get/materialize`）。
+`@asteriskzuo/agent-asset-registry`：`createAssetRegistry(db, { cache_root }): AssetRegistry`（`register/list/get/materialize`）。
 
-`@asterisk/agent-exit-tools`：
+`@asteriskzuo/agent-exit-tools`：
 
 ```ts
 createExitRegistry(): ExitRegistry;  // 登记全部七个内置工具
@@ -156,7 +156,7 @@ interface Exit { deliver(result: unknown): Promise<void> } // 失败抛错
 ### 2.2 依赖规则（违反即返工）
 
 - server 是装配根：唯一允许 import 全部模块的应用；自身只被 `app/console`（将来）经 HTTP 消费，不被任何 packages 依赖（dpdm 方向检查）；
-- 配置读取只能经 `@asterisk/agent-env`；日志只能经全局外观；不允许散点 `process.env`（config.ts 是唯一例外——它是 env 包的调用方）；
+- 配置读取只能经 `@asteriskzuo/agent-env`；日志只能经全局外观；不允许散点 `process.env`（config.ts 是唯一例外——它是 env 包的调用方）；
 - 不修改任何 packages 的文件。
 
 ## 3. 范围与不做清单
@@ -177,7 +177,7 @@ interface Exit { deliver(result: unknown): Promise<void> } // 失败抛错
 
 ```text
 app/server/
-├── package.json            # @asterisk/agent-server（private: true）
+├── package.json            # @asteriskzuo/agent-server（private: true）
 ├── tsconfig.json           # extends ../../tsconfig.base.json
 ├── src/
 │   ├── index.ts            # 导出 bootstrap / ServerHandle / AssembledContext / 各工厂与类型（供测试与 T13 复用）
@@ -194,7 +194,7 @@ app/server/
     └── integration.test.ts # 端到端：直接落队 → 业务执行 → 出口投递（内存 fixture）
 ```
 
-`dependencies`（版本号形式）：`@asterisk/agent-contracts`、`@asterisk/agent-database`、`@asterisk/agent-queue`、`@asterisk/agent-registry`、`@asterisk/agent-channel`、`@asterisk/agent-logger`、`@asterisk/agent-env`、`@asterisk/agent-scheduler`、`@asterisk/agent-runtime`、`@asterisk/agent-workflow-runner`、`@asterisk/agent-service`、`@asterisk/agent-asset-registry`、`@asterisk/agent-exit-tools`。**零第三方运行时依赖**。包级脚本模板同 T0 §4，另加 `"start": "node dist/main.js"`。
+`dependencies`（版本号形式）：`@asteriskzuo/agent-contracts`、`@asteriskzuo/agent-database`、`@asteriskzuo/agent-queue`、`@asteriskzuo/agent-registry`、`@asteriskzuo/agent-channel`、`@asteriskzuo/agent-logger`、`@asteriskzuo/agent-env`、`@asteriskzuo/agent-scheduler`、`@asteriskzuo/agent-runtime`、`@asteriskzuo/agent-workflow-runner`、`@asteriskzuo/agent-service`、`@asteriskzuo/agent-asset-registry`、`@asteriskzuo/agent-exit-tools`。**零第三方运行时依赖**。包级脚本模板同 T0 §4，另加 `"start": "node dist/main.js"`。
 
 ## 5. 详细规格
 
@@ -259,10 +259,10 @@ export function runSelfCheck(config: ServerConfig): void;
 ### 5.3 EntryAdapter 接口（entry-adapter.ts，装配层契约）
 
 ```ts
-import type { EventSource } from '@asterisk/agent-contracts';
-import type { TaskQueue } from '@asterisk/agent-queue';
-import type { BusinessRegistry } from '@asterisk/agent-registry';
-import type { EnvProvider } from '@asterisk/agent-runtime';
+import type { EventSource } from '@asteriskzuo/agent-contracts';
+import type { TaskQueue } from '@asteriskzuo/agent-queue';
+import type { BusinessRegistry } from '@asteriskzuo/agent-registry';
+import type { EnvProvider } from '@asteriskzuo/agent-runtime';
 
 /** 入口适配器契约：每个事件源一个实现。职责链：验签 → 包装信封（含 session_id）→ 落队，立即返回。
  *  各入口自管理自己的监听资源（webhook 自起 HTTP 服务、企微自持 SDK 连接、cron 自持定时器），
@@ -291,7 +291,7 @@ export interface EntryDeps {
 export function createExitDriver(deps: {
   exits: ExitRegistry;
   env: EnvProvider;
-}): ExitDriver;  // @asterisk/agent-scheduler 的类型，显式 import type 标注
+}): ExitDriver;  // @asteriskzuo/agent-scheduler 的类型，显式 import type 标注
 ```
 
 - `destinationOf(binding)` = `exits.get(binding.tool).destinationOf(binding.config)`——纯函数，binding.config 只有非机密项，恰好满足 destinationOf「只能来自非机密配置」的约束；
@@ -407,7 +407,7 @@ export function bootstrap(overrides?: {
 2. §6 测试清单全覆盖；integration.test.ts 连跑 10 次不 flake；
 3. 零第三方运行时依赖；packages 零改动；无任何 packages 依赖 app/server；
 4. 导出签名与本文 §5 一致；全包仅 config.ts 经 env 包接触环境变量，无散点 `process.env`；
-5. `yarn workspace @asterisk/agent-server build && AGENT_WORKSPACE=<临时目录> AGENT_PI_CLI_PATH=<假pi> AGENT_PI_AGENT_DIR=<fixture> node app/server/dist/main.js` 能起能停（自检失败路径同样验证：缺 AGENT_WORKSPACE 退出码 1）。
+5. `yarn workspace @asteriskzuo/agent-server build && AGENT_WORKSPACE=<临时目录> AGENT_PI_CLI_PATH=<假pi> AGENT_PI_AGENT_DIR=<fixture> node app/server/dist/main.js` 能起能停（自检失败路径同样验证：缺 AGENT_WORKSPACE 退出码 1）。
 
 ## 8. 本规格的决策点（设计文档未覆盖或有调整，主 agent 已定，owner 已审）
 

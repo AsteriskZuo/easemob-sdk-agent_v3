@@ -1,5 +1,5 @@
 {
-  "name": "@asterisk/agent-exit-tools",
+  "name": "@asteriskzuo/agent-exit-tools",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@actions/github": "^9.1.1",
-    "@asterisk/agent-jira-client": "0.1.0",
+    "@asteriskzuo/agent-jira-client": "0.1.0",
     "nodemailer": "^10.0.12"
   },
   "devDependencies": {

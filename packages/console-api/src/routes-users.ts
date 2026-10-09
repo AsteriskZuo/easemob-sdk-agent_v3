@@ -1,4 +1,4 @@
-import { logger } from "@asterisk/agent-logger";
+import { logger } from "@asteriskzuo/agent-logger";
 import type { AccountService, Role, User } from "./accounts.js";
 import type { CreateUserBody, SetDisabledBody } from "./dto.js";
 import {

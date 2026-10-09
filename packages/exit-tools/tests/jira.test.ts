@@ -1,9 +1,9 @@
 import { createJiraExitTool } from "../src/jira.js";
 import type { JiraWriteClient } from "../src/jira.js";
-import type { JiraResult } from "@asterisk/agent-jira-client";
+import type { JiraResult } from "@asteriskzuo/agent-jira-client";
 
 /** fake 客户端工厂：记录调用，可按用例注入 error 结果。
- *  HTTP 级认证链行为（登录/cookie/401 自愈/错误码映射）已迁移到 @asterisk/agent-jira-client 的测试，此处不重复。 */
+ *  HTTP 级认证链行为（登录/cookie/401 自愈/错误码映射）已迁移到 @asteriskzuo/agent-jira-client 的测试，此处不重复。 */
 
 function success(data: unknown = undefined): JiraResult<never> {
   return { status: "success", data: data as never };

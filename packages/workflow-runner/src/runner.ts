@@ -1,10 +1,10 @@
 import { spawn } from "node:child_process";
 import { accessSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { newUlid, assertSafeSegment } from "@asterisk/agent-contracts";
-import type { EventEnvelope } from "@asterisk/agent-contracts";
-import { createFileLogger, logger } from "@asterisk/agent-logger";
-import type { ConsoleLike } from "@asterisk/agent-logger";
+import { newUlid, assertSafeSegment } from "@asteriskzuo/agent-contracts";
+import type { EventEnvelope } from "@asteriskzuo/agent-contracts";
+import { createFileLogger, logger } from "@asteriskzuo/agent-logger";
+import type { ConsoleLike } from "@asteriskzuo/agent-logger";
 import {
   classifyStderrLine,
   encodeStdinEnvelope,

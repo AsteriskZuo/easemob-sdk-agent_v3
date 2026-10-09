@@ -11,7 +11,7 @@ import {
   Tooltip,
 } from "antd";
 import { QuestionCircleOutlined } from "@ant-design/icons";
-import type { EnvListView } from "@asterisk/agent-console-api";
+import type { EnvListView } from "@asteriskzuo/agent-console-api";
 import { apiFetch, ApiError } from "../api/client";
 
 export interface EnvEditorProps {

@@ -1,6 +1,6 @@
-import type { Database } from "@asterisk/agent-database";
-import { migrate } from "@asterisk/agent-database";
-import type { Task } from "@asterisk/agent-queue";
+import type { Database } from "@asteriskzuo/agent-database";
+import { migrate } from "@asteriskzuo/agent-database";
+import type { Task } from "@asteriskzuo/agent-queue";
 
 /** 挂入通道的一项：任务 + 关注者（关注者类型各循环自定，本包不解释） */
 export interface ChannelItem<T = unknown> {

@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createWorkflowRunner } from "../src/index.js";
 import type { RunRequest } from "../src/index.js";
-import type { EventEnvelope } from "@asterisk/agent-contracts";
+import type { EventEnvelope } from "@asteriskzuo/agent-contracts";
 
 function fixturePath(name: string): string {
   return fileURLToPath(

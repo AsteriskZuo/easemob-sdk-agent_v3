@@ -1,11 +1,11 @@
 # T11 agent-service 包 spec
 
 > 实现任务规格。**本文自包含，是执行者的唯一必读依据**；背景出处（非必读）：`docs/designs/2026-09-14-skill-platform-spec-v3/design/business-workflow.md` §4、`design/package-model.md` §10、`design/channel-model.md` §3。
-> 包名 `@asterisk/agent-service`，目录 `packages/agent-service/`。
+> 包名 `@asteriskzuo/agent-service`，目录 `packages/agent-service/`。
 
 ## 1. 目标
 
-产出 `@asterisk/agent-service` 包：`sdk.agent()` / `sdk.session.*` 的平台另一端。每个 run 监听一个 unix socket（一次性 token 鉴权）；agent 调用 spawn pi 子进程执行（白名单注入 skill、按通道恢复会话、按 run 计配额、请求体审计落盘）；compact 经 pi RPC 模式执行；clear 解除通道会话映射。
+产出 `@asteriskzuo/agent-service` 包：`sdk.agent()` / `sdk.session.*` 的平台另一端。每个 run 监听一个 unix socket（一次性 token 鉴权）；agent 调用 spawn pi 子进程执行（白名单注入 skill、按通道恢复会话、按 run 计配额、请求体审计落盘）；compact 经 pi RPC 模式执行；clear 解除通道会话映射。
 
 **pi 是唯一内核**，本包是平台唯一 spawn pi 的地方。
 
@@ -16,12 +16,12 @@
 - **会话连续性**：业务通道 `channel_id ↔ pi 会话 id` 的映射存 ChannelStore（T5 已实现，本包经注入的最小接口使用）。`mode:'channel'` = 恢复/绑定通道会话；`'fresh'` = 全新会话不写映射。pi 对不存在的 `--session-id` 会创建新会话文件（实证）。
 - **hooks 三条纪律**（适用于会话内 extension）：① fail-closed——hook 解析/执行异常 = 阻断，不是放行；② 判定自写日志——hook 阻断不反映在进程退出码（exit=0），判定以 hook 自写的结构化日志为准；③ 边界审计——每次 LLM 调用落盘真实请求体。**本版业务侧不提供 extension**——会话内只有平台审计 extension，直接受 ①③ 约束。
 - **审计是什么、为什么存在（黑匣子）**：平台的安全主张「敏感内容不出边界」靠业务在请求进 LLM 前脱敏——但脱敏是业务代码，可能写错、漏规则。审计 extension 挂在 `before_provider_request`（请求出边界的最后一刻）把真实请求体逐次落盘，是脱敏有效性的**唯一直接证据**：事后拿敏感原值扫审计文件即可验证 0 泄漏（实证：run-all.sh 校验 5b 正是这么做的）。它类似飞机黑匣子：平时没人看；出事（疑似泄漏、合规检查、客户质询"我的数据发给大模型了吗"）时它是唯一能回答"到底发出去什么"的东西——**事后无法补录，所以必须默认开启**。**审计必须由平台注入而非业务自觉**：交给业务实现则可被移除或绕过，平台装配时统一 `-e` 注入、业务无法摘除（`--no-extensions` 白名单纪律，且不支持业务 extension）。次要用途：用量/成本分析的数据源。
-- **依赖规则**：本包是依赖管理第 3 类（上下文注入）——`createAgentService(deps)` 工厂注入全部依赖，**不读 `process.env`**；唯一例外是 `@asterisk/agent-logger` 全局外观（顶级规则允许的共享面）。
+- **依赖规则**：本包是依赖管理第 3 类（上下文注入）——`createAgentService(deps)` 工厂注入全部依赖，**不读 `process.env`**；唯一例外是 `@asteriskzuo/agent-logger` 全局外观（顶级规则允许的共享面）。
 - **socket 协议**：wire 协议的唯一定义处在 T10 spec §5.4（本 spec §5.3 逐字复述）；SDK 侧已实现客户端，本包实现服务端，两侧各自定义类型、不共享代码。
 
 ### 2.1 消费的上游包（真实签名，以此为准）
 
-`@asterisk/agent-logger`（全局外观，initLogger 归 app/server T12，本包不初始化）：
+`@asteriskzuo/agent-logger`（全局外观，initLogger 归 app/server T12，本包不初始化）：
 
 ```ts
 export const logger: {
@@ -51,7 +51,7 @@ export const logger: {
 
 ```
 packages/agent-service/
-├── package.json            # @asterisk/agent-service；deps: @asterisk/agent-logger（workspace:*）
+├── package.json            # @asteriskzuo/agent-service；deps: @asteriskzuo/agent-logger（workspace:*）
 ├── tsconfig.json           # 与各包同构（extends ../../tsconfig.base.json）
 ├── src/
 │   ├── index.ts            # createAgentService + 类型导出
@@ -200,7 +200,7 @@ type ServiceResponse =
 ## 7. 验收标准
 
 1. 全部测试通过；根级六连全绿（`yarn build && yarn test && yarn typecheck && yarn lint && yarn format:check && yarn circular`）；
-2. 本包运行时依赖仅 `@asterisk/agent-logger`；无 `process.env` 读取（deps 注入）；
+2. 本包运行时依赖仅 `@asteriskzuo/agent-logger`；无 `process.env` 读取（deps 注入）；
 3. 接口与 §5.2 逐字一致；
 4. **实现期实证核对**（完成后记入任务汇报）：用真 pi 对 RPC compact 做一次手动 smoke（`--mode rpc --session-id` 绑定既有会话 + compact 命令），确认协议可用；不可用则按 §8.8 降级方案实现并说明。
 

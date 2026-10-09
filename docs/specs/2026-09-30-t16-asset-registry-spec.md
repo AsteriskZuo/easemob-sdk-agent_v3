@@ -4,7 +4,7 @@
 
 ## 1. 目标
 
-产出 `@asterisk/agent-asset-registry` 包：资产注册表——**三族资产（包/工具/skill）的登记 / 列表 / 取用 / 物化 / 名解析的唯一读写口**。本包只管"资产在哪里、内容是否合格、名字解析到哪"，不执行资产内任何内容、不做权限判定。
+产出 `@asteriskzuo/agent-asset-registry` 包：资产注册表——**三族资产（包/工具/skill）的登记 / 列表 / 取用 / 物化 / 名解析的唯一读写口**。本包只管"资产在哪里、内容是否合格、名字解析到哪"，不执行资产内任何内容、不做权限判定。
 
 ## 2. 背景知识（执行所需的最小上下文）
 
@@ -23,11 +23,11 @@
   - skill：资产根下至少一个直接子目录含 `SKILL.md` 文件。
 - **名解析**：消费方是 T17 ContextLoader（组白名单）与 T11 AgentService（skill 注入）。`sdk.run` 的作用域 = 本包 programs ∪ 绑定工具；`sdk.agent` 的白名单 = 绑定 skill 集合的技能并集。**名唯一性由控制台在绑定配置期查重保证**，运行时解析按名唯一命中，无优先级、无限定写法。本包提供解析纯函数，绑定关系的存取不在本包（归 registry 包，T17 扩列）。
 - **工作目录布局**：物化 `{workspace}/cache/assets/{asset_id}/`。本包通过工厂参数拿物化根，不读环境变量。
-- 数据访问只能经 `@asterisk/agent-database`，禁止直接 import `node:sqlite`。
+- 数据访问只能经 `@asteriskzuo/agent-database`，禁止直接 import `node:sqlite`。
 
 ### 2.1 消费的上游包真实签名
 
-`@asterisk/agent-database`（0.1.0）：
+`@asteriskzuo/agent-database`（0.1.0）：
 
 ```ts
 export interface Database {
@@ -61,7 +61,7 @@ export function migrate(db: Database, module: string, migrations: readonly strin
 
 ```text
 packages/asset-registry/
-├── package.json            # @asterisk/agent-asset-registry
+├── package.json            # @asteriskzuo/agent-asset-registry
 ├── tsconfig.json           # extends ../../tsconfig.base.json
 ├── src/
 │   ├── index.ts            # 统一导出
@@ -75,14 +75,14 @@ packages/asset-registry/
     └── resolve.test.ts
 ```
 
-工程约定同 T0 spec §4（ESM、相对导入带 `.js` 后缀、包级脚本模板、devDependencies 自声明）。`dependencies`：`@asterisk/agent-database`（版本号形式 `0.1.0`）。其余只许 import `node:*`。
+工程约定同 T0 spec §4（ESM、相对导入带 `.js` 后缀、包级脚本模板、devDependencies 自声明）。`dependencies`：`@asteriskzuo/agent-database`（版本号形式 `0.1.0`）。其余只许 import `node:*`。
 
 ## 5. 详细规格
 
 ### 5.1 接口
 
 ```ts
-import type { Database } from '@asterisk/agent-database';
+import type { Database } from '@asteriskzuo/agent-database';
 
 export type AssetKind = 'package' | 'tool' | 'skill';
 
@@ -284,7 +284,7 @@ export function resolveResource(
 ## 7. 验收标准
 
 1. 包级与根级 `build` / `test` / `typecheck` / `lint` / `format:check` / `circular` 全绿；
-2. 运行时依赖只有 `@asterisk/agent-database`，其余只 import `node:*`；
+2. 运行时依赖只有 `@asteriskzuo/agent-database`，其余只 import `node:*`；
 3. 导出签名与本文 §5.1 / §5.8 一致。
 
 ## 8. 本规格的决策点

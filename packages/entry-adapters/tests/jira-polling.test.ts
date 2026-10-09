@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { initLogger, resetForTests } from "@asterisk/agent-logger";
+import { initLogger, resetForTests } from "@asteriskzuo/agent-logger";
 import { JiraPollingEntryAdapter } from "../src/jira-polling.js";
 import { ENTRY_ADAPTERS } from "../src/index.js";
 import type { EntryDeps } from "../src/types.js";

@@ -1,10 +1,10 @@
-# @asterisk/agent-jira-client
+# @asteriskzuo/agent-jira-client
 
 easemob jira 客户端基础包：**表单登录认证链单点化**（登录 + cookie 罐 + 401 自愈重登）+ 通用 REST 便利方法。平台包与业务包共同依赖；业务侧可直接使用，也可经 `request` 原语扩展调用任意 jira REST 路径。
 
-- 安装：`npm install @asterisk/agent-jira-client`
+- 安装：`npm install @asteriskzuo/agent-jira-client`
 - 运行时：Node.js ≥ 24，ESM；**零运行时依赖**（纯 node 全局 fetch）
-- 导出：`import { JiraClient } from "@asterisk/agent-jira-client"` + 类型 `JiraClientConfig` / `JiraResult` / `JiraErrorCode` / `JiraSearchOptions` / `JiraIssueLite` / `JiraRequestInit`
+- 导出：`import { JiraClient } from "@asteriskzuo/agent-jira-client"` + 类型 `JiraClientConfig` / `JiraResult` / `JiraErrorCode` / `JiraSearchOptions` / `JiraIssueLite` / `JiraRequestInit`
 
 ---
 
@@ -24,7 +24,7 @@ easemob jira 客户端基础包：**表单登录认证链单点化**（登录 + 
 ## 2. 快速开始
 
 ```ts
-import { JiraClient } from "@asterisk/agent-jira-client";
+import { JiraClient } from "@asteriskzuo/agent-jira-client";
 
 const client = new JiraClient({
   baseUrl: "https://j1.private.easemob.com",

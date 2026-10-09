@@ -3,7 +3,7 @@
 - **日期**：2026-10-08
 - **状态**：待审
 - **决策依据**：`docs/decisions/2026-10-08-package-scope-rename.md`、`docs/decisions/2026-10-08-asset-materialization-build.md`
-- **依赖**：T12（装配/EntryAdapter 接口）、T16（asset-registry）、T20（包名已改 @asterisk/\*）
+- **依赖**：T12（装配/EntryAdapter 接口）、T16（asset-registry）、T20（包名已改 @asteriskzuo/\*）
 - **吸收**：T18（webhook 入口适配器，原计划单列，并入本任务 §7.2）
 
 ## 1. 背景（为什么做这个批次）
@@ -106,7 +106,7 @@ clone → validateAsset（清单形状校验）
 ### 4.7 模板修订（T21a 附带）
 
 - `templates/agent-package/` 新增 `agent.materialize.mjs`：默认实现 = esbuild 转译 `src/**/*.{ts,js}` → `dist/`（`--format=esm --platform=node --target=node24 --sourcemap`，保持目录结构，不做 bundle——native 模块/动态 require/`__dirname` 资源因此正常）。
-- 模板 README：sdk 依赖从 `file:` 改为 npm 正式版（`@asterisk/agent-sdk: ^0.1.0`，已发布前提）；「sdk 注入」表述删除，改为「sdk 是普通 npm 依赖」；补「初始化脚本」一节（必带、职责、何时需要自定义）。
+- 模板 README：sdk 依赖从 `file:` 改为 npm 正式版（`@asteriskzuo/agent-sdk: ^0.1.0`，已发布前提）；「sdk 注入」表述删除，改为「sdk 是普通 npm 依赖」；补「初始化脚本」一节（必带、职责、何时需要自定义）。
 - 模板独立运行链路不变：`npm run build`（tsc → dist/）供本地调试；平台物化走初始化脚本产出同一 dist/，两路同源同代码。
 - `scripts/verify-template.sh` 的 `file:` 改写逻辑保留（离线验收用），README 说明其用途。
 
@@ -128,7 +128,7 @@ clone → validateAsset（清单形状校验）
 
 ## 7. 入口适配器（T21b）
 
-### 7.0 落位：新包 `packages/entry-adapters`（@asterisk/agent-entry-adapters）
+### 7.0 落位：新包 `packages/entry-adapters`（@asteriskzuo/agent-entry-adapters）
 
 入口适配器实现从 server 装配层下沉为独立包（与 exit-tools 对偶）：适配器 = 纯逻辑 + 注入依赖（queue/registry/env），server 只装配。包依赖：contracts、queue（type-only）、registry（type-only）、runtime（EnvProvider type-only）、exit-tools（ConfigField 类型复用）。工程约定同 T0（build/test/typecheck/lint/format/circular 六脚本）。
 
@@ -270,7 +270,7 @@ npm 发布后的开发者主文档，目标：人或其他 AI 只读此文档即
 ## 13. 验收
 
 - 每批次：该包/app 六连全绿 + 本 spec 测试清单逐条过
-- 整体：根六连全绿；T21 全部完成后，模板包经「file:// 本地 git 仓登记 → 创建业务绑定 → 物化构建成功」的集成路径可跑通（mock 入口事件）。前提：`@asterisk/agent-sdk` 已发布 npm（模板 npm ci 需从 registry 解析）；未发布时用 `scripts/verify-template.sh` 的 `file:` 改写兜底。
+- 整体：根六连全绿；T21 全部完成后，模板包经「file:// 本地 git 仓登记 → 创建业务绑定 → 物化构建成功」的集成路径可跑通（mock 入口事件）。前提：`@asteriskzuo/agent-sdk` 已发布 npm（模板 npm ci 需从 registry 解析）；未发布时用 `scripts/verify-template.sh` 的 `file:` 改写兜底。
 
 ## 14. 范围外
 

@@ -1,5 +1,5 @@
-import { logger } from "@asterisk/agent-logger";
-import type { BusinessMatch } from "@asterisk/agent-registry";
+import { logger } from "@asteriskzuo/agent-logger";
+import type { BusinessMatch } from "@asteriskzuo/agent-registry";
 import { scanMatchRows } from "./match-scan.js";
 import { createJiraPoller, parseJiraEntryConfig } from "./jira-poller.js";
 import type { JiraPoller } from "./jira-poller.js";

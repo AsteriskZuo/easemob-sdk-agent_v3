@@ -1,6 +1,6 @@
-import type { Database } from "@asterisk/agent-database";
-import { migrate } from "@asterisk/agent-database";
-import { SEGMENT_SEPARATOR } from "@asterisk/agent-contracts";
+import type { Database } from "@asteriskzuo/agent-database";
+import { migrate } from "@asteriskzuo/agent-database";
+import { SEGMENT_SEPARATOR } from "@asteriskzuo/agent-contracts";
 import { channelMigrations } from "./channel-pool.js";
 
 /** 业务通道 channel_id ↔ agent-cli 会话 id 映射。只管业务通道（exit__ 前缀的键调用即抛错） */

@@ -1,14 +1,14 @@
-import type { EventSource } from "@asterisk/agent-contracts";
-import type { AssetRegistry } from "@asterisk/agent-asset-registry";
-import { logger } from "@asterisk/agent-logger";
+import type { EventSource } from "@asteriskzuo/agent-contracts";
+import type { AssetRegistry } from "@asteriskzuo/agent-asset-registry";
+import { logger } from "@asteriskzuo/agent-logger";
 import type {
   BusinessPatch,
   BusinessProfile,
   BusinessRegistry,
   CreateBusinessInput,
   ExitBinding,
-} from "@asterisk/agent-registry";
-import type { EnvProvider } from "@asterisk/agent-runtime";
+} from "@asteriskzuo/agent-registry";
+import type { EnvProvider } from "@asteriskzuo/agent-runtime";
 import type { User } from "./accounts.js";
 import { validateBusinessWrite } from "./binding-validation.js";
 import { assertWebhookPathUnique } from "./binding-validation.js";
@@ -31,7 +31,7 @@ import {
 } from "./http.js";
 import type { Route } from "./router.js";
 
-// 与 @asterisk/agent-contracts 的 EventSource 联合类型保持同步（contracts 未导出运行时列表）
+// 与 @asteriskzuo/agent-contracts 的 EventSource 联合类型保持同步（contracts 未导出运行时列表）
 const EVENT_SOURCES: readonly EventSource[] = [
   "wecom",
   "jira",

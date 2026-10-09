@@ -1,8 +1,8 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { initLogger, resetForTests } from "@asterisk/agent-logger";
-import type { JiraIssueLite, JiraResult } from "@asterisk/agent-jira-client";
+import { initLogger, resetForTests } from "@asteriskzuo/agent-logger";
+import type { JiraIssueLite, JiraResult } from "@asteriskzuo/agent-jira-client";
 import { createJiraPoller, parseJiraEntryConfig } from "../src/jira-poller.js";
 import type { JiraPoller, JiraSearchClient } from "../src/jira-poller.js";
 import { FakeEnv, FakeQueue } from "./fakes.js";

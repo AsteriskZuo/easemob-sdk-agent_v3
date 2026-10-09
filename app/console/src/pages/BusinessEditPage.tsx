@@ -27,7 +27,7 @@ import type {
   ExitToolMenuItem,
   MatchBody,
   PatchBusinessBody,
-} from "@asterisk/agent-console-api";
+} from "@asteriskzuo/agent-console-api";
 import { apiFetch, ApiError } from "../api/client";
 import EnvEditor from "../components/EnvEditor";
 import MatchEditor, { toMatchBody } from "../components/MatchEditor";

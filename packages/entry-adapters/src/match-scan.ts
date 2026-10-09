@@ -1,5 +1,8 @@
-import type { EventSource } from "@asterisk/agent-contracts";
-import type { BusinessMatch, BusinessRegistry } from "@asterisk/agent-registry";
+import type { EventSource } from "@asteriskzuo/agent-contracts";
+import type {
+  BusinessMatch,
+  BusinessRegistry,
+} from "@asteriskzuo/agent-registry";
 
 /** 全量扫注册表内存视图，取某 source 的全部匹配行（含 entry_config）。
  *  说明：registry 既有读面里 BusinessProfile 不含匹配行，匹配行（含 entry_config）

@@ -1,10 +1,10 @@
-# @asterisk/agent-sdk
+# @asteriskzuo/agent-sdk
 
 智能体平台业务侧 SDK：**业务程序的唯一编程面**。本文档是业务开发者的主文档——读完本文即可开发出合格的业务包（人或其他 AI 均可）。
 
-- 安装：`npm install @asterisk/agent-sdk`（普通 npm 依赖，平台不做任何注入；模板已内置，见 §8）
+- 安装：`npm install @asteriskzuo/agent-sdk`（普通 npm 依赖，平台不做任何注入；模板已内置，见 §8）
 - 运行时：Node.js ≥ 24，ESM；SDK 运行时零第三方依赖
-- 导出：`import { sdk } from "@asterisk/agent-sdk"`（单例对象）+ 类型 `RunInput` / `AgentCall`
+- 导出：`import { sdk } from "@asteriskzuo/agent-sdk"`（单例对象）+ 类型 `RunInput` / `AgentCall`
 
 ---
 
@@ -202,7 +202,7 @@ sdk.log("info", "fetch ticket", { key: "PRJ-123" });
 ### 2.11 主流形态完整示例（单轮审查工单）
 
 ```ts
-import { sdk } from "@asterisk/agent-sdk";
+import { sdk } from "@asteriskzuo/agent-sdk";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -423,7 +423,7 @@ skill = 给大模型的能力单元（可复用提示词组件）。
 平台仓 `templates/agent-package/` 是**拷贝即用**的包模板：内置与平台同构同版本的完整工具链，你只写 `src/` 业务代码。快速开始：
 
 1. 拷贝模板目录到你的仓库；改 `agent-package.json` 与 `package.json` 的 `name`；
-2. `npm install`（`@asterisk/agent-sdk` 是普通 npm 依赖；平台未发布 npm 时的离线兜底：改为 `file:<平台仓>/packages/sdk`，平台验收脚本 `scripts/verify-template.sh` 即此做法）；
+2. `npm install`（`@asteriskzuo/agent-sdk` 是普通 npm 依赖；平台未发布 npm 时的离线兜底：改为 `file:<平台仓>/packages/sdk`，平台验收脚本 `scripts/verify-template.sh` 即此做法）；
 3. 写 `src/` 业务代码（新增子程序 = `programs` 加条目；引用外部工具/skill = `requires` 加名字）；
 4. **六条检查全绿**：`npm run build` / `npm test` / `npm run typecheck` / `npm run lint` / `npm run format:check` / `npm run circular`——本地跑绿的就是平台要求的全套检查；
 5. 推送 git → 控制台登记为包资产 → 创建业务绑定（同时绑定 requires 声明的工具与 skill）。

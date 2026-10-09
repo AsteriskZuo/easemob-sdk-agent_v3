@@ -5,7 +5,7 @@ import type {
   EntryAdapterView,
   EventSource,
   MatchBody,
-} from "@asterisk/agent-console-api";
+} from "@asteriskzuo/agent-console-api";
 
 /** contracts 的 EventSource 七值（匹配行来源下拉） */
 export const EVENT_SOURCES: EventSource[] = [

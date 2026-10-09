@@ -1,8 +1,8 @@
-import type { EventSource } from "@asterisk/agent-contracts";
-import type { ConfigField } from "@asterisk/agent-exit-tools";
-import type { TaskQueue } from "@asterisk/agent-queue";
-import type { BusinessRegistry } from "@asterisk/agent-registry";
-import type { EnvProvider } from "@asterisk/agent-runtime";
+import type { EventSource } from "@asteriskzuo/agent-contracts";
+import type { ConfigField } from "@asteriskzuo/agent-exit-tools";
+import type { TaskQueue } from "@asteriskzuo/agent-queue";
+import type { BusinessRegistry } from "@asteriskzuo/agent-registry";
+import type { EnvProvider } from "@asteriskzuo/agent-runtime";
 
 /** 入口适配器契约：每个事件源一个实现。
  *  职责链：验签 → 包装信封（含 session_id）→ 落队，立即返回（落库才算收到，event_id 兼任入口幂等键）。

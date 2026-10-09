@@ -6,8 +6,8 @@
 
 一次产出两个包：
 
-1. **`@asterisk/agent-workflow-runner`**（`packages/workflow-runner/`）：平台侧的**流程执行器**——spawn 业务流程程序（子进程）、stdin 注入上下文、stdout 收唯一结果、stderr 采集业务日志、超时强杀、输出上限。它是 T8 `EntryDriver.execute` 的实现基石（装配根 T12 组合）。
-2. **`@asterisk/agent-sdk`**（`packages/sdk/`）：业务侧的唯一编程面——业务用户只 import 它，不碰进程管理/stdin/stdout 协议/socket 通信。
+1. **`@asteriskzuo/agent-workflow-runner`**（`packages/workflow-runner/`）：平台侧的**流程执行器**——spawn 业务流程程序（子进程）、stdin 注入上下文、stdout 收唯一结果、stderr 采集业务日志、超时强杀、输出上限。它是 T8 `EntryDriver.execute` 的实现基石（装配根 T12 组合）。
+2. **`@asteriskzuo/agent-sdk`**（`packages/sdk/`）：业务侧的唯一编程面——业务用户只 import 它，不碰进程管理/stdin/stdout 协议/socket 通信。
 
 两者是同一条子进程契约的两端，放一个任务保证契约一致。
 
@@ -23,9 +23,9 @@
 
 ### 2.1 消费的上游包（真实签名，以此为准）
 
-`@asterisk/agent-contracts`：`EventEnvelope`、`newUlid()`、`assertSafeSegment(segment: string): void`（非法段抛 ChannelIdError）。
+`@asteriskzuo/agent-contracts`：`EventEnvelope`、`newUlid()`、`assertSafeSegment(segment: string): void`（非法段抛 ChannelIdError）。
 
-`@asterisk/agent-logger`：`createFileLogger(path: string, options?: { level?, enabled?, secrets?: readonly string[] }): ConsoleLike`（底层单文件写口，ConsoleLike = `error/warn/info/debug(...args)`，JSONL 落盘、自带脱敏与写盘降级）；`logger.addSecrets(values)`（全局外观的 append-only 脱敏登记，装配根已 initLogger 时可用——runner 调用它时**必须 try/catch 容错**，未初始化场景静默跳过）。
+`@asteriskzuo/agent-logger`：`createFileLogger(path: string, options?: { level?, enabled?, secrets?: readonly string[] }): ConsoleLike`（底层单文件写口，ConsoleLike = `error/warn/info/debug(...args)`，JSONL 落盘、自带脱敏与写盘降级）；`logger.addSecrets(values)`（全局外观的 append-only 脱敏登记，装配根已 initLogger 时可用——runner 调用它时**必须 try/catch 容错**，未初始化场景静默跳过）。
 
 ## 3. 范围与不做清单
 
@@ -42,7 +42,7 @@
 
 ```text
 packages/workflow-runner/
-├── package.json            # @asterisk/agent-workflow-runner
+├── package.json            # @asteriskzuo/agent-workflow-runner
 ├── tsconfig.json
 │   ├── src/
 │   │   ├── index.ts        # 导出清单见 §8
@@ -52,7 +52,7 @@ packages/workflow-runner/
     ├── runner.test.ts
     └── fixtures/           # 测试用业务程序（plain JS，node 直接跑）
 packages/sdk/
-├── package.json            # @asterisk/agent-sdk
+├── package.json            # @asteriskzuo/agent-sdk
 ├── tsconfig.json
 │   ├── src/
 │   │   ├── index.ts        # 导出清单（sdk 单例 + 类型），纯 re-export
@@ -67,7 +67,7 @@ packages/sdk/
     └── fixtures/
 ```
 
-工程约定同 T0 spec §4。runner `dependencies`：`@asterisk/agent-contracts`、`@asterisk/agent-logger`。**SDK 依赖规则（业务发布物的边界）**：允许依赖**零依赖纯包**（`@asterisk/agent-contracts` 的类型/校验、logger 的纯函数层如格式化/脱敏）；**禁止**依赖读 `process.env` 的包、全局单例外观（initLogger 是平台装配根的事，业务进程里没有）、平台内部包（queue/registry/scheduler 等）。**发布形态**：平台在上传转译时把 sdk 连同其依赖 esbuild bundle 注入 run 环境——业务零安装、只 import sdk，依赖是构建期的事、运行期无感（bundle 归 T13，本任务只保证依赖关系合法）。devDependencies 各自自声明工具链。
+工程约定同 T0 spec §4。runner `dependencies`：`@asteriskzuo/agent-contracts`、`@asteriskzuo/agent-logger`。**SDK 依赖规则（业务发布物的边界）**：允许依赖**零依赖纯包**（`@asteriskzuo/agent-contracts` 的类型/校验、logger 的纯函数层如格式化/脱敏）；**禁止**依赖读 `process.env` 的包、全局单例外观（initLogger 是平台装配根的事，业务进程里没有）、平台内部包（queue/registry/scheduler 等）。**发布形态**：平台在上传转译时把 sdk 连同其依赖 esbuild bundle 注入 run 环境——业务零安装、只 import sdk，依赖是构建期的事、运行期无感（bundle 归 T13，本任务只保证依赖关系合法）。devDependencies 各自自声明工具链。
 
 ## 5. 详细规格
 
@@ -154,12 +154,12 @@ export function createWorkflowRunner(opts: WorkflowRunnerOptions): WorkflowRunne
 
 ### 5.3 业务 SDK（packages/sdk/，业务侧）
 
-**形态：导出单例对象 `sdk`**（`return` 是保留字，且设计示例就是 `sdk.xxx` 用法）。业务程序 `import { sdk } from '@asterisk/agent-sdk'`。
+**形态：导出单例对象 `sdk`**（`return` 是保留字，且设计示例就是 `sdk.xxx` 用法）。业务程序 `import { sdk } from '@asteriskzuo/agent-sdk'`。
 
 ```ts
 /** input() 的返回：入口信封 + 平台注入的运行上下文 */
 export interface RunInput {
-  event: EventEnvelope;  // 触发信封（import 自 @asterisk/agent-contracts，bundle 时内联）
+  event: EventEnvelope;  // 触发信封（import 自 @asteriskzuo/agent-contracts，bundle 时内联）
   workspace: string;     // 本 run 的隔离工作目录（spawn 时的 cwd）
 }
 
@@ -276,9 +276,9 @@ type ServiceResponse =
 
 ## 8. 导出清单
 
-**`@asterisk/agent-workflow-runner`**：值 `createWorkflowRunner`；类型 `WorkflowRunner`、`RunRequest`、`RunOutcome`、`WorkflowRunnerOptions`、`StdinEnvelope`、`StdoutResult`。
+**`@asteriskzuo/agent-workflow-runner`**：值 `createWorkflowRunner`；类型 `WorkflowRunner`、`RunRequest`、`RunOutcome`、`WorkflowRunnerOptions`、`StdinEnvelope`、`StdoutResult`。
 
-**`@asterisk/agent-sdk`**：值 `sdk`；类型 `RunInput`、`AgentCall`。
+**`@asteriskzuo/agent-sdk`**：值 `sdk`；类型 `RunInput`、`AgentCall`。
 
 ## 9. 本规格的裁决点（设计文档未覆盖，主 agent 已定）
 

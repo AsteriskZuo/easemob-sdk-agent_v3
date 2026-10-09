@@ -9,7 +9,7 @@
 
 纪律：
 
-- **唯一读取口**：`@asterisk/agent-env` 包；禁止任何模块散点读 `process.env`；
+- **唯一读取口**：`@asteriskzuo/agent-env` 包；禁止任何模块散点读 `process.env`；
 - 启动时统一解析 + 校验，缺必需项 **fail-fast**（带病运行比不运行更危险）；
 - 初始化后不可变（改配置 = 重启进程）。
 

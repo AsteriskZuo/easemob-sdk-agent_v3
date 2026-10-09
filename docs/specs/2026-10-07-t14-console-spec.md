@@ -9,7 +9,7 @@
 
 ## 1. 目标
 
-实现浏览器控制台 SPA `app/console`（`@asterisk/agent-console`）：平台全部控制开关的可视化入口。六个 MVP 页面一次做全——登录、监控仪表盘、业务管理、资产管理、通用配置、用户管理。设计依据：`design/console-design.md`（§2 易用性三原则、§4 业务资料模块、§12 UI 骨架）。
+实现浏览器控制台 SPA `app/console`（`@asteriskzuo/agent-console`）：平台全部控制开关的可视化入口。六个 MVP 页面一次做全——登录、监控仪表盘、业务管理、资产管理、通用配置、用户管理。设计依据：`design/console-design.md`（§2 易用性三原则、§4 业务资料模块、§12 UI 骨架）。
 
 同步的小幅后端扩展：console-api 增加静态资源托管选项（生产部署 = server 同进程托管 console 构建产物）。
 
@@ -35,7 +35,7 @@ HTTP 约定：JSON in/out；cookie `agent_console_token`（HttpOnly，登录时 
 
 ### 2.2 DTO 类型（type-only 复用，console 不重复定义）
 
-`@asterisk/agent-console-api` 包根导出全部 DTO 纯类型：`User / Role / BusinessProfile / BusinessMatch / ExitBinding / BusinessDetail / CreateBusinessBody / PatchBusinessBody / MatchBody / AssetMeta / AssetManifest / AssetObject / AssetKind / RegisterAssetBody / EnvListView / EnvSetBody / EnvRemoveBody / LoginBody / CreateUserBody / ChangePasswordBody / EffectiveConfigView / ExitToolMenuItem / ConfigField / QueueCounts / QueuesStatus / Task / LifecycleRecord / LifecycleStatus / ApiErrorBody`。console 以 `import type { ... } from "@asterisk/agent-console-api"` 复用（type-only，构建期擦除，零运行时成本）。
+`@asteriskzuo/agent-console-api` 包根导出全部 DTO 纯类型：`User / Role / BusinessProfile / BusinessMatch / ExitBinding / BusinessDetail / CreateBusinessBody / PatchBusinessBody / MatchBody / AssetMeta / AssetManifest / AssetObject / AssetKind / RegisterAssetBody / EnvListView / EnvSetBody / EnvRemoveBody / LoginBody / CreateUserBody / ChangePasswordBody / EffectiveConfigView / ExitToolMenuItem / ConfigField / QueueCounts / QueuesStatus / Task / LifecycleRecord / LifecycleStatus / ApiErrorBody`。console 以 `import type { ... } from "@asteriskzuo/agent-console-api"` 复用（type-only，构建期擦除，零运行时成本）。
 
 关键类型语义（详注见 T13 spec §2）：
 - `BusinessProfile`：业务资料完整读面（prompt/model/agent_kind/package_asset_id/entry_program/tool_asset_ids/skill_asset_ids/timeout_minutes/max_agent_calls/on_failure）；
@@ -74,7 +74,7 @@ exit.{kind}.{field.key}
 
 ```
 app/console/
-├── package.json            # @asterisk/agent-console（private）
+├── package.json            # @asteriskzuo/agent-console（private）
 ├── tsconfig.json           # 独立配置：jsx react-jsx、lib DOM、bundler 解析（不继承 node 包模板）
 ├── vite.config.ts          # @vitejs/plugin-react + server.proxy /api → http://localhost:6100
 ├── jest.config.mjs         # 基于 jest.compiled.config.mjs，testEnvironment jsdom + setupFiles
@@ -109,7 +109,7 @@ app/console/
 
 `package.json` 要点：
 
-- **dependencies**：`react` `^18.3.1`、`react-dom` `^18.3.1`、`react-router-dom` `^6.30.0`、`antd` `^5.21.0`、`@asterisk/agent-console-api` `0.1.0`（type-only 用途，正常声明保证 workspaces 拓扑序）；
+- **dependencies**：`react` `^18.3.1`、`react-dom` `^18.3.1`、`react-router-dom` `^6.30.0`、`antd` `^5.21.0`、`@asteriskzuo/agent-console-api` `0.1.0`（type-only 用途，正常声明保证 workspaces 拓扑序）；
 - **devDependencies**：`vite` `^5.4.0`、`@vitejs/plugin-react` `^4.3.0`、`typescript`、`@types/react` `^18.3.0`、`@types/react-dom` `^18.3.0`、`jest`、`jest-environment-jsdom`、`@testing-library/react` `^16.0.0`、`@testing-library/dom` `^10.4.0`、`@testing-library/user-event` `^14.5.0`、`esbuild`；
 - **scripts**：
   - `build`：`vite build`（产物 `dist/`，被根 build 拓扑接管）；
@@ -230,7 +230,7 @@ jsdom + @testing-library；API 一律 mock（`apiFetch` 层注入或 globalThis.
 
 1. 根目录 `yarn build && yarn test && yarn typecheck && yarn lint && yarn format:check && yarn circular` 全绿（含 app/console 全部脚本被 foreach 接管）；
 2. §6 测试清单全覆盖且通过；console-api/app-server 既有测试不回归；
-3. 手工冒烟（执行者完成、主 agent 复验）：`yarn workspace @asterisk/agent-console build` 产物存在；起 server（设 `AGENT_CONSOLE_STATIC_DIR`）→ 浏览器/curl 访问 `/` 返回 index.html、`/api/auth/me` 401；vite dev + proxy 下登录页可渲染；
+3. 手工冒烟（执行者完成、主 agent 复验）：`yarn workspace @asteriskzuo/agent-console build` 产物存在；起 server（设 `AGENT_CONSOLE_STATIC_DIR`）→ 浏览器/curl 访问 `/` 返回 index.html、`/api/auth/me` 401；vite dev + proxy 下登录页可渲染；
 4. console-design §2 易用性逐条过：核心路径（登录 → 创建业务 → 看到列表）无文档可完成；表单模块带叹号提示；无业务空状态有引导。
 
 ## 8. 决策点（本规格已定案，执行中不重新讨论；有异议找 owner）

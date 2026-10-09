@@ -1,6 +1,6 @@
-import type { ExitRegistry } from "@asterisk/agent-exit-tools";
-import type { EnvProvider } from "@asterisk/agent-runtime";
-import type { ExitDriver } from "@asterisk/agent-scheduler";
+import type { ExitRegistry } from "@asteriskzuo/agent-exit-tools";
+import type { EnvProvider } from "@asteriskzuo/agent-runtime";
+import type { ExitDriver } from "@asteriskzuo/agent-scheduler";
 
 /** 出口机密回填键规则（全平台唯一定义处）：exit.{kind}.{field.key}。
  *  控制台（T13/T14）写 secrets 桶与装配根回填共用此规则（决策点 4） */

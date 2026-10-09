@@ -22,7 +22,7 @@ import type {
   AssetMeta,
   AssetObject,
   RegisterAssetBody,
-} from "@asterisk/agent-console-api";
+} from "@asteriskzuo/agent-console-api";
 import { apiFetch, ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 

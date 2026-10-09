@@ -1,5 +1,5 @@
 {
-  "name": "@asterisk/agent-channel",
+  "name": "@asteriskzuo/agent-channel",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,9 +12,9 @@
     }
   },
   "dependencies": {
-    "@asterisk/agent-contracts": "0.1.0",
-    "@asterisk/agent-database": "0.1.0",
-    "@asterisk/agent-queue": "0.1.0"
+    "@asteriskzuo/agent-contracts": "0.1.0",
+    "@asteriskzuo/agent-database": "0.1.0",
+    "@asteriskzuo/agent-queue": "0.1.0"
   },
   "devDependencies": {
     "esbuild": "^0.28.1",

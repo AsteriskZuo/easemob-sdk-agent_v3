@@ -11,7 +11,7 @@ import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { resetForTests } from "@asterisk/agent-logger";
+import { resetForTests } from "@asteriskzuo/agent-logger";
 import { bootstrap } from "../src/index.js";
 import type { ServerHandle } from "../src/index.js";
 

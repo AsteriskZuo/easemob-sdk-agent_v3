@@ -1,5 +1,5 @@
 {
-  "name": "@asterisk/agent-sdk",
+  "name": "@asteriskzuo/agent-sdk",
   "version": "0.1.0",
   "description": "智能体平台业务侧 SDK：业务程序的唯一编程面（sdk.input/config/secret/agent/run/log/return）",
   "type": "module",

@@ -5,7 +5,7 @@ import {
   getBoolean,
   getNumber,
   getString,
-} from "@asterisk/agent-env";
+} from "@asteriskzuo/agent-env";
 
 /** 平台运行配置：装配根的唯一配置来源（解析后只读，不再读环境变量） */
 export interface ServerConfig {

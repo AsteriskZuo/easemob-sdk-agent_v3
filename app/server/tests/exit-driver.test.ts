@@ -1,13 +1,13 @@
-import { openDatabase } from "@asterisk/agent-database";
-import type { Database } from "@asterisk/agent-database";
+import { openDatabase } from "@asteriskzuo/agent-database";
+import type { Database } from "@asteriskzuo/agent-database";
 import type {
   ConfigField,
   ExitRegistry,
   ExitTool,
-} from "@asterisk/agent-exit-tools";
-import type { ExitBinding } from "@asterisk/agent-registry";
-import { createEnvProvider } from "@asterisk/agent-runtime";
-import type { EnvProvider } from "@asterisk/agent-runtime";
+} from "@asteriskzuo/agent-exit-tools";
+import type { ExitBinding } from "@asteriskzuo/agent-registry";
+import { createEnvProvider } from "@asteriskzuo/agent-runtime";
+import type { EnvProvider } from "@asteriskzuo/agent-runtime";
 import { createExitDriver, exitSecretKey } from "../src/index.js";
 
 const BUSINESS_ID = "b_test_exit";

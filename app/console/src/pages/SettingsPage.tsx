@@ -4,7 +4,7 @@ import { QuestionCircleOutlined } from "@ant-design/icons";
 import type {
   EffectiveConfigView,
   EntryAdapterView,
-} from "@asterisk/agent-console-api";
+} from "@asteriskzuo/agent-console-api";
 import { apiFetch, ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import EnvEditor from "../components/EnvEditor";

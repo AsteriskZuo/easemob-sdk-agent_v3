@@ -2,9 +2,9 @@ import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { timingSafeEqual } from "node:crypto";
-import { CONTRACT_VERSION, newEventId } from "@asterisk/agent-contracts";
-import type { EventEnvelope } from "@asterisk/agent-contracts";
-import { logger } from "@asterisk/agent-logger";
+import { CONTRACT_VERSION, newEventId } from "@asteriskzuo/agent-contracts";
+import type { EventEnvelope } from "@asteriskzuo/agent-contracts";
+import { logger } from "@asteriskzuo/agent-logger";
 import { configString, getByPath, scanMatchRows } from "./match-scan.js";
 import type {
   EntryAdapter,

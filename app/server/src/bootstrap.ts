@@ -1,33 +1,39 @@
 import { join } from "node:path";
-import { createAssetRegistry } from "@asterisk/agent-asset-registry";
-import type { AssetRegistry } from "@asterisk/agent-asset-registry";
-import { createChannelPool, createChannelStore } from "@asterisk/agent-channel";
-import { createConsoleApi } from "@asterisk/agent-console-api";
+import { createAssetRegistry } from "@asteriskzuo/agent-asset-registry";
+import type { AssetRegistry } from "@asteriskzuo/agent-asset-registry";
+import {
+  createChannelPool,
+  createChannelStore,
+} from "@asteriskzuo/agent-channel";
+import { createConsoleApi } from "@asteriskzuo/agent-console-api";
 import type {
   ConsoleApi,
   EffectiveConfigView,
-} from "@asterisk/agent-console-api";
-import { openDatabase } from "@asterisk/agent-database";
-import type { Database } from "@asterisk/agent-database";
-import { ENTRY_ADAPTERS } from "@asterisk/agent-entry-adapters";
-import type { EntryAdapter } from "@asterisk/agent-entry-adapters";
-import { createExitRegistry } from "@asterisk/agent-exit-tools";
-import { initLogger, logger } from "@asterisk/agent-logger";
-import { createTaskQueue } from "@asterisk/agent-queue";
-import type { TaskQueue } from "@asterisk/agent-queue";
-import { createBusinessRegistry } from "@asterisk/agent-registry";
-import type { BusinessRegistry } from "@asterisk/agent-registry";
+} from "@asteriskzuo/agent-console-api";
+import { openDatabase } from "@asteriskzuo/agent-database";
+import type { Database } from "@asteriskzuo/agent-database";
+import { ENTRY_ADAPTERS } from "@asteriskzuo/agent-entry-adapters";
+import type { EntryAdapter } from "@asteriskzuo/agent-entry-adapters";
+import { createExitRegistry } from "@asteriskzuo/agent-exit-tools";
+import { initLogger, logger } from "@asteriskzuo/agent-logger";
+import { createTaskQueue } from "@asteriskzuo/agent-queue";
+import type { TaskQueue } from "@asteriskzuo/agent-queue";
+import { createBusinessRegistry } from "@asteriskzuo/agent-registry";
+import type { BusinessRegistry } from "@asteriskzuo/agent-registry";
 import {
   createContextLoader,
   createEnvProvider,
   createLifecycle,
   createLifecycleStore,
-} from "@asterisk/agent-runtime";
-import type { EnvProvider } from "@asterisk/agent-runtime";
-import { createEntryLoop, createExitLoop } from "@asterisk/agent-scheduler";
-import type { PlatformConfig, SchedulerLoop } from "@asterisk/agent-scheduler";
-import { createAgentService } from "@asterisk/agent-service";
-import { createWorkflowRunner } from "@asterisk/agent-workflow-runner";
+} from "@asteriskzuo/agent-runtime";
+import type { EnvProvider } from "@asteriskzuo/agent-runtime";
+import { createEntryLoop, createExitLoop } from "@asteriskzuo/agent-scheduler";
+import type {
+  PlatformConfig,
+  SchedulerLoop,
+} from "@asteriskzuo/agent-scheduler";
+import { createAgentService } from "@asteriskzuo/agent-service";
+import { createWorkflowRunner } from "@asteriskzuo/agent-workflow-runner";
 import { resolveServerConfig } from "./config.js";
 import type { ServerConfig } from "./config.js";
 import { createExitDriver } from "./exit-driver.js";

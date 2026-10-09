@@ -1,5 +1,5 @@
-import type { EventEnvelope } from "@asterisk/agent-contracts";
-import type { Task, TaskFilter, TaskQueue } from "@asterisk/agent-queue";
+import type { EventEnvelope } from "@asteriskzuo/agent-contracts";
+import type { Task, TaskFilter, TaskQueue } from "@asteriskzuo/agent-queue";
 import type {
   BusinessMatch,
   BusinessPatch,
@@ -7,8 +7,8 @@ import type {
   BusinessRegistry,
   CreateBusinessInput,
   ExitBinding,
-} from "@asterisk/agent-registry";
-import type { EnvConfig, EnvProvider } from "@asterisk/agent-runtime";
+} from "@asteriskzuo/agent-registry";
+import type { EnvConfig, EnvProvider } from "@asteriskzuo/agent-runtime";
 
 /** 内存假队列：只实现入口适配器测试需要的 enqueue 幂等语义（event_id 唯一），
  *  其余 TaskQueue 方法为占位桩（测试不触达，触达即抛错暴露误用） */

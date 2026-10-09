@@ -1,5 +1,5 @@
 import { screen, waitFor } from "@testing-library/react";
-import type { AssetMeta, User } from "@asterisk/agent-console-api";
+import type { AssetMeta, User } from "@asteriskzuo/agent-console-api";
 import {
   ADMIN_USER,
   MEMBER_USER,

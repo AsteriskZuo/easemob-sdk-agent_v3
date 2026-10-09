@@ -13,16 +13,16 @@
 
 1. 拷贝本目录到你的仓库；
 2. 改 `agent-package.json` 与 `package.json` 的 `name`；
-3. 安装依赖：`npm install`（yarn/pnpm 亦可，模板不锁定包管理器）。`@asterisk/agent-sdk` 是普通 npm 依赖，默认引用 npm 正式版 `^0.1.0`；仅离线开发兜底时改为 `file:<平台仓>/packages/sdk`（平台仓 `scripts/verify-template.sh` 的模板验收脚本就是这样改写的）；
+3. 安装依赖：`npm install`（yarn/pnpm 亦可，模板不锁定包管理器）。`@asteriskzuo/agent-sdk` 是普通 npm 依赖，默认引用 npm 正式版 `^0.1.0`；仅离线开发兜底时改为 `file:<平台仓>/packages/sdk`（平台仓 `scripts/verify-template.sh` 的模板验收脚本就是这样改写的）；
 4. 写 `src/` 业务代码（新增子程序 = 在 `programs` 加条目；引用外部工具/skill = 在 `requires` 加名字）；
 5. 六条检查全绿：`npm run build` / `npm test` / `npm run typecheck` / `npm run lint` / `npm run format:check` / `npm run circular`；
 6. 推送 git → 控制台登记为包资产 → 创建业务时绑定（同时绑定 requires 声明的工具与 skill）。
 
 ## 3. 运行时说明
 
-> 本节只列与本模板直接相关的运行时要点。**业务开发的完整知识**（SDK 全 API、config/secrets 规则、出入口事件/结果对照、run 生命周期、本地调试、FAQ）见 SDK 主文档 `packages/sdk/README.md`（随 `@asterisk/agent-sdk` 发布）——两处不一致时以 SDK README 为准。
+> 本节只列与本模板直接相关的运行时要点。**业务开发的完整知识**（SDK 全 API、config/secrets 规则、出入口事件/结果对照、run 生命周期、本地调试、FAQ）见 SDK 主文档 `packages/sdk/README.md`（随 `@asteriskzuo/agent-sdk` 发布）——两处不一致时以 SDK README 为准。
 
-- **sdk 是普通 npm 依赖**：`@asterisk/agent-sdk` 从 npm 安装进包内 node_modules，开发与运行时用同一份代码；平台不做任何注入/bundle。
+- **sdk 是普通 npm 依赖**：`@asteriskzuo/agent-sdk` 从 npm 安装进包内 node_modules，开发与运行时用同一份代码；平台不做任何注入/bundle。
 - **一入一出契约四条**：
   1. stdin 一段 JSON 进（信封 + 平台注入上下文，含 config/secrets/endpoint）；
   2. stdout 一段 JSON 出（`sdk.return` / `sdk.fail`，只认第一次）；

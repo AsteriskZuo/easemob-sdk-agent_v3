@@ -229,7 +229,7 @@ description: 审查 jira 工单并给出通过/驳回结论与理由
 my-package/
 ├── agent-package.json      # 清单（§5.1）
 ├── agent.materialize.mjs   # 业务初始化脚本（必带，§9）：平台物化时执行，默认 esbuild 转译 src/ → dist/
-├── package.json            # dependencies: @asterisk/agent-sdk（普通 npm 依赖）；
+├── package.json            # dependencies: @asteriskzuo/agent-sdk（普通 npm 依赖）；
 │                           # devDependencies 与脚本封装好：build(tsc) / test(jest+esbuild) /
 │                           # lint(eslint) / format(prettier) / circular(dpdm)——与平台同构
 ├── tsconfig.json           # ESM NodeNext（相对导入带 .js 后缀）
@@ -243,7 +243,7 @@ my-package/
 流程程序入口骨架（模板内置，直接在上面改）：
 
 ```ts
-import { sdk } from "@asterisk/agent-sdk";
+import { sdk } from "@asteriskzuo/agent-sdk";
 
 const { event, workspace } = sdk.input();          // 入口信封 + 工作区
 sdk.log("info", "run started", { event_id: (event as any).event_id });
@@ -258,7 +258,7 @@ sdk.log("info", "run started", { event_id: (event as any).event_id });
 sdk.return({ summary: "…" });
 ```
 
-**规则**：模板的 lint/test/format/circular 配置与平台同构同版本——包在作者本地就能跑全检查，提交前即合格；**`@asterisk/agent-sdk` 是普通 npm 依赖**（从 npm registry 安装进包内 node_modules，开发与运行时用同一份代码；平台不做任何注入/bundle；未发布时的离线兜底是 `file:` 引用，见模板 README）。工具资产的结构与包完全相同（同一清单契约），只是消费路径只有 `sdk.run`。
+**规则**：模板的 lint/test/format/circular 配置与平台同构同版本——包在作者本地就能跑全检查，提交前即合格；**`@asteriskzuo/agent-sdk` 是普通 npm 依赖**（从 npm registry 安装进包内 node_modules，开发与运行时用同一份代码；平台不做任何注入/bundle；未发布时的离线兜底是 `file:` 引用，见模板 README）。工具资产的结构与包完全相同（同一清单契约），只是消费路径只有 `sdk.run`。
 
 ## 9. 物化与业务初始化
 

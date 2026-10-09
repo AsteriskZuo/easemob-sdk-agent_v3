@@ -13,7 +13,11 @@ import {
 } from "antd";
 import { QuestionCircleOutlined } from "@ant-design/icons";
 import { Navigate } from "react-router-dom";
-import type { CreateUserBody, Role, User } from "@asterisk/agent-console-api";
+import type {
+  CreateUserBody,
+  Role,
+  User,
+} from "@asteriskzuo/agent-console-api";
 import { apiFetch, ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 

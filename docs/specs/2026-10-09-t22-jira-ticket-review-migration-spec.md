@@ -189,9 +189,9 @@ v2 的 system.md（企微多轮交互语境）与 jira-ticket-review.md（用户
 | 出口 | wecom-webhook | webhook_url（secret 项，按平台 `exit.{kind}.{key}` 规则配置） | 群通知 |
 | server 配置 | `AGENT_ENTRY_JIRA_POLLING_ENABLED` | `true`（默认 false，验证时开启） | 入口开关 |
 
-**sdk 依赖**：`package/package.json` 与 `tools/jira-fetch/package.json` 的 dependencies 均为 `"@asterisk/agent-sdk": "^0.1.0"`（npm 正式版）；`package` 另加 `"pinyin-pro": "^3"`（对齐 v2 实际版本）。
+**sdk 依赖**：`package/package.json` 与 `tools/jira-fetch/package.json` 的 dependencies 均为 `"@asteriskzuo/agent-sdk": "^0.1.0"`（npm 正式版）；`package` 另加 `"pinyin-pro": "^3"`（对齐 v2 实际版本）。
 
-**package-lock.json 的交付状态**：sdk 未发布 npm 前无法生成可用 lock（npm install 解析不到 `@asterisk/agent-sdk`）。交付物**不含 package-lock.json**；手动验证第一步 publish sdk 后，在 `package/` 与 `tools/jira-fetch/` 各跑 `npm install` 生成 lock 并提交业务仓（物化强制要求 lock 存在）。本地六连验证用临时 `file:` 改写兜底（§11），验证后恢复。
+**package-lock.json 的交付状态**：sdk 未发布 npm 前无法生成可用 lock（npm install 解析不到 `@asteriskzuo/agent-sdk`）。交付物**不含 package-lock.json**；手动验证第一步 publish sdk 后，在 `package/` 与 `tools/jira-fetch/` 各跑 `npm install` 生成 lock 并提交业务仓（物化强制要求 lock 存在）。本地六连验证用临时 `file:` 改写兜底（§11），验证后恢复。
 
 ## 10. 工程文件
 
@@ -199,7 +199,7 @@ v2 的 system.md（企微多轮交互语境）与 jira-ticket-review.md（用户
 
 ## 11. 测试与验收
 
-**业务仓六连**（`package/` 与 `tools/jira-fetch/` 各自）：`npm run build && npm test && npm run typecheck && npm run lint && npm run format:check && npm run circular` 全绿。sdk 依赖解析：临时把 dependencies 里的 `@asterisk/agent-sdk` 改为 `file:<v3 绝对路径>/packages/sdk`（v3 侧已 build），`npm install --no-package-lock` 装临时 node_modules 跑六连，**完成后恢复 `^0.1.0` 并删除 node_modules 与临时 lock**——交付物不含 file: 痕迹。
+**业务仓六连**（`package/` 与 `tools/jira-fetch/` 各自）：`npm run build && npm test && npm run typecheck && npm run lint && npm run format:check && npm run circular` 全绿。sdk 依赖解析：临时把 dependencies 里的 `@asteriskzuo/agent-sdk` 改为 `file:<v3 绝对路径>/packages/sdk`（v3 侧已 build），`npm install --no-package-lock` 装临时 node_modules 跑六连，**完成后恢复 `^0.1.0` 并删除 node_modules 与临时 lock**——交付物不含 file: 痕迹。
 
 **单测最低线**（搬 v2 对应测试 + 新增）：
 

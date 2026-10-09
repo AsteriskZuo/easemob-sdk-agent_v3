@@ -1,5 +1,5 @@
 {
-  "name": "@asterisk/agent-logger",
+  "name": "@asteriskzuo/agent-logger",
   "version": "0.1.0",
   "private": true,
   "type": "module",
