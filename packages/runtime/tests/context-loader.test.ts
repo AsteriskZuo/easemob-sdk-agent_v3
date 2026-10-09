@@ -293,6 +293,8 @@ describe("私有资产凭据", () => {
       package_asset_id: pkg,
       entry_program: "main",
     });
+    // 登记即物化（缓存已热）；清缓存模拟运行期缓存缺失场景
+    assets.clearCache();
     expect(() =>
       newLoader().load(businessId, `jira__s__${businessId}`),
     ).toThrow(/^credential_required: git-token$/);

@@ -54,6 +54,14 @@ export function toApiError(err: unknown): ApiError {
   ) {
     return new ApiError("invalid_input", message);
   }
+  // 资产物化/清单校验失败：原因（缺 agent-package.json、npm ci 失败等）
+  // 是调用方可修正的输入问题，原样透出，不归 internal
+  if (
+    message.startsWith("validation_failed") ||
+    message.startsWith("materialize_failed")
+  ) {
+    return new ApiError("invalid_input", message);
+  }
   if (message.startsWith("credential_required")) {
     return new ApiError("invalid_input", `凭据 key 未配置（${message}）`);
   }

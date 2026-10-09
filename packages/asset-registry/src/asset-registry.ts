@@ -214,6 +214,15 @@ class AssetRegistryImpl implements AssetRegistry {
         now,
       ],
     );
+    // 登记即校验（fail fast）：物化 + 清单/产物校验不过则回滚登记行与缓存，
+    // 不让「subpath 指错、清单缺失」这类坏资产进入登记表
+    try {
+      const root = this.materialize(assetId, { credential: opts?.credential });
+      validateAsset(root, input.kind);
+    } catch (err) {
+      this.remove(assetId);
+      throw err;
+    }
     return rowToMeta(this.getRow(assetId) as AssetRow);
   }
 

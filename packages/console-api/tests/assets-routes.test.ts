@@ -68,17 +68,22 @@ describe("POST /api/assets 登记", () => {
   });
 
   it("is_private credential_key 未在通用安全桶登记 → 400；登记凭据后 → 201", async () => {
-    // subpath 区分 asset_id（asset_id 由 属主+url+commit+subpath 决定，与公开登记互不幂等）
+    // 登记即校验：subpath 须指向含清单+初始化脚本的合法包目录
+    const subRepo = makeRepo(server.tmpDir, {
+      "sub/agent-package.json": JSON.stringify({ name: "sub-demo" }),
+      "sub/agent.materialize.mjs": "// 测试 fixture：无需构建\n",
+    });
+    const body = {
+      kind: "package",
+      url: subRepo,
+      ref: "HEAD",
+      subpath: "sub",
+      is_private: true,
+      credential_key: "my-git-token",
+    };
     const missing = await api(server, "POST", "/api/assets", {
       token: alice.token,
-      body: {
-        kind: "package",
-        url: repoDir,
-        ref: "HEAD",
-        subpath: "src",
-        is_private: true,
-        credential_key: "my-git-token",
-      },
+      body,
     });
     expect(missing.status).toBe(400);
     expect(
@@ -94,19 +99,28 @@ describe("POST /api/assets 登记", () => {
 
     const res = await api(server, "POST", "/api/assets", {
       token: alice.token,
-      body: {
-        kind: "package",
-        url: repoDir,
-        ref: "HEAD",
-        subpath: "src",
-        is_private: true,
-        credential_key: "my-git-token",
-      },
+      body,
     });
     expect(res.status).toBe(201);
     const meta = res.body as AssetMeta;
     expect(meta.is_private).toBe(true);
     expect(meta.credential_key).toBe("my-git-token");
+  });
+
+  it("subpath 指向无清单目录 → 400 且透出真实原因（登记即校验，行回滚）", async () => {
+    const res = await api(server, "POST", "/api/assets", {
+      token: alice.token,
+      body: {
+        kind: "package",
+        url: makeRepo(server.tmpDir, { "docs/readme.md": "no manifest" }),
+        ref: "HEAD",
+        subpath: "docs",
+      },
+    });
+    expect(res.status).toBe(400);
+    const message = (res.body as { error: { message: string } }).error.message;
+    expect(message).toContain("agent-package.json 不存在或不可读");
+    // 行回滚由 asset-registry 单元测试覆盖（register 抛错 → list 为空、缓存清理）
   });
 });
 
@@ -115,6 +129,7 @@ describe("GET /api/assets 列表可见性", () => {
     // alice 私有 package（上文已登记同三元组 → 幂等同 id）；bob 共享 tool；bob 非共享 tool
     const toolRepo = makeRepo(server.tmpDir, {
       "agent-package.json": JSON.stringify({ name: "tool-x" }),
+      "agent.materialize.mjs": "// 测试 fixture：无需构建\n",
     });
     await api(server, "POST", "/api/assets", {
       token: bob.token,
@@ -126,6 +141,7 @@ describe("GET /api/assets 列表可见性", () => {
         kind: "tool",
         url: makeRepo(server.tmpDir, {
           "agent-package.json": JSON.stringify({ name: "tool-y" }),
+          "agent.materialize.mjs": "// 测试 fixture：无需构建\n",
         }),
         ref: "HEAD",
       },

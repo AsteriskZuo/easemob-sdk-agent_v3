@@ -354,7 +354,7 @@ export function createAccountService(db: Database): AccountService;
 | `conflict` | 409 | username 重复等唯一性冲突 |
 | `internal` | 500 | 未捕获异常（记 error 日志，message 不外泄细节，统一「内部错误」） |
 
-下游错误翻译：registry `业务不存在` → not_found；asset-registry `asset_not_found` → not_found、`invalid_input:` 前缀 → invalid_input、`credential_required` → invalid_input（提示凭据 key 未配置）；其余未识别 → internal。
+下游错误翻译：registry `业务不存在` → not_found；asset-registry `asset_not_found` → not_found、`invalid_input:` 前缀 → invalid_input、`credential_required` → invalid_input（提示凭据 key 未配置）、`validation_failed`/`materialize_failed` 前缀 → invalid_input（原样透出：调用方可修正的输入问题，如清单缺失/构建失败）；其余未识别 → internal。
 
 - 认证拦截：除 `POST /api/auth/login` 外全部路由先经 cookie `agent_console_token` → `AccountService.resolve`，失败 401；
 - `Set-Cookie: agent_console_token=<token>; HttpOnly; Path=/; Max-Age=604800; SameSite=Lax`（7 天；不做 Secure 标记——部署层自行决定 HTTPS 终结，记入 README 注释）；
@@ -393,8 +393,8 @@ export function createAccountService(db: Database): AccountService;
 | 方法 路径 | 说明 |
 |-----------|------|
 | GET `/api/assets?kind=&scope=mine\|shared\|all` | `AssetMeta[]`；scope 缺省：member = mine+shared 两个查询合并，admin = all |
-| POST `/api/assets` | body `{kind, url, ref, subpath?, shared?, is_private?, credential_key?}`；`owner_id = actor.user_id`；私有资产凭据解析见下；201 `AssetMeta` |
-| GET `/api/assets/:id` | `AssetObject`（meta + manifest）；**会触发物化（首次可能 git clone，慢）**——路由不另设超时，由 node:http 默认行为承载 |
+| POST `/api/assets` | body `{kind, url, ref, subpath?, shared?, is_private?, credential_key?}`；`owner_id = actor.user_id`；私有资产凭据解析见下；**登记即校验（fail fast）**：物化（clone+构建）+ 清单校验不过 → 400 透出真实原因（`validation_failed`/`materialize_failed` 原文），登记行回滚不落库；201 `AssetMeta` |
+| GET `/api/assets/:id` | `AssetObject`（meta + manifest）；命中物化缓存直接返回（登记时已物化），缓存被清后首次会重新 clone（慢）——路由不另设超时，由 node:http 默认行为承载 |
 | DELETE `/api/assets/:id` | 下架：仅属主本人；删登记行 + 清物化缓存（§5.6）；204 |
 
 **私有资产凭据解析**：`is_private` 资产的 register/get 需要 `opts.credential` 值。本任务约定：**凭据值从通用层安全桶解析**——`env.getFor("").secrets[credential_key]`（getFor 空串 = 只取通用层，见 §2.4）。取不到 → invalid_input（提示先在通用配置登记该 credential_key）。此约定写入 DTO 注释。

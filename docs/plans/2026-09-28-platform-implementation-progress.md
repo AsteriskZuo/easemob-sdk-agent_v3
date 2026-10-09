@@ -375,3 +375,12 @@
 - 范围：`@asterisk/*` → `@asteriskzuo/*` 全量机械替换（全部 package.json name 与依赖引用、模板、verify-template.sh、现行文档、历史 spec；唯一例外 T20 决策文档保留原貌）；yarn.lock 经 yarn install 重新生成；9 个文件因行宽变化经 prettier 重排
 - 验收证据：根六连全绿（test 4m16s 全过；首跑再撞既有 rebuild 竞态重跑即过；format:check 修复后 typecheck/lint/format/circular exit 0）；残留检查仅 T20 决策文档与两处历史记录（计划变更记录、T20 进度条目）保留 @asterisk 字样，属正确的历史事实
 - 业务仓同步改名并单独提交
+
+**T22 真机验证首轮排障 + 资产登记即校验（2026-10-09，无 spec 新任务，改两包 + 同步两份旧 spec）**
+
+- 起因：用户控制台创建业务时「入口程序」下拉为空。实证定位：包资产登记漏填 subpath（库行 subpath 为 NULL，agent-package.json 在 `package/` 子目录），GET /api/assets/:id 物化校验抛 `validation_failed: agent-package.json 不存在或不可读`，且该错误走 500 未捕获分支、页面只见泛泛「加载包清单失败」
+- 用户拍板两项修复：①登记即校验（fail fast）②错误原因透传
+- 改动：`asset-registry register` 插行后立即 materialize + validateAsset，失败回滚（删行 + 清缓存）再抛错（spec §5.6 增补）；`console-api toApiError` 增补 `validation_failed`/`materialize_failed` 前缀 → invalid_input（400 透出原文，T13 spec §5.5/错误翻译同步）
+- 测试迁移：asset-registry 12 条旧用例从「register 成功 + materialize 时失败」改写为「register 即失败」（含消息内容断言）；新增「登记即校验」用例（坏 subpath 回滚 + 缓存清理、register 成功缓存即热）；console-api 新增坏 subpath → 400 透出真实原因用例；私有凭据流程用 `clearCache()` 模拟缓存缺失保持原断言语义
+- 顺带实证用户问题：下架后可重登记同仓库（remove 删行+清缓存，asset_id 由 属主+url+commit+subpath 哈希重算，无唯一约束阻碍；既有用例「再登记同三元组 → 同 asset_id」覆盖）
+- 业务仓新增 `平台配置指南.md`（资产登记/业务创建/入口匹配行/出口 key-value/验证观察点 + 提示词总纲全文），commit `21a5fd5`

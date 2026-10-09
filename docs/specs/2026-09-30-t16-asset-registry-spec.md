@@ -217,7 +217,8 @@ CREATE TABLE assets (
 - 入参校验：`url`/`ref`/`owner_id` 非空；`kind` 合法；`subpath`（若有）为相对路径、不含 `..` 段；`kind='package'` 且 `shared === true` → `invalid_input: <原因>`；`is_private === true` 且 `credential_key` 为空 → `invalid_input: is_private 需要 credential_key`；`is_private` 缺省/false 时 `credential_key` 归一为 undefined（传入也不存）；
 - `input.is_private` 且未传 `opts.credential` → `credential_required: <credential_key>`（ls-remote 需要认证，fail-fast 在发请求前）；
 - `resolveRef(url, ref, opts?.credential)` → commit（注入与脱敏规则见 §5.3；失败原样抛 `ref_not_found` / `ref_ambiguous` / `credential_unsupported`）；
-- 算 asset_id；已存在 → 幂等返回已有 meta；否则插行返回；
+- 算 asset_id；已存在 → 幂等返回已有 meta；否则插行；
+- **登记即校验（fail fast，2026-10-09 起）**：插行后立即 `materialize(asset_id, opts)` + `validateAsset(root, kind)`——clone → 形状校验 → npm ci → 初始化脚本 → 产物校验全链路在登记时跑完；任一步失败 → 回滚（删登记行 + 清缓存目录）后原样抛错，坏资产（subpath 指错、清单缺失、构建失败等）进不了登记表；
 - 时间戳 `new Date().toISOString()`；created_at / modified_at 同值。
 
 ### 5.7 materialize 行为
@@ -270,7 +271,7 @@ export function resolveResource(
 - list：无过滤返回全部；按 kind / owner_id / shared 各自过滤；
 - get package → manifest 解析正确（programs / requires 归一）；get tool → programs 归一、manifest 无 requires；tool 清单含 requires → `validation_failed`；get skill → skills 为集合扫描结果（字典序）；未登记 asset_id → `asset_not_found`；
 - materialize → clone 成功、返回路径正确（带 subpath 时返回子路径）、`.git` 已删除、marker 存在；二次调用幂等（删掉源仓库后仍能返回，证明未重拉）；
-- 物化时内容校验：package 清单缺失/路径不存在/路径含 `..` → `validation_failed`、target 无 marker；skill 仓库无任何 SKILL.md → `validation_failed`；
+- 物化时内容校验（登记即校验后，这些失败均在 register 抛出、行回滚不落缓存）：package 清单缺失/路径不存在/路径含 `..` → `validation_failed`；skill 仓库无任何 SKILL.md → `validation_failed`；缺 lock / 缺初始化脚本 / 脚本 exit≠0 → `materialize_failed`；
 - url 不存在 → `materialize_failed`；
 - 物化缓存目录被人为删除 → 自动补拉成功；
 - 持久化：register 后 close 数据库重开 → 新实例 list/get 结果一致。
