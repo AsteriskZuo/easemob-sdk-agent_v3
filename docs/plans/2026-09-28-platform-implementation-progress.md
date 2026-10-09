@@ -334,3 +334,15 @@
 - commit：1d18807（sdk README + 模板引子 + runner 注释）；docs commit 见下一条
 - 范围：packages/sdk/README.md（548 行十章节）+ asset-model/business-workflow/console-design/scheduler-loop-contracts/glossary 五文档回写 + T15 spec 修订注记
 - 已知取舍：sdk README §6 声明自己是 eventDoc/resultDoc 的镜像并指向 API 为最新口径（防双源漂移）；business/jira-ticket-review 空壳以「落位目录」措辞引用未虚构内容
+
+**T22 首个业务迁移（jira-ticket-review 三资产）**
+
+- 状态：实现完成（真机验证待用户手动执行，清单见 spec §11）
+- spec：`docs/specs/2026-10-09-t22-jira-ticket-review-migration-spec.md`
+- 子 agent：agent-30（单发；实现一轮 + `mode:'fresh'` 修正一轮，均一次通过）
+- 开始/完成：2026-10-09
+- 验收证据：主 agent 独立复验根六连全绿（exit 0，test 4m40s 无竞态重跑；circular 零循环）；亲自抽查：SKILL.md 与 v2 diff 恰三处（spec §7 三处最小修订）；review-flow.ts 与 spec §5 九步逐条相符（去重 → jira-fetch → 终态短路 → 标签 → agent → 解析 → 写记录 → skip null → 组消息）；main.ts 薄入口仅 20 行；jira-client.ts 无被裁方法残留；交付物 grep 无 file: 痕迹、find 无 node_modules/dist/lock 残留；业务仓两资产六连各全绿（package 62 测试、jira-fetch 10 测试，临时 file: 兜底验证后已恢复）
+- commit：业务仓 `dbf9ccd`（独立 git 仓 root commit，37 文件）；v3 侧为 docs + .gitignore
+- 范围：`business/jira-ticket-review/`（package + skills + tools/jira-fetch 三资产）+ v3 `.gitignore` 加 `business/` + 计划/进度文档
+- 关键修正：spec §5 第 5 步补 `mode: 'fresh'`——agent-30 发现的 spec 遗漏：单轮审查无状态（v2 `resetSession: true` 语义），缺省 channel 模式会让同工单复审沿用历史会话（token 膨胀 + 陈旧上下文干扰）
+- 已知取舍/偏离：① person-mapping 定位上溯一级（dist/ 根）而非 spec §8 括注的「两级」（spec 两处表述自相矛盾，按实际模块落点）；② ReviewRecordStore 构造缺省 `sdk.dataDir()`，测试显式传临时目录；③ person-mapping 加 `createPersonLookup` 工厂（测试不读真实映射表做断言）；④ 交付物不含 package-lock.json（`@asterisk/agent-sdk` 未发布 npm，发布后 `npm install` 生成补交业务仓）；⑤ v2 行为差异认账：同 `(issueKey, updated)` 失败不自动重试，靠 updated 变化恢复（spec §4）

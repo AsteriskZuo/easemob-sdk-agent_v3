@@ -400,3 +400,6 @@ workspace/
 
 # pi 平台凭据目录（models.json 含 apiKey 字面量，永不进 git）
 .pi/
+
+# 业务仓目录（business/ 下每个业务是独立 git 仓库，与平台仓无关联，永不跟踪）
+business/
