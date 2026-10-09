@@ -360,6 +360,14 @@
 - 已知观察：confluence.ts 自带同族表单登录链（os_username）——将来可考虑把认证链泛化为 easemob SSO 族共享，现按「第二消费者再抽」纪律不动
 - 后续任务（用户发布后）：business jira-fetch 重构为依赖 @asteriskzuo/agent-jira-client@^0.1.0 → T22 真机验证
 
+**business jira-fetch 切换共享包（2026-10-09，T23 §9 既定后续）**
+
+- 前置：用户完成 npm 发布（@asteriskzuo/agent-sdk@0.1.0 + @asteriskzuo/agent-jira-client@0.1.0，`npm view` 验证在架）
+- 范围（业务仓 commit `2d064f5`）：删内嵌 666 行 `src/jira-client.ts` + HTTP 层测试（共享包 24 条覆盖）；新增 `src/issue-mapping.ts`（mapIssue 私有字段映射 + extractIdentity 旁路，业务判断留本地）；程序改用共享包 `request` 原语（`expand=renderedFields,comment` 保持 v2 includeComments 行为）；新增 issue-mapping 纯函数测试；masking.ts 头部过时注释同步
+- 两资产补齐 package-lock.json（物化强制要求；npm install 直接解析发布包，无需 file: 兜底）
+- 验收证据：jira-fetch 六连全绿（9 tests）、package 六连全绿（62 tests）；对外契约不变（success/error 双态 + identity 旁路；sdk.fail 只留信封/参数非法）
+- 控制台登记资产须用业务仓最新 commit（`2d064f5` 起）
+
 **npm 发布前缀改为 @asteriskzuo（2026-10-09，机械改动无 spec）**
 
 - 起因：首次 npm publish 失败 E404——npm scope 必须归属发布账号，`npm whoami` 实证账号为 `asteriskzuo`，`@asterisk` 不属于本账号
