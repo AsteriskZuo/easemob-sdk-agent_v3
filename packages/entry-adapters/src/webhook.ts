@@ -23,6 +23,10 @@ const MAX_BODY_BYTES = 1024 * 1024;
 /** 端点 path 合法字符集（与 spec §7.2 一致） */
 const HOOK_PATH_PATTERN = /^\/hooks\/([a-z0-9-]+)$/;
 
+/** 行 event_type 为空串（通配行）时产出信封的默认 event_type：
+ *  留空 = 不过滤，产出落此默认标签；推送方要区分类型就拆 path（信封契约 event_type 非空） */
+export const WEBHOOK_DEFAULT_EVENT_TYPE = "webhook.event";
+
 /** webhook 适配器自描述（控制台展示 + entry_config 表单渲染 + eventDoc 对接文档） */
 export const WEBHOOK_ADAPTER_SPEC: EntryAdapterSpec = {
   id: "webhook",
@@ -70,6 +74,8 @@ export const WEBHOOK_ADAPTER_SPEC: EntryAdapterSpec = {
 ## 产出信封
 
 \`{ contract_version: "v1", source: "webhook", event_id, event_type: <match 行配置>, timestamp, session_id, correlation_id: = event_id, hop_count: 0, payload: <body 原样> }\`
+
+match 行 \`event_type\` 留空 = 不过滤（接收该来源全部事件），产出事件落默认标签 \`webhook.event\`；推送方要区分类型就拆 path（不同 path 配不同标签）。
 
 ## 示例
 
@@ -290,11 +296,13 @@ export class WebhookEntryAdapter implements EntryAdapter {
     }
 
     // ⑥ 包装信封落队（payload = body 原样；event_id 兼任幂等键，重推被队列丢弃仍回 200）
+    // 信封 event_type 契约非空：行留空（通配）时兜默认标签 WEBHOOK_DEFAULT_EVENT_TYPE
     const envelope: EventEnvelope = {
       contract_version: CONTRACT_VERSION,
       source: "webhook",
       event_id: eventId,
-      event_type: row.event_type,
+      event_type:
+        row.event_type === "" ? WEBHOOK_DEFAULT_EVENT_TYPE : row.event_type,
       timestamp: new Date().toISOString(),
       session_id: sessionId,
       correlation_id: eventId,

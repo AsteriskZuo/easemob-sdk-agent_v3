@@ -10,7 +10,7 @@ export interface BusinessMatch {
   business_name: string; // 展示名，可修改，不参与匹配
   creator_id: string; // 创建者，不可修改（权限归属判定用）
   source: EventSource; // 关注的来源（行级）
-  event_type: string; // 关注的事件类型（行级）
+  event_type: string; // 关注的事件类型（行级）；空串 = 通配（该 source 全部事件都命中本行）
   on_failure?: boolean; // 失败也扇出；默认 false
   entry_config?: Record<string, unknown>; // 入口配置（过滤配置、会话标识规则等）；平台不解析、原样存储透传，未配置 = undefined
 }
@@ -61,7 +61,7 @@ export interface CreateBusinessInput {
   business_name: string; // 展示名，可修改
   creator_id: string; // 创建者账号 id，不可修改（权限归属判定用）
   source: EventSource; // 首个匹配行
-  event_type: string;
+  event_type: string; // 首个匹配行事件类型；空串 = 通配（该 source 全部事件）
   on_failure?: boolean; // 缺省 false
   exit_bindings?: Array<{ tool: string; config: Record<string, string> }>; // 缺省无绑定
   prompt?: string; // 缺省 ''
@@ -76,7 +76,9 @@ export interface CreateBusinessInput {
 }
 
 export interface BusinessRegistry {
-  /** 入口循环订阅匹配（热路径，走内存视图）；无关注者返回空数组 */
+  /** 入口循环订阅匹配（热路径，走内存视图）；无关注者返回空数组。
+   *  通配语义：除精确键 `source__{event_type}` 的行外，同时返回该 source 下
+   *  event_type 为空串（`source__`）的通配行 */
   match(source: EventSource, event_type: string): BusinessMatch[];
 
   /** 出口循环归属匹配：产出方业务的全部出口绑定；无绑定返回空数组 */
@@ -312,7 +314,12 @@ class SqliteBusinessRegistry implements BusinessRegistry {
   }
 
   match(source: EventSource, event_type: string): BusinessMatch[] {
-    return [...(this.view.get(matchKey(source, event_type)) ?? [])];
+    // 精确键 + 通配键（event_type='' 的行 = 关注该 source 全部事件）。
+    // 入参本身为空串时两键相同，只查一次避免重复行
+    const exact = this.view.get(matchKey(source, event_type)) ?? [];
+    const wildcard =
+      event_type === "" ? [] : (this.view.get(matchKey(source, "")) ?? []);
+    return [...exact, ...wildcard];
   }
 
   exitBindings(business_id: string): ExitBinding[] {

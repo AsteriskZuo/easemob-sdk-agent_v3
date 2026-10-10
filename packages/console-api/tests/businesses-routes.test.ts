@@ -84,7 +84,7 @@ describe("POST /api/businesses", () => {
     ]);
   });
 
-  it("business_name 空 / source 非法 / event_type 空 → 400", async () => {
+  it("business_name 空 / source 非法 / event_type 非字符串 → 400", async () => {
     const noName = await api(server, "POST", "/api/businesses", {
       token: owner.token,
       body: { business_name: "", source: "jira", event_type: "x" },
@@ -95,11 +95,32 @@ describe("POST /api/businesses", () => {
       body: { business_name: "x", source: "telegram", event_type: "x" },
     });
     expect(badSource.status).toBe(400);
-    const noType = await api(server, "POST", "/api/businesses", {
+    const badType = await api(server, "POST", "/api/businesses", {
       token: owner.token,
-      body: { business_name: "x", source: "jira", event_type: "" },
+      body: { business_name: "x", source: "jira", event_type: 123 },
     });
-    expect(noType.status).toBe(400);
+    expect(badType.status).toBe(400);
+  });
+
+  it("event_type 缺省/空串/纯空白 → 201 且落空串（通配行）", async () => {
+    for (const extra of [
+      {},
+      { event_type: "" },
+      { event_type: "   " },
+    ] as const) {
+      const res = await api(server, "POST", "/api/businesses", {
+        token: owner.token,
+        body: { business_name: "通配业务", source: "jira", ...extra },
+      });
+      expect(res.status).toBe(201);
+      const id = (res.body as BusinessProfile).business_id;
+      const detail = await api(server, "GET", `/api/businesses/${id}`, {
+        token: owner.token,
+      });
+      const matches = (detail.body as BusinessDetail).matches;
+      expect(matches).toHaveLength(1);
+      expect(matches[0].event_type).toBe("");
+    }
   });
 });
 
@@ -247,6 +268,30 @@ describe("匹配行增删", () => {
       body: { source: "cron", event_type: "tick" },
     });
     expect(res.status).toBe(404);
+  });
+
+  it("matches 路由 event_type 缺省 → 落空串（通配行）；不带 event_type 的 DELETE 删通配行", async () => {
+    const profile = await createBusiness(owner.token, "通配行业务");
+    const url = `/api/businesses/${profile.business_id}`;
+
+    const add = await api(server, "POST", `${url}/matches`, {
+      token: owner.token,
+      body: { source: "webhook" },
+    });
+    expect(add.status).toBe(201);
+    const rows = add.body as BusinessMatch[];
+    expect(rows).toHaveLength(2);
+    expect(rows.find((r) => r.source === "webhook")?.event_type).toBe("");
+
+    const del = await api(server, "DELETE", `${url}/matches`, {
+      token: owner.token,
+      body: { source: "webhook", event_type: "" },
+    });
+    expect(del.status).toBe(204);
+    const detail = (await api(server, "GET", url, { token: owner.token }))
+      .body as BusinessDetail;
+    expect(detail.matches).toHaveLength(1);
+    expect(detail.matches[0].source).toBe("jira");
   });
 });
 

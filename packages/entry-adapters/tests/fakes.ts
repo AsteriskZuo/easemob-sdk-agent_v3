@@ -61,10 +61,13 @@ export class FakeRegistry {
 
   readonly registry: BusinessRegistry = {
     match: (source, event_type) => {
+      // 与真实 registry 同语义：精确命中 ∪ 通配行（event_type 空串）
       const rows: BusinessMatch[] = [];
       for (const state of this.businesses.values()) {
         for (const m of state.matches) {
-          if (m.source === source && m.event_type === event_type) rows.push(m);
+          if (m.source !== source) continue;
+          if (m.event_type === event_type) rows.push(m);
+          else if (event_type !== "" && m.event_type === "") rows.push(m);
         }
       }
       return rows;

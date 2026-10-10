@@ -28,6 +28,10 @@ export interface JiraSearchClient {
 export const JIRA_POLL_INTERVAL_DEFAULT_SECONDS = 60;
 export const JIRA_POLL_INTERVAL_MIN_SECONDS = 30;
 
+/** 行 event_type 为空串（通配行）时产出信封的默认 event_type：
+ *  轮询不区分 jira 原生事件类型，留空 = 不过滤，产出落此默认标签（信封契约 event_type 非空） */
+export const JIRA_POLLING_DEFAULT_EVENT_TYPE = "jira.issue.updated";
+
 /** jira-polling match 行 entry_config 的解析结果（必填齐全后；输入侧须先过占位符解析） */
 export interface JiraPollConfig {
   /** jira 站点根地址 */
@@ -130,7 +134,8 @@ export interface JiraPollerDeps {
 export interface JiraPollerOptions {
   /** 归属业务 id（secrets 桶取用 + 日志上下文的锚） */
   business_id: string;
-  /** 产出事件的 event_type（= match 行的 event_type） */
+  /** 产出事件的 event_type（= match 行的 event_type）；空串 = 通配行，
+   *  产出信封落默认标签 JIRA_POLLING_DEFAULT_EVENT_TYPE（poller 键仍用原值） */
   event_type: string;
   /** 该 match 行的 entry_config（未配置 = undefined） */
   entry_config?: Record<string, unknown>;
@@ -157,6 +162,11 @@ export function createJiraPoller(options: JiraPollerOptions): JiraPoller {
     options.clientFactory ??
     ((config: JiraClientConfig) => new JiraClient(config));
   const key = `${options.business_id}::${options.event_type}`;
+  // 信封 event_type 契约非空：行留空（通配）时兜默认标签；poller 键不受此影响（空串键合法）
+  const envelopeEventType =
+    options.event_type === ""
+      ? JIRA_POLLING_DEFAULT_EVENT_TYPE
+      : options.event_type;
   let running = false;
 
   return {
@@ -238,7 +248,7 @@ export function createJiraPoller(options: JiraPollerOptions): JiraPoller {
             contract_version: CONTRACT_VERSION,
             source: "jira",
             event_id: eventId,
-            event_type: options.event_type,
+            event_type: envelopeEventType,
             timestamp: new Date().toISOString(),
             session_id: issue.key,
             correlation_id: eventId,

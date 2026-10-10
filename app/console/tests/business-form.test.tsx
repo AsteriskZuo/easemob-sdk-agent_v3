@@ -196,6 +196,12 @@ async function fillRequiredFields(
   await user.type(screen.getByLabelText("匹配行 1 事件类型"), "review.request");
 }
 
+// T25 起创建页会写 localStorage 草稿：套件内用例共享 jsdom localStorage，
+// 逐用例清空防止「上一个用例的草稿恢复进下一个用例的表单」
+beforeEach(() => {
+  localStorage.clear();
+});
+
 describe("业务表单", () => {
   it("① 创建提交映射：表单值 → CreateBusinessBody（首个匹配行/agent/model/资产绑定/超时覆盖）", async () => {
     const calls = installBusinessMocks();

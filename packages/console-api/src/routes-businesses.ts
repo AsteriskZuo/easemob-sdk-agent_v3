@@ -104,6 +104,45 @@ function optionalStringArray(
   return requireStringArray(value, field);
 }
 
+/** 匹配行 event_type（可选）：缺省/空串/纯空白 → ""（= 通配，接收该 source 全部事件）；
+ *  提供了则必须是非空以外的字符串也接受——trim 后使用（trim 后为空同样落 ""） */
+function optionalEventType(value: unknown, field: string): string {
+  if (value === undefined) return "";
+  if (typeof value !== "string") {
+    throw new ApiError("invalid_input", `${field} 必须是字符串`);
+  }
+  return value.trim();
+}
+
+/** 随建环境配置（POST /api/businesses 的 env 字段）解析为待写入条目；
+ *  DTO 层校验：必须是 plain object、键非空、值字符串（键的空白合法性由 EnvProvider.set 兜底）。
+ *  缺省/两桶皆缺 → 空列表（= 现状行为） */
+function parseEnvEntries(
+  value: unknown,
+): Array<{ bucket: "vars" | "secrets"; key: string; value: string }> {
+  if (value === undefined) return [];
+  const obj = requirePlainObject(value, "env");
+  const entries: Array<{
+    bucket: "vars" | "secrets";
+    key: string;
+    value: string;
+  }> = [];
+  for (const bucket of ["vars", "secrets"] as const) {
+    if (obj[bucket] === undefined) continue;
+    const record = requireStringRecord(obj[bucket], `env.${bucket}`);
+    for (const [key, item] of Object.entries(record)) {
+      if (key === "") {
+        throw new ApiError(
+          "invalid_input",
+          `env.${bucket} 的键必须是非空字符串`,
+        );
+      }
+      entries.push({ bucket, key, value: item });
+    }
+  }
+  return entries;
+}
+
 /** 出口绑定数组校验（create/patch 共用）：[{tool, config: Record<string,string>}] */
 function parseExitBindings(
   value: unknown,
@@ -181,9 +220,9 @@ export function businessRoutes(deps: {
           req.body,
           "body",
         ) as unknown as CreateBusinessBody;
-        // API 层只强校验 business_name 非空、source 合法、event_type 非空（其余按 registry 缺省）
+        // API 层只强校验 business_name 非空、source 合法（event_type 可选：缺省/空串 = 通配，其余按 registry 缺省）
         const source = assertEventSource(body.source, "source");
-        const eventType = requireNonEmptyString(body.event_type, "event_type");
+        const eventType = optionalEventType(body.event_type, "event_type");
         const input: CreateBusinessInput = {
           business_name: requireNonEmptyString(
             body.business_name,
@@ -240,6 +279,8 @@ export function businessRoutes(deps: {
           body.entry_config === undefined
             ? undefined
             : requirePlainObject(body.entry_config, "entry_config");
+        // 随建环境配置（可选）：解析为待写入条目；业务创建后逐条落该业务两桶
+        const envEntries = parseEnvEntries(body.env);
         // webhook 行端点 path 全平台唯一（候选行未落库，与全量既有行比对；冲突 → 400）
         if (source === "webhook") {
           assertWebhookPathUnique(registry, entryConfig);
@@ -266,9 +307,18 @@ export function businessRoutes(deps: {
         });
 
         const businessId = registry.create(input);
-        // 占位 key 存在性校验（fail fast）：业务 id 生成后方能核对业务两桶；
-        // 校验不过 → 回滚已建业务（占位配置不落库）
+        // 随建 env 写入 + 占位 key 存在性校验（fail fast）：业务 id 生成后方能落业务两桶；
+        // env 写入先于占位校验（刚写入的键对校验可见）。
+        // 任一步失败 → 回滚：删除本次写入的全部 env 键 + 删除已建业务，再抛错
+        const writtenEnvKeys: Array<{
+          bucket: "vars" | "secrets";
+          key: string;
+        }> = [];
         try {
+          for (const entry of envEntries) {
+            deps.env.set(businessId, entry.bucket, entry.key, entry.value);
+            writtenEnvKeys.push(entry);
+          }
           if (entryConfig !== undefined) {
             assertPlaceholderKeysExist(
               deps.env,
@@ -288,6 +338,9 @@ export function businessRoutes(deps: {
             );
           }
         } catch (err) {
+          for (const entry of writtenEnvKeys) {
+            deps.env.remove(businessId, entry.bucket, entry.key);
+          }
           registry.remove(businessId);
           throw err;
         }
@@ -463,7 +516,7 @@ export function businessRoutes(deps: {
           "body",
         ) as unknown as MatchBody;
         const source = assertEventSource(body.source, "source");
-        const eventType = requireNonEmptyString(body.event_type, "event_type");
+        const eventType = optionalEventType(body.event_type, "event_type");
         const entryConfig =
           body.entry_config === undefined
             ? undefined
@@ -503,7 +556,7 @@ export function businessRoutes(deps: {
           "body",
         ) as unknown as RemoveMatchBody;
         const source = assertEventSource(body.source, "source");
-        const eventType = requireNonEmptyString(body.event_type, "event_type");
+        const eventType = optionalEventType(body.event_type, "event_type");
         registry.removeMatch(businessId, source, eventType);
         log.info("API 删除匹配行", {
           operator_id: actor.user_id,

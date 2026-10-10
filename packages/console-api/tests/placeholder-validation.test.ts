@@ -174,6 +174,103 @@ describe("POST /api/businesses/:id/matches（新增匹配行）", () => {
   });
 });
 
+describe("POST /api/businesses 随建环境配置（env 字段）", () => {
+  it("env vars+secrets 随建 → 键落该业务两桶；entry_config 占位命中新键 → 201", async () => {
+    const res = await api(server, "POST", "/api/businesses", {
+      token: owner.token,
+      body: {
+        business_name: "随建环境配置",
+        source: "webhook",
+        entry_config: {
+          path: "hook-env",
+          session_id_key: "id",
+          token: "{{hook_token}}",
+          note: "{{hook_note}}",
+        },
+        env: {
+          vars: { hook_note: "n1" },
+          secrets: { hook_token: "t1" },
+        },
+      },
+    });
+    expect(res.status).toBe(201);
+    const id = (res.body as BusinessProfile).business_id;
+    const listing = server.env.list(id);
+    expect(listing.vars).toEqual({ hook_note: "n1" });
+    expect(listing.secret_keys).toEqual(["hook_token"]);
+  });
+
+  it("env 形状非法（非 object / 值非字符串 / 空键）→ 400，不落库", async () => {
+    const before = (
+      (await api(server, "GET", "/api/businesses", { token: owner.token }))
+        .body as BusinessProfile[]
+    ).length;
+    for (const env of [
+      "not-object",
+      { vars: { k: 1 } },
+      { vars: { "": "v" } },
+    ]) {
+      const res = await api(server, "POST", "/api/businesses", {
+        token: owner.token,
+        body: {
+          business_name: "非法 env",
+          source: "webhook",
+          event_type: "hook.bad-env",
+          env,
+        },
+      });
+      expect(res.status).toBe(400);
+    }
+    const after = (
+      (await api(server, "GET", "/api/businesses", { token: owner.token }))
+        .body as BusinessProfile[]
+    ).length;
+    expect(after).toBe(before);
+  });
+
+  it("占位 key 缺失 → 400；业务与本次写入的 env 键都回滚", async () => {
+    const countBefore = (
+      (await api(server, "GET", "/api/businesses", { token: owner.token }))
+        .body as BusinessProfile[]
+    ).length;
+    const envRowsBefore = server.db.all<{ scope: string }>(
+      "SELECT scope FROM env_entries",
+    ).length;
+
+    const res = await api(server, "POST", "/api/businesses", {
+      token: owner.token,
+      body: {
+        business_name: "回滚业务",
+        source: "webhook",
+        entry_config: {
+          path: "hook-rollback",
+          session_id_key: "id",
+          token: "{{GHOST_ENV_KEY}}",
+        },
+        env: {
+          vars: { hook_note: "n1" },
+          secrets: { hook_token: "t1" },
+        },
+      },
+    });
+    expect(res.status).toBe(400);
+    const err = errorOf(res);
+    expect(err.code).toBe("invalid_input");
+    expect(err.message).toContain("GHOST_ENV_KEY");
+
+    // 业务回滚：计数不变；env 键回滚：env_entries 行数不变
+    const countAfter = (
+      (await api(server, "GET", "/api/businesses", { token: owner.token }))
+        .body as BusinessProfile[]
+    ).length;
+    expect(countAfter).toBe(countBefore);
+    const envRowsAfter = server.db.all<{ scope: string }>(
+      "SELECT scope FROM env_entries",
+    ).length;
+    expect(envRowsAfter).toBe(envRowsBefore);
+  });
+});
+
 describe("PATCH /api/businesses/:id（更新 exit_bindings）", () => {
   it("绑定 config 占位命中业务 secrets → 204", async () => {
     const res = await api(server, "PATCH", `/api/businesses/${businessId}`, {

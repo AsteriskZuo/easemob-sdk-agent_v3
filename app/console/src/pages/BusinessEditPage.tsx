@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   App as AntdApp,
   Alert,
   Button,
   Card,
   Checkbox,
+  Collapse,
   Form,
   Input,
   InputNumber,
@@ -28,6 +29,8 @@ import type {
   PatchBusinessBody,
 } from "@asteriskzuo/agent-console-api";
 import { apiFetch, ApiError } from "../api/client";
+import CreateEnvEditor from "../components/CreateEnvEditor";
+import type { EnvKvRow } from "../components/CreateEnvEditor";
 import EnvEditor from "../components/EnvEditor";
 import MatchEditor, {
   parseEntryConfig,
@@ -52,6 +55,71 @@ interface BusinessFormValues {
 
 /** 解析出口绑定配置文本（复用入口的 JSON object 解析：空 → undefined；非法 → null） */
 const parseExitConfigText = parseEntryConfig;
+
+/** 创建页草稿的 localStorage 键（版本号在键名里：结构变化直接换键，不做迁移） */
+const CREATE_DRAFT_KEY = "business-create-draft-v1";
+
+/** 创建页草稿：表单全量状态（antd Form 字段 + 匹配行 + 出口勾选/配置文本 + 随建环境配置行） */
+interface CreateDraft {
+  /** antd Form 承载的字段（业务名/agent/model/资产绑定/超时覆盖等） */
+  form: Partial<BusinessFormValues>;
+  /** 匹配行 */
+  matches: MatchRow[];
+  /** 出口工具勾选态 */
+  checkedExits: Record<string, boolean>;
+  /** 出口配置 JSON 文本 */
+  exitConfigTexts: Record<string, string>;
+  /** 随建普通变量行 */
+  envVars: EnvKvRow[];
+  /** 随建安全变量行 */
+  envSecrets: EnvKvRow[];
+}
+
+/** 读草稿：无/非法 JSON → undefined（结构变更靠换键名隔离，不做迁移） */
+function loadCreateDraft(): CreateDraft | undefined {
+  try {
+    const raw = localStorage.getItem(CREATE_DRAFT_KEY);
+    if (raw === null) return undefined;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return undefined;
+    return parsed as CreateDraft;
+  } catch {
+    return undefined;
+  }
+}
+
+/** 首个匹配行的初始空态（重置草稿时也回到它） */
+const EMPTY_MATCH_ROW: MatchRow = {
+  source: "manual",
+  event_type: "",
+  entry_config_text: "",
+};
+
+/** 随建环境配置行 → POST body 的 env 字段（key 空白的行丢弃；两组皆空 → undefined 不携带） */
+function buildEnvBody(
+  envVars: EnvKvRow[],
+  envSecrets: EnvKvRow[],
+):
+  | { vars?: Record<string, string>; secrets?: Record<string, string> }
+  | undefined {
+  const vars: Record<string, string> = {};
+  for (const row of envVars) {
+    const key = row.key.trim();
+    if (key !== "") vars[key] = row.value;
+  }
+  const secrets: Record<string, string> = {};
+  for (const row of envSecrets) {
+    const key = row.key.trim();
+    if (key !== "") secrets[key] = row.value;
+  }
+  if (Object.keys(vars).length === 0 && Object.keys(secrets).length === 0) {
+    return undefined;
+  }
+  return {
+    ...(Object.keys(vars).length > 0 ? { vars } : {}),
+    ...(Object.keys(secrets).length > 0 ? { secrets } : {}),
+  };
+}
 
 /** 出口表单字段值回写进配置 JSON 文本（空串 = 删键；全部键删光 = 回到空文本） */
 function withExitConfigValue(text: string, key: string, value: string): string {
@@ -100,7 +168,9 @@ function SectionTitle({ title, tip }: { title: string; tip: string }) {
 /** 业务创建/编辑同体页（/businesses/new 与 /businesses/:id 共用）。
  *  主保存按钮只管 registry 侧字段 + 匹配行 diff + 出口绑定整体覆盖
  *  （出口配置全字段原样进 ExitBinding.config，含 {{key}} 占位文本，不再拆写安全桶）；
- *  业务 key-value 由 EnvEditor 独立保存（避免混合提交的部分失败语义） */
+ *  业务 key-value 由 EnvEditor 独立保存（避免混合提交的部分失败语义）。
+ *  仅创建模式：表单全量状态防抖 500ms 落 localStorage 草稿（CREATE_DRAFT_KEY），
+ *  重进恢复 + 可手动清除，提交成功自动清除；编辑模式不做草稿（已有服务端数据） */
 export default function BusinessEditPage() {
   const { id } = useParams<{ id: string }>();
   const isEdit = id !== undefined;
@@ -108,19 +178,40 @@ export default function BusinessEditPage() {
   const { message } = AntdApp.useApp();
   const [form] = Form.useForm<BusinessFormValues>();
 
+  // 创建模式挂载时读一次草稿（编辑模式不读；undefined = 无草稿/草稿损坏）
+  const [initialDraft] = useState<CreateDraft | undefined>(() =>
+    isEdit ? undefined : loadCreateDraft(),
+  );
+  const [draftRestored, setDraftRestored] = useState(
+    initialDraft !== undefined,
+  );
+
   const [loading, setLoading] = useState(isEdit);
   const [submitting, setSubmitting] = useState(false);
-  const [matches, setMatches] = useState<MatchRow[]>([
-    { source: "manual", event_type: "", entry_config_text: "" },
-  ]);
+  const [matches, setMatches] = useState<MatchRow[]>(() =>
+    initialDraft !== undefined &&
+    Array.isArray(initialDraft.matches) &&
+    initialDraft.matches.length > 0
+      ? initialDraft.matches
+      : [EMPTY_MATCH_ROW],
+  );
   // 编辑态原始匹配行（保存时做增删 diff 的基准；key = `${source}\n${event_type}`）
   const [originalMatches, setOriginalMatches] = useState<MatchRow[]>([]);
   const [exitTools, setExitTools] = useState<ExitToolMenuItem[]>([]);
-  const [checkedExits, setCheckedExits] = useState<Record<string, boolean>>({});
+  const [checkedExits, setCheckedExits] = useState<Record<string, boolean>>(
+    () => initialDraft?.checkedExits ?? {},
+  );
   /** 出口绑定配置的 JSON 文本（唯一事实源；「表单」/「JSON」双视图都编辑它） */
   const [exitConfigTexts, setExitConfigTexts] = useState<
     Record<string, string>
-  >({});
+  >(() => initialDraft?.exitConfigTexts ?? {});
+  // 随建环境配置（仅创建模式渲染；状态进草稿）
+  const [envVars, setEnvVars] = useState<EnvKvRow[]>(
+    () => initialDraft?.envVars ?? [],
+  );
+  const [envSecrets, setEnvSecrets] = useState<EnvKvRow[]>(
+    () => initialDraft?.envSecrets ?? [],
+  );
   const [packages, setPackages] = useState<AssetMeta[]>([]);
   const [tools, setTools] = useState<AssetMeta[]>([]);
   const [skills, setSkills] = useState<AssetMeta[]>([]);
@@ -161,6 +252,77 @@ export default function BusinessEditPage() {
     },
     [reportError],
   );
+
+  // ---- 创建草稿（仅创建模式）：任意表单状态变化 → 防抖 500ms 写 localStorage ----
+  // 非 Form 状态的最新快照（防抖回调触发时读取，避免闭包拿旧值）
+  const draftStateRef = useRef({
+    matches,
+    checkedExits,
+    exitConfigTexts,
+    envVars,
+    envSecrets,
+  });
+  draftStateRef.current = {
+    matches,
+    checkedExits,
+    exitConfigTexts,
+    envVars,
+    envSecrets,
+  };
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** 调度一次草稿写入（500ms 防抖；编辑模式直接忽略） */
+  const scheduleDraftWrite = useCallback(() => {
+    if (isEdit) return;
+    if (draftTimerRef.current !== null) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      draftTimerRef.current = null;
+      const snapshot: CreateDraft = {
+        form: form.getFieldsValue(),
+        ...draftStateRef.current,
+      };
+      try {
+        localStorage.setItem(CREATE_DRAFT_KEY, JSON.stringify(snapshot));
+      } catch {
+        // 存储不可用/超限：草稿是锦上添花，静默放弃
+      }
+    }, 500);
+  }, [isEdit, form]);
+
+  // 卸载时清掉未落盘的防抖计时器（避免向已卸载页面的 localStorage 迟到写入）
+  useEffect(
+    () => () => {
+      if (draftTimerRef.current !== null) clearTimeout(draftTimerRef.current);
+    },
+    [],
+  );
+
+  // 草稿恢复：Form 字段需在挂载后回填；恢复包绑定后同步拉入口程序下拉
+  useEffect(() => {
+    if (isEdit || initialDraft === undefined) return;
+    if (initialDraft.form !== undefined) {
+      form.setFieldsValue(initialDraft.form);
+      if (initialDraft.form.package_asset_id !== undefined) {
+        void loadEntryPrograms(initialDraft.form.package_asset_id);
+      }
+    }
+  }, [isEdit, initialDraft, form, loadEntryPrograms]);
+
+  /** 清除草稿：删 localStorage + 表单与全部独立状态回到初始空态 */
+  const clearDraft = useCallback(() => {
+    if (draftTimerRef.current !== null) {
+      clearTimeout(draftTimerRef.current);
+      draftTimerRef.current = null;
+    }
+    localStorage.removeItem(CREATE_DRAFT_KEY);
+    setDraftRestored(false);
+    form.resetFields();
+    setMatches([EMPTY_MATCH_ROW]);
+    setCheckedExits({});
+    setExitConfigTexts({});
+    setEnvVars([]);
+    setEnvSecrets([]);
+  }, [form]);
 
   // 初始加载：出口工具菜单 + 三类资产下拉数据源 + 可选模型/内核（models.json 驱动）
   useEffect(() => {
@@ -262,6 +424,7 @@ export default function BusinessEditPage() {
       ...prev,
       [kind]: withExitConfigValue(prev[kind] ?? "", fieldKey, value),
     }));
+    scheduleDraftWrite();
   };
 
   /** 出口绑定构建：checked 工具的配置 JSON 文本 → ExitBinding.config。
@@ -304,7 +467,7 @@ export default function BusinessEditPage() {
     } catch {
       return; // 表单内已报错
     }
-    // 匹配行校验：全部行 JSON 合法；首行 source/event_type 非空
+    // 匹配行校验：全部行 JSON 合法（event_type 可留空 = 通配该来源全部事件）
     const matchBodies = matches.map(toMatchBody);
     if (matchBodies.some((b) => b === null)) {
       message.error("匹配行的入口配置不是合法 JSON object，请修正后再提交");
@@ -312,11 +475,6 @@ export default function BusinessEditPage() {
     }
     // 上面已拦截 null（非法 JSON），此处收窄
     const validMatchBodies = matchBodies as MatchBody[];
-    const first = matches[0];
-    if (first.event_type.trim() === "") {
-      message.error("首个匹配行的事件类型不能为空");
-      return;
-    }
     const { bindings, problems } = buildExitBindings();
     if (problems.length > 0) {
       message.error(problems[0]);
@@ -328,6 +486,8 @@ export default function BusinessEditPage() {
       if (!isEdit) {
         // 创建：POST → 拿 business_id → 追加匹配行 → 跳编辑页
         const [firstBody, ...restBodies] = validMatchBodies;
+        // 随建环境配置：两组皆空不携带 env（key 空白的行已丢弃）
+        const env = buildEnvBody(envVars, envSecrets);
         const body: CreateBusinessBody = {
           business_name: values.business_name,
           source: firstBody.source,
@@ -350,6 +510,7 @@ export default function BusinessEditPage() {
             ? { max_agent_calls: values.max_agent_calls }
             : {}),
           exit_bindings: bindings,
+          ...(env !== undefined ? { env } : {}),
         };
         const created = await apiFetch<{ business_id: string }>(
           "/api/businesses",
@@ -364,6 +525,8 @@ export default function BusinessEditPage() {
             },
           );
         }
+        // 提交成功 → 清除草稿
+        localStorage.removeItem(CREATE_DRAFT_KEY);
         message.success("业务已创建");
         navigate(`/businesses/${created.business_id}`, { replace: true });
         return;
@@ -412,7 +575,18 @@ export default function BusinessEditPage() {
       message.success("已保存");
       navigate("/businesses");
     } catch (err) {
-      reportError(err, "保存失败");
+      // 创建态占位校验 fail-fast（T24）：提示末尾引导到下方随建环境配置区补键重提
+      if (
+        !isEdit &&
+        err instanceof ApiError &&
+        err.message.includes("不存在的环境配置键")
+      ) {
+        message.error(
+          `${err.message}；可在下方「环境配置」区补充缺失的键后重新提交`,
+        );
+      } else {
+        reportError(err, "保存失败");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -421,6 +595,19 @@ export default function BusinessEditPage() {
   return (
     <div style={{ maxWidth: 860 }}>
       <h2>{isEdit ? "编辑业务" : "创建业务"}</h2>
+      {!isEdit && draftRestored && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="已恢复上次未完成的草稿"
+          action={
+            <Button size="small" onClick={clearDraft}>
+              清除草稿
+            </Button>
+          }
+        />
+      )}
       <Form
         form={form}
         layout="vertical"
@@ -428,6 +615,7 @@ export default function BusinessEditPage() {
         initialValues={{
           on_failure: false,
         }}
+        onValuesChange={scheduleDraftWrite}
       >
         <Card
           title={
@@ -617,7 +805,10 @@ export default function BusinessEditPage() {
         >
           <MatchEditor
             value={matches}
-            onChange={setMatches}
+            onChange={(rows) => {
+              setMatches(rows);
+              scheduleDraftWrite();
+            }}
             entryAdapters={entryAdapters}
             businesses={businesses}
           />
@@ -641,12 +832,13 @@ export default function BusinessEditPage() {
                 <Checkbox
                   checked={checked}
                   disabled={!tool.implemented}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     setCheckedExits((prev) => ({
                       ...prev,
                       [tool.kind]: e.target.checked,
-                    }))
-                  }
+                    }));
+                    scheduleDraftWrite();
+                  }}
                 >
                   {tool.name}（{tool.kind}）
                   {!tool.implemented && (
@@ -734,12 +926,13 @@ export default function BusinessEditPage() {
                               placeholder={exitConfigTemplate(tool)}
                               value={configText}
                               status={parsedConfig.ok ? "" : "error"}
-                              onChange={(e) =>
+                              onChange={(e) => {
                                 setExitConfigTexts((prev) => ({
                                   ...prev,
                                   [tool.kind]: e.target.value,
-                                }))
-                              }
+                                }));
+                                scheduleDraftWrite();
+                              }}
                             />
                           ),
                         },
@@ -808,6 +1001,33 @@ export default function BusinessEditPage() {
             <InputNumber aria-label="配额覆盖" min={1} placeholder="全局默认" />
           </Form.Item>
         </Card>
+
+        {/* 随建环境配置（仅创建模式）：两组皆空时提交不携带 env；编辑模式走下方 EnvEditor 独立保存 */}
+        {!isEdit && (
+          <Collapse
+            style={{ marginBottom: 16 }}
+            items={[
+              {
+                key: "env",
+                label: "环境配置（可选，随业务一并创建）",
+                children: (
+                  <CreateEnvEditor
+                    vars={envVars}
+                    secrets={envSecrets}
+                    onVarsChange={(rows) => {
+                      setEnvVars(rows);
+                      scheduleDraftWrite();
+                    }}
+                    onSecretsChange={(rows) => {
+                      setEnvSecrets(rows);
+                      scheduleDraftWrite();
+                    }}
+                  />
+                ),
+              },
+            ]}
+          />
+        )}
 
         <Button
           type="primary"

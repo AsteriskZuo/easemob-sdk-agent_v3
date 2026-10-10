@@ -21,6 +21,7 @@ export const EVENT_SOURCES: EventSource[] = [
 /** 匹配行编辑状态：entry_config 以 JSON 文本承载（提交时解析，空 = 不传） */
 export interface MatchRow {
   source: EventSource;
+  /** 留空（""）= 通配：接收该来源全部事件；填写 = 精确过滤 */
   event_type: string;
   /** entry_config 的 JSON 文本；空串 = 不传 */
   entry_config_text: string;
@@ -176,7 +177,7 @@ export default function MatchEditor({
       <div style={{ marginBottom: 8, color: "#666" }}>
         关注上游业务产出 = source 选
         internal，再选上游业务与结果类型自动生成事件类型
-        <Tooltip title="匹配行决定什么事件触发本业务。source 是入口来源（manual=手动、internal=平台内派生）；event_type 与事件精确匹配。配错会导致业务不触发或误触发。">
+        <Tooltip title="匹配行决定什么事件触发本业务。source 是入口来源（manual=手动、internal=平台内派生）；event_type 留空 = 接收该来源全部事件，填写 = 精确匹配。配错会导致业务不触发或误触发。">
           <QuestionCircleOutlined style={{ marginLeft: 6, color: "#999" }} />
         </Tooltip>
       </div>
@@ -208,7 +209,7 @@ export default function MatchEditor({
               <Input
                 aria-label={`匹配行 ${index + 1} 事件类型`}
                 style={{ flex: 1 }}
-                placeholder="事件类型，如 review.request"
+                placeholder="留空 = 接收该来源全部事件；填写 = 精确过滤"
                 value={row.event_type}
                 onChange={(e) =>
                   updateRow(index, { event_type: e.target.value })

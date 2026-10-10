@@ -148,6 +148,12 @@ async function fillRequiredFields(
   await user.type(screen.getByLabelText("匹配行 1 事件类型"), "review.request");
 }
 
+// T25 起创建页会写 localStorage 草稿：套件内用例共享 jsdom localStorage，
+// 逐用例清空防止「上一个用例的草稿恢复进下一个用例的表单」
+beforeEach(() => {
+  localStorage.clear();
+});
+
 describe("入口区：适配器 eventDoc 与 entry_config schema 表单", () => {
   it("source 选 webhook → 渲染 eventDoc + 按 configSchema 生成表单项；表单值进 entry_config", async () => {
     const calls = installPageMocks();

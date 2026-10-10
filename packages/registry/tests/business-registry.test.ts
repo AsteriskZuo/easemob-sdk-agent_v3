@@ -104,6 +104,92 @@ describe("match 订阅匹配", () => {
   });
 });
 
+describe("match 通配（event_type 空串 = 该 source 全部事件）", () => {
+  it("通配行命中任意 event_type；其他 source 不命中", () => {
+    const { registry, close } = newRegistry();
+    const id = registry.create({
+      business_name: "全量接收",
+      creator_id: "user-1",
+      source: "webhook",
+      event_type: "",
+    });
+    for (const eventType of ["hook.a", "hook.b", "anything"]) {
+      const hits = registry.match("webhook", eventType);
+      expect(hits).toHaveLength(1);
+      expect(hits[0].business_id).toBe(id);
+      expect(hits[0].event_type).toBe("");
+    }
+    expect(registry.match("jira", "hook.a")).toEqual([]);
+    close();
+  });
+
+  it("精确行不误命中其他 event_type；通配行不影响其他 source", () => {
+    const { registry, close } = newRegistry();
+    registry.create({
+      business_name: "精确行",
+      creator_id: "user-1",
+      source: "webhook",
+      event_type: "alert",
+    });
+    registry.create({
+      business_name: "jira 通配",
+      creator_id: "user-1",
+      source: "jira",
+      event_type: "",
+    });
+    expect(registry.match("webhook", "alert")).toHaveLength(1);
+    expect(registry.match("webhook", "other")).toEqual([]);
+    expect(registry.match("jira", "issue.updated")).toHaveLength(1);
+    close();
+  });
+
+  it("通配 + 精确共存：精确事件两者都返回，其他事件只命中通配", () => {
+    const { registry, close } = newRegistry();
+    const idWildcard = registry.create({
+      business_name: "通配业务",
+      creator_id: "user-1",
+      source: "webhook",
+      event_type: "",
+    });
+    const idExact = registry.create({
+      business_name: "精确业务",
+      creator_id: "user-2",
+      source: "webhook",
+      event_type: "alert",
+    });
+
+    const both = registry.match("webhook", "alert");
+    expect(both.map((h) => h.business_id).sort()).toEqual(
+      [idWildcard, idExact].sort(),
+    );
+    const onlyWildcard = registry.match("webhook", "other");
+    expect(onlyWildcard).toHaveLength(1);
+    expect(onlyWildcard[0].business_id).toBe(idWildcard);
+    close();
+  });
+
+  it("通配行持久化：close 重开后 match 通配语义一致", () => {
+    const dbPath = join(tmpDir, "wildcard.db");
+    const db1 = openDatabase(dbPath);
+    const r1 = createBusinessRegistry(db1);
+    const id = r1.create({
+      business_name: "持久通配",
+      creator_id: "user-1",
+      source: "jira",
+      event_type: "",
+    });
+    db1.close();
+
+    const db2 = openDatabase(dbPath);
+    const r2 = createBusinessRegistry(db2);
+    expect(r2.get(id)[0].event_type).toBe("");
+    const hits = r2.match("jira", "issue.created");
+    expect(hits).toHaveLength(1);
+    expect(hits[0].business_id).toBe(id);
+    db2.close();
+  });
+});
+
 describe("exit_bindings", () => {
   it("create 时写入 → exitBindings 读回一致", () => {
     const { registry, close } = newRegistry();

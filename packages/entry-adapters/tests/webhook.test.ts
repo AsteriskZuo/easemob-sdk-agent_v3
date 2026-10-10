@@ -99,6 +99,16 @@ describe("webhook 入口适配器", () => {
     expect(event?.timestamp.endsWith("Z")).toBe(true);
   });
 
+  it("行 event_type 空串（通配行）→ 信封 event_type 落默认标签 webhook.event", async () => {
+    addWebhookRow("", { path: "wild", session_id_key: "id" });
+
+    const res = await post("/hooks/wild", JSON.stringify({ id: "S-9" }));
+
+    expect(res.status).toBe(200);
+    expect(fakeQueue.tasks).toHaveLength(1);
+    expect(fakeQueue.tasks[0]?.event.event_type).toBe("webhook.event");
+  });
+
   it("event_id 重推幂等：同 event_id 两次投递均 200，队列只进一条", async () => {
     addWebhookRow("github.events", {
       path: "gh",

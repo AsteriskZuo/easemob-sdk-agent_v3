@@ -46,17 +46,26 @@ export interface ChangePasswordBody {
   new_password: string;
 }
 
-/** POST /api/businesses 请求体。API 层只强校验 business_name/source/event_type；
- *  「包绑定/总纲必填」是 console UI 的表单职责，不在 API 强制 */
+/** POST /api/businesses 请求体。API 层只强校验 business_name 非空、source 合法
+ *  （event_type 可选）；「包绑定/总纲必填」是 console UI 的表单职责，不在 API 强制 */
 export interface CreateBusinessBody {
   /** 展示名（可改，不参与匹配） */
   business_name: string;
   /** 首个匹配行来源 */
   source: EventSource;
-  /** 首个匹配行事件类型 */
-  event_type: string;
+  /** 首个匹配行事件类型；可选，缺省/空串 = 通配（接收该来源全部事件），填写 = 精确过滤 */
+  event_type?: string;
   /** 首个匹配行的入口配置（平台不解析、原样存储透传） */
   entry_config?: Record<string, unknown>;
+  /** 随业务一并创建的环境配置（可选）：业务 id 生成后逐条写入该业务两桶，
+   *  先于占位 key 存在性校验（刚写入的键对校验可见）；任一步失败整体回滚（含本次写入的键）。
+   *  解决「业务级 secrets 需要 business_id、而 id 要创建成功才有」的创建死锁 */
+  env?: {
+    /** 普通桶（明文回显）；键非空、值字符串 */
+    vars?: Record<string, string>;
+    /** 安全桶（只写不读明文）；键非空、值字符串 */
+    secrets?: Record<string, string>;
+  };
   /** 失败也扇出开关，缺省 false */
   on_failure?: boolean;
   /** 提示词总纲，缺省 '' */
@@ -113,8 +122,8 @@ export interface PatchBusinessBody {
 export interface MatchBody {
   /** 匹配行来源 */
   source: EventSource;
-  /** 匹配行事件类型 */
-  event_type: string;
+  /** 匹配行事件类型；可选，缺省/空串 = 通配（接收该来源全部事件） */
+  event_type?: string;
   /** 入口配置（平台不解析、原样存储透传） */
   entry_config?: Record<string, unknown>;
 }
@@ -123,8 +132,8 @@ export interface MatchBody {
 export interface RemoveMatchBody {
   /** 匹配行来源 */
   source: EventSource;
-  /** 匹配行事件类型 */
-  event_type: string;
+  /** 匹配行事件类型；可选，缺省/空串 = 删除该 source 的通配行 */
+  event_type?: string;
 }
 
 /** POST /api/assets 请求体（仅 member；owner_id = 操作者本人）。

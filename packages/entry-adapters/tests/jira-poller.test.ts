@@ -39,6 +39,7 @@ const VALID_CONFIG: Record<string, unknown> = {
 
 function makePoller(overrides?: {
   businessId?: string;
+  eventType?: string;
   entryConfig?: Record<string, unknown>;
   client?: JiraSearchClient;
   clientFactory?: (config: JiraClientConfig) => JiraSearchClient;
@@ -55,7 +56,7 @@ function makePoller(overrides?: {
   };
   return createJiraPoller({
     business_id: businessId,
-    event_type: "jira.issue.updated",
+    event_type: overrides?.eventType ?? "jira.issue.updated",
     entry_config: overrides?.entryConfig ?? VALID_CONFIG,
     deps: { queue: fakeQueue.queue, env: fakeEnv.env },
     clientFactory: overrides?.clientFactory ?? (() => client),
@@ -105,6 +106,35 @@ describe("jira-poller", () => {
       reporter: null,
       updated: "2026-10-08T10:00:00.000+0800",
     });
+  });
+
+  it("行 event_type 空串（通配行）→ 信封 event_type 落默认标签 jira.issue.updated", async () => {
+    const client: JiraSearchClient = {
+      searchIssues: () =>
+        Promise.resolve({
+          status: "success",
+          data: [
+            {
+              key: "PRJ-9",
+              summary: "s",
+              status: "Open",
+              priority: "Major",
+              issue_type: "Bug",
+              assignee: null,
+              reporter: null,
+              updated: "t1",
+            },
+          ],
+        }),
+    };
+    const poller = makePoller({ eventType: "", client });
+
+    // poller 键逻辑不动：空串键合法（"b1::"）
+    expect(poller.key).toBe("b1::");
+
+    await poller.run();
+    expect(fakeQueue.tasks).toHaveLength(1);
+    expect(fakeQueue.tasks[0]?.event.event_type).toBe("jira.issue.updated");
   });
 
   it("同 updated 重推被队列幂等丢弃；updated 变化 = 新事件", async () => {

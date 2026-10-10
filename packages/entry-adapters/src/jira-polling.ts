@@ -89,7 +89,7 @@ export const JIRA_POLLING_ADAPTER_SPEC: EntryAdapterSpec = {
 
 ## 事件类型
 
-Jira 原生事件类型有 \`jira:issue_created\` / \`jira:issue_updated\` / \`jira:issue_deleted\` / \`comment_created\` 等；本适配器是轮询形态，**不区分原生事件类型**，统一产出为 match 行配置的 \`event_type\`（建议 \`jira.issue.updated\`）。
+Jira 原生事件类型有 \`jira:issue_created\` / \`jira:issue_updated\` / \`jira:issue_deleted\` / \`comment_created\` 等；本适配器是轮询形态，**不区分原生事件类型**，统一产出为 match 行配置的 \`event_type\`（建议 \`jira.issue.updated\`）。match 行 \`event_type\` 留空 = 不过滤（接收该来源全部事件），产出事件落默认标签 \`jira.issue.updated\`。
 
 ## 产出信封
 
