@@ -11,7 +11,7 @@
 1. **配置解析**：环境变量 > `{workspace}/config.json` > 代码默认值（console-design §6「配置」类）；
 2. **启动自检**：fail-fast，任一前提不满足记 error 日志并停止启动（logging.md §5）；
 3. **EntryAdapter 接口**（装配层契约，供 T18 webhook 入口与将来各源入口实现）；
-4. **ExitDriver 实现**：`resolveExitConfig` 机密回填（循环契约 §9.3 的落地处）；
+4. **ExitDriver 实现**：投递前 `resolveConfigPlaceholders` 占位解析（T24 定稿，见 §5.4）；
 5. 优雅停机与未捕获异常兜底（运行期不崩溃）；
 6. **端到端集成验证**：以「直接落队」模拟入口（入口适配器的本质动作就是 `queue.enqueue`），走通 落队 → 入口循环 → Lifecycle 四步时序 → 派生扇出 → 出口循环 → 真实投递 全链路。
 
@@ -27,7 +27,7 @@
             │ 入口适配器群     │                     │ 出口工具群 ×7   │ ExitRegistry
             │ (EntryAdapter) │                     │ (ExitTool)    │
             └───────┬────────┘                     └──────▲────────┘
-                    │ enqueue                             │ bind(非机密config+机密回填).deliver
+                    │ enqueue                             │ bind(占位解析后config).deliver
             ┌───────▼─────────────────────────────────────┴────────┐
             │ 缓冲带：entry_tasks / exit_tasks（platform.db，SQLite） │ event_id 幂等 · recover 恢复
             └───────┬─────────────────────────────────────▲────────┘
@@ -36,7 +36,7 @@
         │ 入口事件循环            │ 派生事件      │ 出口事件循环           │
         │ match→通道→闸门→执行    ├──────────────►│ 归属匹配→通道→有界重试   │
         └───────────┬───────────┘              └──────────▲──────────┘
-                    │ EntryDriver=Lifecycle                │ ExitDriver（本任务：机密回填）
+                    │ EntryDriver=Lifecycle                │ ExitDriver（本任务：占位解析）
         ┌───────────▼──────────────────────────────────────┴─────────┐
         │ runtime 粘合层（T17）                                       │
         │  ContextLoader：profile + 资产物化 + env两桶 → RunContext     │
@@ -60,7 +60,7 @@ T12 交付的 server 启动后是**空跑态**：registry 无业务、两桶无�
 
 - **双循环**：入口循环消化业务执行（EntryDriver = T17 的 Lifecycle），出口循环消化结果投递（ExitDriver = 本任务实现）。业务产出派生事件无脑投两条队列，各循环自行过滤。
 - **入口职责链**（各入口适配器通用）：验签 → 包装信封（含 session_id）→ 落队，立即返回。落库才算收到；`event_id` 兼任入口幂等键（queue.enqueue 同 event_id 返回已有任务、不产生新行）。本任务只立接口，第一个真实入口适配器是 T18 的 webhook。
-- **出口机密回填**：绑定配置只存非机密项；`configSchema` 标注 `secret: true` 的项由控制台写入该业务 secrets 桶，投递前合并进 config 再 bind（core-modules §4.5）。
+- **出口占位解析**：绑定配置存全部字段原样（含 `{{key}}` 占位文本）；投递前 `resolveConfigPlaceholders` 统一解析占位后再 bind；destinationOf 消费未解析配置（T24 定稿，见 §5.4）。
 - **日志纪律**：error/warn/info 契约性必打；系统级日志是总纲（启动自检结果、关键事件）；入口侧流水用 module `'entry-loop'`，出口用 `'exit-loop'`，平台级用 `'system'`。
 - 工程约定同 T0 spec §4（`docs/specs/2026-09-28-t0-engineering-skeleton-spec.md`）：`app/*` 在 workspaces 范围内，包级脚本模板、ESM `.js` 后缀、jest 编译态等全部适用。
 
@@ -186,7 +186,7 @@ app/server/
 │   ├── self-check.ts       # 启动自检（fail-fast）
 │   ├── bootstrap.ts        # 装配根：创建全部模块实例并按依赖方向接线
 │   ├── entry-adapter.ts    # EntryAdapter / EntryDeps 接口（装配层契约）
-│   └── exit-driver.ts      # ExitDriver 实现（resolveExitConfig 机密回填）
+│   └── exit-driver.ts      # ExitDriver 实现（投递前 resolveConfigPlaceholders 占位解析）
 └── tests/
     ├── config.test.ts
     ├── self-check.test.ts
@@ -287,18 +287,18 @@ export interface EntryDeps {
 ### 5.4 ExitDriver（exit-driver.ts）
 
 ```ts
-/** 创建出口执行器：ExitRegistry 取用 + 机密回填 + bind/deliver */
+/** 创建出口执行器：ExitRegistry 取用 + 占位解析 + bind/deliver */
 export function createExitDriver(deps: {
   exits: ExitRegistry;
   env: EnvProvider;
 }): ExitDriver;  // @asteriskzuo/agent-scheduler 的类型，显式 import type 标注
 ```
 
-- `destinationOf(binding)` = `exits.get(binding.tool).destinationOf(binding.config)`——纯函数，binding.config 只有非机密项，恰好满足 destinationOf「只能来自非机密配置」的约束；
+- `destinationOf(binding)` = `exits.get(binding.tool).destinationOf(binding.config)`——纯函数，**消费未解析配置**（含 `{{` 占位的字段 → 目标标识为 `tpl_` + sha256(模板串) 前 12 位；secret 不进通道标识，模板相同即同目标）；
 - `deliver(binding, payload)`：
   1. `tool = exits.get(binding.tool)`；
-  2. 机密回填：`config = { ...binding.config }`；遍历 `tool.configSchema` 中 `secret: true` 的项，键规则 **`exit.{kind}.{field.key}`**（本规格唯一定义处；core-modules §4.5 只给了 `exit.{tool}.` 前缀方向，控制台 T13/T14 写 secrets 时必须用同一规则），取 `env.getFor(binding.business_id).secrets[回填键]`，有才合入；
-  3. `tool.bind(config).deliver(payload)`——required 机密缺失由 bind 校验抛错，出口循环按有界重试处置（配置类错误重试无用，耗尽死信，语义可接受）。
+  2. 占位解析：`config = resolveConfigPlaceholders(binding.config, env, binding.business_id)`——T24 统一机制：所有字段（含 secret 提示项）原样存 binding.config，值中的 `{{key}}` 投递前按 业务 secrets → 业务 vars → 全局 secrets → 全局 vars 顺序解析，缺失抛 PlaceholderError；
+  3. `tool.bind(config).deliver(payload)`——占位缺失/required 校验抛错均为配置类错误，出口循环按有界重试处置（配置类错误重试无用，耗尽死信，语义可接受）。
 
 ### 5.5 装配根（bootstrap.ts）
 
@@ -388,8 +388,8 @@ export function bootstrap(overrides?: {
 **exit-driver.test.ts**（假 ExitRegistry 记录 bind 收到的 config；真 EnvProvider 内存库）：
 
 - `destinationOf` 透传 tool.destinationOf(binding.config)；
-- 机密回填：configSchema 含 `secret:true` 的 `pass` 项 + secrets 桶有 `exit.mail.pass` → bind 收到合并后 config（非机密项原样 + 机密项回填）；secrets 无该键 → 不回填（bind 侧 required 抛错透出）；
-- `secret:false` 的项绝不回填（即使 secrets 有同名键）；
+- 占位解析：binding.config 的 `pass` 值为 `{{mail_pass}}` 且业务 secrets 桶有 `mail_pass` → bind 收到解析后 config；四桶均无该键 → PlaceholderError（message 只含键名不含值）；
+- destinationOf 不解析占位：含 `{{` 的字段 → `tpl_` + sha256 前 12 位身份；不含 → 原行为；
 - 未知 tool → `exits.get` 抛错透出。
 
 **integration.test.ts**（端到端，全真实装配）：
@@ -414,7 +414,7 @@ export function bootstrap(overrides?: {
 1. **EntryAdapter 接口落装配层、EntryDeps 形状调整**：设计文档的 `{ queue, idGen, clock, log }` 中 idGen/clock/log 已分别由 contracts 纯函数、`new Date().toISOString()`、logger 全局外观承担（T0–T17 的落地现实）；接口实际需要 queue / registry（入口配置）/ env（验签凭据）。接口定义在 app/server（装配层契约），不进 contracts 包——它是组装关系而非数据契约。
 2. **webhook 入口适配器后移 T18**（2026-10-04，owner 裁决）：webhook 监听外部业务推送，验签与会话标识规则需结合真实外部业务形态单独设计，不在装配任务里凭空定。本任务只立接口；entry_config schema / 验签 / 幂等头约定随 T18 定。
 3. **AibotConnector 不在本任务**（owner 裁决）：归企微入口任务（入口/出口共享同一 SDK 连接，T9 spec 决策 J）。连接器落地前 wecom-aibot 出口绑定 bind 必抛错 → 重试耗尽死信，已知缺口。
-4. **出口机密回填键规则定稿**：`exit.{kind}.{field.key}`（core-modules §4.5 只给了前缀方向）。本规格是唯一定义处，控制台写 secrets 与装配根回填共用此规则。
+4. **出口配置占位解析定稿**：`{{key}}` 统一机制，exitSecretKey 约定废弃（T24）——所有字段原样存 binding.config，投递前 resolveConfigPlaceholders 统一解析；destinationOf 不解析占位（含占位字段 → `tpl_` 哈希身份）。
 5. **pi_env 只组 PATH/HOME**：模型凭据由 `pi_agent_dir/models.json` 承载（平台管理文件），不进环境变量、不进日志；将来确有 env 形式凭据需求再扩配置项。
 6. **入口流量与管理 API 各自独立**（owner 裁决）：各入口适配器自管理监听资源（webhook 将来在 T18 自起 HTTP 服务、独立端口），管理 API（T13）另起独立 HTTP 服务与端口——架构清晰、各自演化，不共享实例。
 7. **config.json 兜底**：env > `{workspace}/config.json`（同名键、扁平 JSON）> 代码默认；`AGENT_WORKSPACE` 仅环境变量（config.json 栖身于 workspace）。

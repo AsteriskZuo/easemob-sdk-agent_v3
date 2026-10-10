@@ -185,8 +185,8 @@ v2 的 system.md（企微多轮交互语境）与 jira-ticket-review.md（用户
 | config | `jira_url` | `https://j1.private.easemob.com` | jira-fetch config + 通知消息工单链接派生 |
 | secrets | `jira_username` | jira 用户名 | 胶水取出放进 jira-fetch config |
 | secrets | `jira_password` | jira 密码 | 同上 |
-| 入口 match 行 | source=`jira`, event_type=`jira.issue.updated` | entry_config：`{ jira_url, username_key: "jira_username", password_key: "jira_password", project: "HIM", days_back: 7, interval_seconds: 60 }` | jira-polling 适配器（secrets 键名与上行一致） |
-| 出口 | wecom-webhook | webhook_url（secret 项，按平台 `exit.{kind}.{key}` 规则配置） | 群通知 |
+| 入口 match 行 | source=`jira`, event_type=`jira.issue.updated` | entry_config：`{ jira_url, username: "{{jira_username}}", password: "{{jira_password}}", project: "HIM", days_back: 7, interval_seconds: 60 }` | jira-polling 适配器（占位 key 与上行 secrets 键一致） |
+| 出口 | wecom-webhook | config 的 url：`https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={{wecom_key}}`（真值存安全桶） | 群通知 |
 | server 配置 | `AGENT_ENTRY_JIRA_POLLING_ENABLED` | `true`（默认 false，验证时开启） | 入口开关 |
 
 **sdk 依赖**：`package/package.json` 与 `tools/jira-fetch/package.json` 的 dependencies 均为 `"@asteriskzuo/agent-sdk": "^0.1.0"`（npm 正式版）；`package` 另加 `"pinyin-pro": "^3"`（对齐 v2 实际版本）。

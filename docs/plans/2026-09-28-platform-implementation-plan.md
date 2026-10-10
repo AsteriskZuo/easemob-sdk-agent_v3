@@ -67,6 +67,7 @@
 | T21 | 平台侧可落地批次 | 物化构建链路（npm ci + agent.materialize.mjs 必带）+ jira-polling/webhook 入口适配器（含开关）+ 信封 dataDir + 出口 null 跳过 + 出入口 schema 自描述 + 内部入口（上游业务）建模 + sdk 文档 + 控制台缓存清理 | T12 T16 T20 | [spec](../specs/2026-10-08-t21-platform-landability-spec.md)（吸收 T18） | T21a-d [x] |
 | T22 | 首个业务迁移验证 | business/jira-ticket-review 独立仓库：包/工具/skill 三资产 + codex→pi + 真机验证（polling 入口 + 企微出口） | T21 | [spec](../specs/2026-10-09-t22-jira-ticket-review-migration-spec.md) | [x]（实现完成，真机验证待用户手动执行） |
 | T23 | jira 客户端抽取为可发布基础包 | `packages/jira-client`（`@asteriskzuo/agent-jira-client`，发布 npm，零依赖）；exit-tools/entry-adapters 删内嵌客户端改依赖共享包；业务 jira-fetch 重构待用户发布后跟进 | T21 | [spec](../specs/2026-10-09-t23-jira-client-extraction-spec.md) | [x] |
+| T24 | 入口/出口配置统一占位符机制 | runtime 占位解析层（resolveConfigPlaceholders + EnvProvider.lookup 四级顺序）+ jira/webhook 入口字段重构（username/password/token 可占位，补 redirect 凭据）+ 出口 exitSecretKey 约定废弃（destinationOf 吃未解析配置）+ console-api 保存校验占位 key + console 表单/JSON Tabs 双视图 | T23 | [spec](../specs/2026-10-10-t24-config-placeholder-spec.md) | [x] |
 
 ## 4. 执行批次（并发 ≤2）
 

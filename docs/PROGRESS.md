@@ -9,3 +9,4 @@
 - [ ] MVP M1：事件信封契约 v1 + 注册表 + 双调度循环 + SQLite 队列 ×2
 - [ ] MVP M2：生命周期运行时（WorkflowRunner + AgentService + 业务 SDK）+ 通道 + 并发闸门
 - [ ] MVP M3：代码 Review + 企微出口工具，端到端跑通；单轮审查工单全链验收
+- [x] T24：入口/出口配置统一占位符（{{key}}）机制——runtime 解析层 + EnvProvider.lookup 四级顺序、jira/webhook 入口字段重构、出口 exitSecretKey 约定废弃、console-api 保存校验、console Tabs 双视图（2026-10-10）

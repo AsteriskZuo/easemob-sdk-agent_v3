@@ -202,7 +202,7 @@ models.json 结构（pi 原生格式，模板见 `templates/models.json.example`
 
 出口表单按 `configSchema` 渲染时，对 `secret: true` 的项：
 
-- 标注其安全桶键名 `exit.{kind}.{field.key}`（键规则的全平台唯一定义处在 server 侧 exit-driver，console 按同一规则拼接展示）；
+- 提示「建议填 `{{key}}` 占位，真值存安全桶」——secret:true 已降级为纯 UI 提示（T24），字段值原样进 binding.config，投递前平台统一解析占位；
 - 显示「已配置 / 未配置」状态：数据源 = 该业务 `GET /api/env/businesses/:id` 响应的 `secret_keys`（创建模式业务未存在 = 全部「未配置」，文案提示「保存业务后到环境配置里写该键」）。
 
 ### 3.4 叹号文案重写

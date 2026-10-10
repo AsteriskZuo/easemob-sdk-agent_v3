@@ -445,7 +445,7 @@ export interface BusinessRegistry {
 | 方法 路径 | 角色 | 说明 |
 |-----------|------|------|
 | GET `/api/config` | 登录可读 | 生效中的平台配置（ServerConfig 去敏感后回显：workspace/log_level/log_enabled/hop_limit/task_concurrency/result_concurrency/task_timeout_minutes/max_agent_calls；**不含** pi_env；pi_cli_path/pi_agent_dir 原样——非机密）。只读；改配置 = 改 env/config.json 重启（DTO 注释写明） |
-| GET `/api/exit-tools` | 登录可读 | 出口工具菜单：`Array<{ kind, name, implemented, configSchema: ConfigField[] }>`（`createExitRegistry().list()` 原样映射；secret 字段声明照传，console 据此把 secret 项写安全桶、非 secret 项进 ExitBinding.config） |
+| GET `/api/exit-tools` | 登录可读 | 出口工具菜单：`Array<{ kind, name, implemented, configSchema: ConfigField[] }>`（`createExitRegistry().list()` 原样映射；secret 字段声明照传但仅作 UI 提示——所有字段原样进 ExitBinding.config，敏感值用 `{{key}}` 占位，见 T24） |
 
 ### 5.9 路由：监控（routes-monitoring.ts，全部只读）
 

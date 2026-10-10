@@ -53,7 +53,7 @@ v2 单轮审查工单迁移验证暴露出平台「业务可落地」链路的�
 
 **结果扇出（已存在，不改语义）**：业务执行完结 → `deriveEvent` 派生 internal 事件（`event_type = {business_id}.completed|failed`，payload = output 原样）→ 同投入口队列（下游业务）与出口队列（出口投递）。
 
-**ExitTool 接口**（`packages/exit-tools/src/types.ts`）：`{ kind, name, implemented, configSchema: ConfigField[], destinationOf(config), bind(config) → Exit }`；`ConfigField = { key, label, required?, secret?, placeholder? }`（secret 项不落库，投递前从业务 secrets 桶按 `exit.{kind}.{field.key}` 回填）。
+**ExitTool 接口**（`packages/exit-tools/src/types.ts`）：`{ kind, name, implemented, configSchema: ConfigField[], destinationOf(config), bind(config) → Exit }`；`ConfigField = { key, label, required?, secret?, placeholder? }`（secret 仅 UI 提示；所有字段原样落 binding.config，投递前平台统一解析值中的 `{{key}}` 占位；destinationOf 消费未解析配置）。
 
 ## 4. 物化构建链路（T21a，asset-registry）
 
@@ -167,9 +167,9 @@ export interface EntryAdapterFactory {
   | `path`           | 是   | URL 路径段（如 `jira-listener`）；合法字符 `[a-z0-9-]`                                     |
   | `session_id_key` | 是   | payload 中取 session_id 的字段路径（点分，如 `issue.key`）；取不到/非非空字符串 → 400     |
   | `event_id_key`   | 否   | payload 中取 event_id 的字段路径；缺省平台生成（此时幂等由推送方自负）                     |
-  | `token_key`      | 否   | 验签 token 的 secrets 键名；设置后请求须带 header `x-webhook-token` 等值，不符 → 401       |
+  | `token`          | 否   | 验签 token（可 `{{key}}` 占位）；设置后请求须带 header `x-webhook-token` 等值，不符 → 401   |
 
-- **处理链**：path 路由（§7.2 多端点模型）→ 验签（token_key 配置时，从该业务 secrets 桶取值比对）→ body 必须 JSON object → 提取 session_id/event_id → 包装信封（source='webhook'，event_type = match 行的 event_type，payload = body 原样，hop_count=0，correlation_id = event_id）→ 落队。
+- **处理链**：path 路由（§7.2 多端点模型）→ 占位解析（resolveConfigPlaceholders，解析失败 500）→ 验签（token 配置时，解析后的值比对）→ body 必须 JSON object → 提取 session_id/event_id → 包装信封（source='webhook'，event_type = match 行的 event_type，payload = body 原样，hop_count=0，correlation_id = event_id）→ 落队。
 - **响应**：落队成功 `200 { event_id }`；未知 path `404`；验签失败 `401`；body/字段非法 `400`（message 列出原因）。event_id 重复 → 队列幂等丢弃，仍回 200（携带原 event_id）。
 - **eventDoc**：说明上述契约 + payload 形状由推送方自定义的约定 + curl 示例。
 
@@ -180,9 +180,11 @@ export interface EntryAdapterFactory {
 
   | 键                | 必填 | 说明                                                                     |
   | ----------------- | ---- | ------------------------------------------------------------------------ |
-  | `jira_url`        | 是   | jira 站点根地址                                                          |
-  | `username_key`    | 是   | jira 用户名的 secrets 键名（凭据存业务 secrets 桶，此处只存键名引用）     |
-  | `password_key`    | 是   | jira 密码的 secrets 键名                                                 |
+  | `jira_url`        | 是   | jira 站点根地址（可 `{{key}}` 占位）                                     |
+  | `username`        | 是   | 登录账号（可占位，建议 `{{jira_username}}`）                             |
+  | `password`        | 是   | 登录密码（可占位，建议 `{{jira_password}}`）                             |
+  | `redirect_username` | 否 | 网关 Basic 账号（可占位）                                                |
+  | `redirect_password` | 否 | 网关 Basic 密码（可占位）                                                |
   | `project`         | 是   | 项目 key（JQL `project = "X"`）                                          |
   | `assignees`       | 否   | 负责人过滤，逗号分隔；缺省或 `*` = 不过滤                                |
   | `days_back`       | 否   | JQL `updated >= -Nd`，默认 7                                             |
@@ -256,7 +258,7 @@ npm 发布后的开发者主文档，目标：人或其他 AI 只读此文档即
 
 **T21b**
 
-- webhook：200 落队（信封字段逐项断言）/401/400/404；event_id 重推幂等；session_id_key 点分提取；token_key 验签（secrets 桶取值）；registry 变更即时生效（加行业务新 path 立即可投）
+- webhook：200 落队（信封字段逐项断言）/401/400/404；event_id 重推幂等；session_id_key 点分提取；token 验签（占位解析后比对）；registry 变更即时生效（加行业务新 path 立即可投）
 - jira-polling：事件产出形状（event_id/session_id/payload 轻量字段）；轮询器随 match 行增删；防重入；jira 客户端用本地 mock HTTP（表单登录 → search 两段）
 - 开关：关闭的适配器不启动、配置缺失不报错；开启的缺配置拒启动
 

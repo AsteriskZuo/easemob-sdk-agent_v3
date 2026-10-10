@@ -40,19 +40,13 @@ HTTP 约定：JSON in/out；cookie `agent_console_token`（HttpOnly，登录时 
 关键类型语义（详注见 T13 spec §2）：
 - `BusinessProfile`：业务资料完整读面（prompt/model/agent_kind/package_asset_id/entry_program/tool_asset_ids/skill_asset_ids/timeout_minutes/max_agent_calls/on_failure）；
 - `BusinessDetail = { profile, matches: BusinessMatch[], exit_bindings: ExitBinding[] }`；
-- `ExitBinding.config` 只存非机密项；机密项（ConfigField.secret=true）存业务层安全桶；
+- `ExitBinding.config` 存全部字段原样（含 `{{key}}` 占位文本）；ConfigField.secret=true 仅为 UI 提示（T24）；
 - `ExitToolMenuItem.configSchema: ConfigField[]`（`{key, label, required?, secret?, placeholder?}`）——console 据此渲染出口配置表单；
 - `AssetManifest` 判别联合：package（含 `programs: Record<string,string>` + `requires`）/ tool（`programs`）/ skill（`skills: string[]`）。
 
-### 2.3 出口机密配置键规则（与 T12 exit-driver 对齐，硬约束）
+### 2.3 出口配置占位约定（T24 定稿）
 
-出口绑定的 secret 配置项写入业务层安全桶时，键名**必须**为：
-
-```
-exit.{kind}.{field.key}
-```
-
-例：企微群 webhook 的 `token` 项 → 安全桶键 `exit.wecom-webhook.token`。这是 T12 ExitDriver 机密回填的既有约定，console 是唯一生产入口，写错键 = 运行时投递必败。回填方向：console 编辑已有出口绑定时，secret 项从安全桶键名列表回显「已配置」（掩码），重新填写才覆盖。
+出口绑定的所有字段原样进 `ExitBinding.config`；敏感值用 `{{key}}` 占位（key 名业务自定，指向环境配置两桶的键），投递前平台统一解析。`ConfigField.secret=true` 降级为纯 UI 提示（表单提示「建议填 `{{key}}` 占位，真值存安全桶」）；console 不再把 secret 项拆写安全桶。保存时 console-api 校验占位 key 存在性（fail fast），缺失拒绝落库。
 
 ### 2.4 工程约定（T0 骨架）
 
@@ -102,7 +96,7 @@ app/console/
     ├── api-client.test.ts
     ├── auth-guard.test.tsx
     ├── login-page.test.tsx
-    ├── business-form.test.tsx    # 核心：表单 → API body 映射 + secret 分流
+    ├── business-form.test.tsx    # 核心：表单 → API body 映射 + 出口绑定双视图
     ├── assets-page.test.tsx
     └── pages-smoke.test.tsx      # dashboard/settings/users 渲染冒烟
 ```
@@ -163,14 +157,14 @@ app/console/
 | 超时/配额覆盖 | InputNumber 可清空（空 = 用全局默认） | `timeout_minutes` / `max_agent_calls`（清除 = null） |
 | 业务 key-value | `EnvEditor`（scope=business） | `PUT/DELETE /api/env/businesses/:id` |
 
-**出口配置分流（本页最要害的逻辑，§2.3 的落地）**：某工具 `kind` 的表单提交时——
-1. `secret=true` 的项：`PUT /api/env/businesses/:id`，key = `exit.{kind}.{field.key}`，value = 表单值；**不进 ExitBinding.config**；
-2. `secret!=true` 的项：进该 `ExitBinding.config`；
-3. 编辑态回填：ExitBinding.config 原样回填非机密项；secret 项按安全桶键名列表显示「已配置」占位（值不回显），留空 = 不改动，填新值 = 覆盖。
+**出口配置（T24 后形态，§2.3 的落地）**：某工具 `kind` 的表单提交时——
+1. 所有字段原样进该 `ExitBinding.config`（含 `{{key}}` 占位文本）；表单/JSON Tabs 双视图编辑同一份 config；
+2. `secret=true` 的项仅 UI 提示「建议填 `{{key}}` 占位，真值存安全桶」，不再拆写安全桶；
+3. 编辑态回填：ExitBinding.config 原样回填（占位文本原样回显）。
 
 **提交流程**：
-- 创建：表单校验（business_name 非空、首个匹配行 source/event_type 非空）→ `POST /api/businesses` → 拿 business_id → 依次写出口 secret 项 / 业务 env 变更 → 跳编辑页；
-- 编辑：进入时 `GET /api/businesses/:id` + `GET /api/env/businesses/:id` 回填；保存 = `PATCH`（资料字段）+ 匹配行增删 diff + env diff + 出口 secret 覆盖；
+- 创建：表单校验（business_name 非空、首个匹配行 source/event_type 非空）→ `POST /api/businesses` → 拿 business_id → 业务 env 变更 → 跳编辑页；
+- 编辑：进入时 `GET /api/businesses/:id` + `GET /api/env/businesses/:id` 回填；保存 = `PATCH`（资料字段，含出口绑定）+ 匹配行增删 diff + env diff；
 - env/secret 的「diff」v1 从简：**编辑页的环境配置区独立保存按钮**（EnvEditor 自管理 PUT/DELETE，不并入主表单提交），主保存按钮只管 registry 侧字段——避免一次提交混合多资源的部分失败语义。
 
 ### 5.4 页面：资产管理
@@ -221,7 +215,7 @@ jsdom + @testing-library；API 一律 mock（`apiFetch` 层注入或 globalThis.
 - **api-client.test.ts**：成功 JSON 解析；错误体 → ApiError（code/status 保留）；非错误体 500 → internal；401 触发注入回调；DELETE 带 body 序列化。
 - **auth-guard.test.tsx**：me 200 → 渲染子路由；me 401 → 跳 /login；loading 中显示加载态（不闪现登录页）。
 - **login-page.test.tsx**：提交调用 login 且成功跳转；失败展示统一错误文案；已登录重定向。
-- **business-form.test.tsx**（核心）：① 创建提交映射——表单值 → `CreateBusinessBody`（首个匹配行/agent/model/资产绑定/超时覆盖）；② **出口 secret 分流**——secret 项进 env PUT（key=`exit.{kind}.{field.key}`）且不出现在 ExitBinding.config，非 secret 项反之；③ 编辑回填——BusinessDetail + env 键名 → 表单初值（secret 显示「已配置」占位）；④ entry_config 非法 JSON 表单内报错不提交；⑤ 清除超时覆盖提交 null。
+- **business-form.test.tsx**（核心）：① 创建提交映射——表单值 → `CreateBusinessBody`（首个匹配行/agent/model/资产绑定/超时覆盖）；② **出口配置全量进绑定**——所有字段（含 secret 提示项）原样进 ExitBinding.config，表单/JSON Tabs 双视图同步；③ 编辑回填——BusinessDetail → 表单初值（占位文本原样回显）；④ entry_config 非法 JSON 表单内报错不提交；⑤ 清除超时覆盖提交 null。
 - **assets-page.test.tsx**：登记表单提交映射（package 隐藏 shared；is_private 必填 credential_key）；下架按钮仅属主可见；admin 不见登记入口。
 - **pages-smoke.test.tsx**：Dashboard（队列卡片渲染 mock 计数）、Settings（config 只读展示 + member 隐藏编辑）、Users（admin 表格渲染、停用确认）。
 - console-api 静态托管用例见 §5.5。
@@ -240,6 +234,6 @@ jsdom + @testing-library；API 一律 mock（`apiFetch` 层注入或 globalThis.
 3. **部署形态现在定案**：生产 = server 同进程托管静态文件（console-api `static_dir` 选项，`AGENT_CONSOLE_STATIC_DIR` 可选 env），开发 = vite dev proxy；不引 CORS。
 4. **React 18 + Vite 5 + antd 5**：稳定组合，不追 React 19/Vite 新大版本（antd 兼容面最广）。
 5. **测试不用 vitest**：保持全仓单测试框架（jest）；antd 的 CJS 解析问题用 esbuild `--bundle` 内联解决。
-6. **出口 secret 键规则 `exit.{kind}.{field.key}` 是硬契约**（T12 既有约定），console 表单分流逻辑必须严格实现，business-form 测试逐条覆盖。
+6. **出口配置占位约定定稿**（T24）：全字段原样进 binding.config（含占位文本），secret 仅 UI 提示，保存时 console-api 校验占位 key 存在性；表单/JSON Tabs 双视图，business-form 测试逐条覆盖。
 7. **编辑页 env 独立保存**：主表单只管 registry 字段，避免混合提交的部分失败语义；UI 上分区块表达。
 8. **入口/关注统一为匹配行编辑**：source=internal 即「关注」，不单独做关注 UI（机制同构，提示文案说清）。
