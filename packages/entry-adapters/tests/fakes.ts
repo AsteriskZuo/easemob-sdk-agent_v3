@@ -175,6 +175,17 @@ export class FakeEnv {
         secret_keys: Object.keys(config?.secrets ?? {}),
       };
     },
+    // 占位符解析专用：业务 secrets → 业务 vars → 全局 secrets → 全局 vars 取首个命中
+    lookup: (business_id, key) => {
+      const scoped = this.buckets.get(business_id);
+      const global = this.buckets.get("");
+      return (
+        scoped?.secrets[key] ??
+        scoped?.vars[key] ??
+        global?.secrets[key] ??
+        global?.vars[key]
+      );
+    },
   };
 
   /** 测试便利：直接写一条 secret */

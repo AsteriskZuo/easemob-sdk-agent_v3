@@ -5,6 +5,10 @@ import { timingSafeEqual } from "node:crypto";
 import { CONTRACT_VERSION, newEventId } from "@asteriskzuo/agent-contracts";
 import type { EventEnvelope } from "@asteriskzuo/agent-contracts";
 import { logger } from "@asteriskzuo/agent-logger";
+import {
+  PlaceholderError,
+  resolveConfigPlaceholders,
+} from "@asteriskzuo/agent-runtime";
 import { configString, getByPath, scanMatchRows } from "./match-scan.js";
 import type {
   EntryAdapter,
@@ -46,10 +50,10 @@ export const WEBHOOK_ADAPTER_SPEC: EntryAdapterSpec = {
       placeholder: "可选，点分路径；缺省平台生成（此时幂等由推送方自负）",
     },
     {
-      key: "token_key",
-      label: "验签 token 的 secrets 键名",
+      key: "token",
+      label: "验签 token",
       placeholder:
-        "填 secrets 键名（非 token 值本身）；设置后请求须带 x-webhook-token 头等值",
+        "可填 {{key}} 占位，真值存安全桶；设置后请求须带 x-webhook-token 头等值",
     },
   ],
   eventDoc: `# 自定义 Webhook 入口
@@ -60,8 +64,8 @@ export const WEBHOOK_ADAPTER_SPEC: EntryAdapterSpec = {
 - body：必须是 JSON object，**payload 形状由推送方自定义**，平台原样透传进信封 \`payload\`
 - \`session_id\`：从 body 按 \`session_id_key\` 点分路径提取（如 \`issue.key\`）；取不到或不是非空字符串 → 400
 - \`event_id\`：可选，按 \`event_id_key\` 提取；缺省平台生成（\`evt_\` 前缀 ULID）。自带 event_id 时重推同 id 被队列幂等丢弃（仍回 200），实现「至少一次」去重
-- 验签：配置 \`token_key\` 后，请求须带 header \`x-webhook-token\`，与该业务 secrets 桶中 \`token_key\` 对应值等值比对，不符 → 401
-- 响应：\`200 { "event_id": "..." }\` / \`400\`（body 或字段非法，message 含原因）/ \`401\`（验签失败）/ \`404\`（未知 path）
+- 验签：配置 \`token\` 后，请求须带 header \`x-webhook-token\`，与其值等值比对，不符 → 401；\`token\` 可填 \`{{key}}\` 占位（如 \`{{webhook_token}}\`），真值存环境配置（解析顺序：业务 secrets → 业务 vars → 全局 secrets → 全局 vars）
+- 响应：\`200 { "event_id": "..." }\` / \`400\`（body 或字段非法，message 含原因）/ \`401\`（验签失败）/ \`404\`（未知 path）/ \`500\`（端点配置缺陷，如占位键缺失）
 
 ## 产出信封
 
@@ -77,7 +81,7 @@ curl -X POST http://<host>:6200/hooks/jira-listener \\
 # → 200 {"event_id":"evt_01J..."}
 \`\`\`
 
-上例对应 entry_config：\`{ "path": "jira-listener", "session_id_key": "issue.key", "token_key": "webhook_token" }\`
+上例对应 entry_config：\`{ "path": "jira-listener", "session_id_key": "issue.key", "token": "{{webhook_token}}" }\`
 `,
 };
 
@@ -197,18 +201,34 @@ export class WebhookEntryAdapter implements EntryAdapter {
       sendJson(res, 404, { error: `未知 webhook path: ${path}` });
       return;
     }
-    const entryConfig = row.entry_config;
 
-    // ② 验签：token_key 配置时，从该业务 secrets 桶取值比对 x-webhook-token
-    const tokenKey = configString(entryConfig, "token_key");
-    if (tokenKey !== undefined) {
-      const expected = deps.env.getFor(row.business_id).secrets[tokenKey];
+    // path 命中后解析 entry_config 占位符（path 本身不支持占位，保持 raw 比对）；
+    // 占位键缺失 = 端点配置缺陷（非推送方问题）→ 500
+    let entryConfig: Record<string, unknown>;
+    try {
+      entryConfig = resolveConfigPlaceholders(
+        row.entry_config ?? {},
+        deps.env,
+        row.business_id,
+      );
+    } catch (err) {
+      if (err instanceof PlaceholderError) {
+        log.error("webhook 端点配置占位键缺失", {
+          business_id: row.business_id,
+          path,
+          missing_keys: err.keys,
+        });
+        sendJson(res, 500, { error: "端点配置缺陷：占位键缺失" });
+        return;
+      }
+      throw err;
+    }
+
+    // ② 验签：token 配置时，比对 x-webhook-token
+    const expected = configString(entryConfig, "token");
+    if (expected !== undefined) {
       const provided = req.headers["x-webhook-token"];
-      if (
-        expected === undefined ||
-        typeof provided !== "string" ||
-        !tokenEquals(provided, expected)
-      ) {
+      if (typeof provided !== "string" || !tokenEquals(provided, expected)) {
         sendJson(res, 401, { error: "验签失败" });
         return;
       }

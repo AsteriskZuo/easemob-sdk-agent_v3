@@ -1,3 +1,4 @@
+import { hasPlaceholder, templateDestination } from "./destination.js";
 import type { ConfigField, ExitTool } from "./types.js";
 
 const KIND = "wecom-aibot";
@@ -98,13 +99,13 @@ export function createWecomAibotExitTool(options?: {
 \`\`\`
 `,
     destinationOf(config) {
-      return [
-        requireSegment(config, "bot_id"),
-        requireSegment(config, "chat_id"),
-        requireSegment(config, "user_id"),
-      ]
-        .map(sanitizeSegment)
-        .join("__");
+      const botId = requireSegment(config, "bot_id");
+      const chatId = requireSegment(config, "chat_id");
+      const userId = requireSegment(config, "user_id");
+      if (hasPlaceholder(botId, chatId, userId)) {
+        return templateDestination([botId, chatId, userId].join("\n"));
+      }
+      return [botId, chatId, userId].map(sanitizeSegment).join("__");
     },
     bind(config) {
       const botId = requireSegment(config, "bot_id");

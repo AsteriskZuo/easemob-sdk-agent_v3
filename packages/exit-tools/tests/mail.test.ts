@@ -32,6 +32,17 @@ describe("mail destinationOf", () => {
   it("缺 to → 抛错", () => {
     expect(() => tool.destinationOf({})).toThrow("'to'");
   });
+
+  it("to 含占位 → 模板哈希身份（tpl_ 前缀）", () => {
+    const dest = tool.destinationOf({ to: "{{notify_to}}" });
+    expect(dest).toMatch(/^tpl_[0-9a-f]{12}$/);
+    // 同模板同身份
+    expect(tool.destinationOf({ to: "{{notify_to}}" })).toBe(dest);
+  });
+
+  it("to 不含占位 → 行为不变（原样返回）", () => {
+    expect(tool.destinationOf(baseConfig)).toBe("b@example.com");
+  });
 });
 
 describe("mail bind", () => {

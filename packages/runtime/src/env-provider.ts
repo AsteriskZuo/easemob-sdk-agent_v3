@@ -11,6 +11,11 @@ export interface EnvProvider {
   /** 组装上下文时取：通用层（scope=''）+ 业务层合并（业务优先）；secrets 仅在此时出库进内存 */
   getFor(business_id: string): EnvConfig;
 
+  /** 占位符解析专用：按 业务 secrets → 业务 vars → 全局 secrets → 全局 vars 取第一个命中，
+   *  全缺返回 undefined。与 getFor 的桶内合并不同——同级 secrets 优先于 vars；
+   *  业务隔离底线：严格落在传入 business_id 的桶上，全局层仅兜底 */
+  lookup(business_id: string, key: string): string | undefined;
+
   /** 控制台写入：upsert；business_id = null 表示通用层。secrets 只写不读明文（本接口无读明文出口） */
   set(
     business_id: string | null,
@@ -97,6 +102,24 @@ export function createEnvProvider(db: Database): EnvProvider {
         }
       }
       return { vars, secrets };
+    },
+
+    lookup(business_id, key): string | undefined {
+      // 严格四级顺序：业务 secrets → 业务 vars → 全局 secrets → 全局 vars
+      const rows = db.all<EnvRow>(
+        "SELECT scope, bucket, value FROM env_entries WHERE key = ? AND scope IN (?, '')",
+        [key, business_id],
+      );
+      for (const [scope, bucket] of [
+        [business_id, "secrets"],
+        [business_id, "vars"],
+        ["", "secrets"],
+        ["", "vars"],
+      ] as const) {
+        const hit = rows.find((r) => r.scope === scope && r.bucket === bucket);
+        if (hit !== undefined) return hit.value;
+      }
+      return undefined;
     },
 
     set(business_id, bucket, key, value): void {

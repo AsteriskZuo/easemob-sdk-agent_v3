@@ -128,6 +128,19 @@ describe("github destinationOf", () => {
       "非法",
     );
   });
+
+  it("repo 含占位 → 模板哈希身份（tpl_ 前缀），不做地址形态校验", () => {
+    const dest = tool.destinationOf({ repo: "{{github_repo}}" });
+    expect(dest).toMatch(/^tpl_[0-9a-f]{12}$/);
+    // 同模板同身份
+    expect(tool.destinationOf({ repo: "{{github_repo}}" })).toBe(dest);
+  });
+
+  it("repo 不含占位 → 行为不变（归一化提取）", () => {
+    expect(tool.destinationOf({ repo: "owner/repo" })).toBe(
+      "github.com_owner_repo",
+    );
+  });
 });
 
 describe("github bind", () => {

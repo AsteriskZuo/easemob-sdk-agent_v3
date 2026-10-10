@@ -1,4 +1,5 @@
 export type { ConfigField, Exit, ExitRegistry, ExitTool } from "./types.js";
+export { hasPlaceholder, templateDestination } from "./destination.js";
 export { createExitRegistry } from "./registry.js";
 export { postJson } from "./http.js";
 export { createWecomWebhookExitTool } from "./wecom-webhook.js";

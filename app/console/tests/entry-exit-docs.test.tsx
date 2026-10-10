@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type userEvent from "@testing-library/user-event";
 import type { ExitToolMenuItem } from "@asteriskzuo/agent-console-api";
 import {
@@ -32,7 +32,7 @@ const ENTRY_ADAPTERS = [
     configSchema: [
       { key: "path", label: "URL 路径段", required: true },
       { key: "session_id_key", label: "session_id 字段路径", required: true },
-      { key: "token_key", label: "验签 token 的 secrets 键名" },
+      { key: "token", label: "验签 token" },
     ],
     eventDoc: "# 自定义 Webhook 入口\n\nPOST /hooks/{path}",
   },
@@ -163,11 +163,11 @@ describe("入口区：适配器 eventDoc 与 entry_config schema 表单", () => 
     ).toBeTruthy();
     expect(screen.getByText(/POST \/hooks\/\{path\}/)).toBeTruthy();
 
-    // configSchema 表单项渲染（required 星标 + secret 引用键提示）
+    // configSchema 表单项渲染（required 星标；不再有 secret 键名引用的特殊提示）
     const pathInput = screen.getByLabelText("匹配行 1 path");
     const sessionKeyInput = screen.getByLabelText("匹配行 1 session_id_key");
-    expect(screen.getByLabelText("匹配行 1 token_key")).toBeTruthy();
-    expect(screen.getAllByText(/填 secrets 键名/).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("匹配行 1 token")).toBeTruthy();
+    expect(screen.queryByText(/填 secrets 键名/)).toBeNull();
 
     // 表单项写入 → 提交时 entry_config 进创建 body
     await user.type(pathInput, "hook-1");
@@ -239,6 +239,100 @@ describe("入口区：internal 引导", () => {
       "value",
       "biz-up.failed",
     );
+  });
+});
+
+describe("入口区：「表单」/「JSON」Tab 双视图", () => {
+  it("表单编辑 → JSON 视图同步；JSON 编辑 → 表单视图同步（entry_config_text 唯一事实源）", async () => {
+    installPageMocks();
+    renderApp("/businesses/new");
+    const user = setupUser();
+
+    await screen.findByLabelText("业务名称");
+    await selectOption(user, "匹配行 1 来源", "webhook");
+
+    // 表单视图填 path → 切 JSON 视图，文本里已带上
+    await user.type(screen.getByLabelText("匹配行 1 path"), "hook-1");
+    await user.click(screen.getByRole("tab", { name: "JSON" }));
+    const jsonEditor = screen.getByLabelText("匹配行 1 入口配置");
+    expect(jsonEditor).toHaveProperty("value", '{"path":"hook-1"}');
+
+    // JSON 视图改值 → 切回表单视图，输入框同步
+    fireEvent.change(jsonEditor, {
+      target: { value: '{"path":"hook-2","session_id_key":"issue.key"}' },
+    });
+    await user.click(screen.getByRole("tab", { name: "表单" }));
+    expect(screen.getByLabelText("匹配行 1 path")).toHaveProperty(
+      "value",
+      "hook-2",
+    );
+    expect(screen.getByLabelText("匹配行 1 session_id_key")).toHaveProperty(
+      "value",
+      "issue.key",
+    );
+  });
+
+  it("JSON 非法时「表单」Tab 禁用且给出提示，非法内容不丢", async () => {
+    installPageMocks();
+    renderApp("/businesses/new");
+    const user = setupUser();
+
+    await screen.findByLabelText("业务名称");
+    await selectOption(user, "匹配行 1 来源", "webhook");
+    await user.click(screen.getByRole("tab", { name: "JSON" }));
+
+    // "{" 是 user-event 的按键描述符起始符，用 fireEvent.change 直接设值
+    const jsonEditor = screen.getByLabelText("匹配行 1 入口配置");
+    fireEvent.change(jsonEditor, { target: { value: "{invalid" } });
+
+    // 行内报错 + Alert 提示
+    expect(
+      await screen.findAllByText(/入口配置不是合法 JSON object/),
+    ).not.toHaveLength(0);
+    // 「表单」Tab 禁用（非法 JSON 不丢，但不能切回表单视图）
+    const formTab = screen.getByRole("tab", { name: "表单" });
+    expect(formTab.closest(".ant-tabs-tab-disabled")).not.toBeNull();
+    // 非法内容原样保留
+    expect(jsonEditor).toHaveProperty("value", "{invalid");
+  });
+});
+
+describe("出口区：「表单」/「JSON」Tab 双视图", () => {
+  it("勾选出口 → 双视图编辑同一份 config；JSON 视图空绑定预填占位模板", async () => {
+    installPageMocks();
+    renderApp("/businesses/new");
+    const user = setupUser();
+
+    await screen.findByLabelText("业务名称");
+    await user.click(
+      screen.getByRole("checkbox", { name: /企业微信群机器人/ }),
+    );
+
+    // 表单视图填 url → 切 JSON 视图同步
+    await user.type(
+      screen.getByLabelText("出口 wecom-webhook url"),
+      "https://hook.example.com",
+    );
+    const exitTabs = screen.getByLabelText("出口 wecom-webhook 配置视图");
+    const jsonTab = within(exitTabs).getByRole("tab", { name: "JSON" });
+    await user.click(jsonTab);
+    const jsonEditor = screen.getByLabelText("出口 wecom-webhook 配置 JSON");
+    expect(jsonEditor).toHaveProperty(
+      "value",
+      '{"url":"https://hook.example.com"}',
+    );
+
+    // 清空后 placeholder 给预填模板（含字段键）
+    fireEvent.change(jsonEditor, { target: { value: "" } });
+    expect(jsonEditor.getAttribute("placeholder")).toContain('"url"');
+
+    // JSON 非法 → 「表单」Tab 禁用
+    fireEvent.change(jsonEditor, { target: { value: "{bad" } });
+    expect(
+      await screen.findByText(/出口「企业微信群机器人」的配置不是合法 JSON/),
+    ).toBeTruthy();
+    const formTab = within(exitTabs).getByRole("tab", { name: "表单" });
+    expect(formTab.closest(".ant-tabs-tab-disabled")).not.toBeNull();
   });
 });
 

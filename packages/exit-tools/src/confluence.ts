@@ -1,3 +1,4 @@
+import { hasPlaceholder, templateDestination } from "./destination.js";
 import type { ConfigField, ExitTool } from "./types.js";
 
 const KIND = "confluence";
@@ -365,6 +366,9 @@ export function createConfluenceExitTool(options?: {
       const baseUrl = requireField(config, "base_url");
       const spaceKey = requireField(config, "space_key");
       const pageTitle = requireField(config, "page_title");
+      if (hasPlaceholder(baseUrl, spaceKey, pageTitle)) {
+        return templateDestination([baseUrl, spaceKey, pageTitle].join("\n"));
+      }
       let host: string;
       try {
         host = new URL(baseUrl).host;

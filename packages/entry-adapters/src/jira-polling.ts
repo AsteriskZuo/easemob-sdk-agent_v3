@@ -1,8 +1,10 @@
 import { logger } from "@asteriskzuo/agent-logger";
+import type { JiraClientConfig } from "@asteriskzuo/agent-jira-client";
 import type { BusinessMatch } from "@asteriskzuo/agent-registry";
+import { resolveConfigPlaceholders } from "@asteriskzuo/agent-runtime";
 import { scanMatchRows } from "./match-scan.js";
 import { createJiraPoller, parseJiraEntryConfig } from "./jira-poller.js";
-import type { JiraPoller } from "./jira-poller.js";
+import type { JiraPoller, JiraSearchClient } from "./jira-poller.js";
 import type { EntryAdapter, EntryAdapterSpec, EntryDeps } from "./types.js";
 
 /** 注册表对账 tick 间隔（毫秒）：业务创建/更新/删除的轮询器增删延迟上限 */
@@ -32,16 +34,26 @@ export const JIRA_POLLING_ADAPTER_SPEC: EntryAdapterSpec = {
       placeholder: "如 https://jira.example.com",
     },
     {
-      key: "username_key",
-      label: "用户名的 secrets 键名",
+      key: "username",
+      label: "用户名",
       required: true,
-      placeholder: "填 secrets 键名（凭据存业务 secrets 桶，此处只存键名引用）",
+      placeholder: "建议填 {{jira_username}} 占位，真值存环境配置",
     },
     {
-      key: "password_key",
-      label: "密码的 secrets 键名",
+      key: "password",
+      label: "密码",
       required: true,
-      placeholder: "填 secrets 键名",
+      placeholder: "建议填 {{jira_password}} 占位，真值存环境配置",
+    },
+    {
+      key: "redirect_username",
+      label: "网关 Basic 账号（可选）",
+      placeholder: "可填 {{key}} 占位，真值存环境配置",
+    },
+    {
+      key: "redirect_password",
+      label: "网关 Basic 密码（可选）",
+      placeholder: "可填 {{key}} 占位，真值存环境配置",
     },
     {
       key: "project",
@@ -70,7 +82,9 @@ export const JIRA_POLLING_ADAPTER_SPEC: EntryAdapterSpec = {
 ## 定位与约束
 
 - 内部测试与无外网 webhook 场景的 jira 工单拉取入口；**默认关闭**（\`AGENT_ENTRY_JIRA_POLLING_ENABLED=true\` 开启）
-- 认证为 easemob jira **表单登录**形态（/login.jsp 提交 os_username/os_password，非 REST 基本认证/API Token）；凭据存业务 secrets 桶，entry_config 只存键名引用（\`username_key\`/\`password_key\`）
+- 认证为 easemob jira **表单登录**形态（/login.jsp 提交 os_username/os_password，非 REST 基本认证/API Token）；凭据在 entry_config 的 \`username\`/\`password\` 字段填 \`{{key}}\` 占位，真值存环境配置
+- 经网关反代时可配 \`redirect_username\`/\`redirect_password\`（网关 Basic 认证，可选），同样支持占位
+- 占位符写法：整值占位 \`"password": "{{jira_password}}"\` 或内嵌占位 \`"jira_url": "https://{{jira_host}}"\`；轮询时按 业务 secrets → 业务 vars → 全局 secrets → 全局 vars 顺序取第一个命中解析
 - 每条 source='jira' 的 match 行一个独立轮询器，按 \`interval_seconds\`（默认 60，下限 30）周期执行 JQL 搜索：\`project = "<project>" AND assignee in (<assignees>) AND updated >= -<days_back>d ORDER BY updated DESC\`
 
 ## 事件类型
@@ -104,6 +118,13 @@ interface PollerSlot {
   signature: string;
 }
 
+/** JiraPollingEntryAdapter 构造参数（测试注入用；装配根走 ENTRY_ADAPTERS 工厂不经此） */
+export interface JiraPollingAdapterOptions {
+  /** jira 客户端工厂：测试注入立即返回的假客户端，避免 syncTick 内 fire-and-forget
+   *  的 run 走真实 JiraClient 网络请求（会拖过套件 teardown）；缺省 = 共享包 JiraClient */
+  clientFactory?: (config: JiraClientConfig) => JiraSearchClient;
+}
+
 /** jira-polling 入口适配器：每 tick 现查注册表 source='jira' 行集合，动态增删轮询器。
  *  每行一个独立轮询器（防重入在 JiraPoller 内）；行配置变化 = 重建该轮询器 */
 export class JiraPollingEntryAdapter implements EntryAdapter {
@@ -112,6 +133,13 @@ export class JiraPollingEntryAdapter implements EntryAdapter {
   private deps: EntryDeps | null = null;
   private readonly pollers = new Map<string, PollerSlot>();
   private reconcileTimer: NodeJS.Timeout | null = null;
+  private readonly clientFactory?: (
+    config: JiraClientConfig,
+  ) => JiraSearchClient;
+
+  constructor(options?: JiraPollingAdapterOptions) {
+    this.clientFactory = options?.clientFactory;
+  }
 
   /** 装配根调用：立即对账一次 + 启动周期对账（RECONCILE_TICK_MS）。重复调用幂等 */
   start(deps: EntryDeps): void {
@@ -161,10 +189,24 @@ export class JiraPollingEntryAdapter implements EntryAdapter {
           ? { entry_config: row.entry_config }
           : {}),
         deps: { queue: deps.queue, env: deps.env },
+        ...(this.clientFactory !== undefined
+          ? { clientFactory: this.clientFactory }
+          : {}),
       });
       // 间隔取自行配置（缺省 60s、下限 30s 在 parse 内收敛）；配置非法行也给默认周期
-      // （非法行 run 内记 warn 跳过，不影响其他行）
-      const parsed = parseJiraEntryConfig(row.entry_config);
+      // （非法行 run 内记 warn 跳过，不影响其他行）。interval_seconds 等字段可占位，
+      // 先解析占位再 parse；占位键缺失按非法行处理（run 内会再记 warn）
+      let resolvedConfig = row.entry_config;
+      try {
+        resolvedConfig = resolveConfigPlaceholders(
+          row.entry_config ?? {},
+          deps.env,
+          row.business_id,
+        );
+      } catch {
+        // 占位缺失：本轮间隔取缺省，run 内会按配置非法记 warn 跳过
+      }
+      const parsed = parseJiraEntryConfig(resolvedConfig);
       const intervalSeconds = parsed.ok ? parsed.config.interval_seconds : 60;
       const timer = setInterval(() => {
         void poller.run();

@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { hasPlaceholder, templateDestination } from "./destination.js";
 import type { ConfigField, ExitTool } from "./types.js";
 
 const KIND = "mail";
@@ -67,6 +68,7 @@ export function createMailExitTool(
     destinationOf(config) {
       const to = config.to?.trim();
       if (!to) throw new Error(`出口工具 '${KIND}' 缺少必需配置项 'to'`);
+      if (hasPlaceholder(to)) return templateDestination(to);
       return to;
     },
     bind(config) {

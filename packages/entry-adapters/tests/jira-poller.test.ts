@@ -2,7 +2,11 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { initLogger, resetForTests } from "@asteriskzuo/agent-logger";
-import type { JiraIssueLite, JiraResult } from "@asteriskzuo/agent-jira-client";
+import type {
+  JiraClientConfig,
+  JiraIssueLite,
+  JiraResult,
+} from "@asteriskzuo/agent-jira-client";
 import { createJiraPoller, parseJiraEntryConfig } from "../src/jira-poller.js";
 import type { JiraPoller, JiraSearchClient } from "../src/jira-poller.js";
 import { FakeEnv, FakeQueue } from "./fakes.js";
@@ -28,17 +32,19 @@ beforeEach(() => {
 
 const VALID_CONFIG: Record<string, unknown> = {
   jira_url: "http://jira.local",
-  username_key: "jira_user",
-  password_key: "jira_pass",
+  username: "{{jira_user}}",
+  password: "{{jira_pass}}",
   project: "PRJ",
 };
 
 function makePoller(overrides?: {
+  businessId?: string;
   entryConfig?: Record<string, unknown>;
   client?: JiraSearchClient;
+  clientFactory?: (config: JiraClientConfig) => JiraSearchClient;
   withSecrets?: boolean;
 }): JiraPoller {
-  const businessId = "b1";
+  const businessId = overrides?.businessId ?? "b1";
   if (overrides?.withSecrets !== false) {
     fakeEnv.setSecret(businessId, "jira_user", "bot");
     fakeEnv.setSecret(businessId, "jira_pass", "pw");
@@ -52,7 +58,7 @@ function makePoller(overrides?: {
     event_type: "jira.issue.updated",
     entry_config: overrides?.entryConfig ?? VALID_CONFIG,
     deps: { queue: fakeQueue.queue, env: fakeEnv.env },
-    clientFactory: () => client,
+    clientFactory: overrides?.clientFactory ?? (() => client),
   });
 }
 
@@ -160,10 +166,91 @@ describe("jira-poller", () => {
     expect(poller.running).toBe(false);
   });
 
-  it("凭据缺失（secrets 桶无键）→ 跳过本轮，不产事件不抛错", async () => {
+  it("占位解析：username/password 用 {{}} 占位，真值传入 clientFactory", async () => {
+    const seen: JiraClientConfig[] = [];
+    const poller = makePoller({
+      clientFactory: (config) => {
+        seen.push(config);
+        return {
+          searchIssues: () => Promise.resolve({ status: "success", data: [] }),
+        };
+      },
+    });
+
+    await poller.run();
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toEqual({
+      baseUrl: "http://jira.local",
+      username: "bot",
+      password: "pw",
+    });
+  });
+
+  it("redirect 网关凭据：占位解析并传入 clientFactory；不配则不传", async () => {
+    fakeEnv.setSecret("b1", "gw_user", "gateway-bot");
+    fakeEnv.setSecret("b1", "gw_pass", "gateway-pw");
+    const seen: JiraClientConfig[] = [];
+    const factory = (config: JiraClientConfig): JiraSearchClient => {
+      seen.push(config);
+      return {
+        searchIssues: () => Promise.resolve({ status: "success", data: [] }),
+      };
+    };
+
+    const withRedirect = makePoller({
+      entryConfig: {
+        ...VALID_CONFIG,
+        redirect_username: "{{gw_user}}",
+        redirect_password: "{{gw_pass}}",
+      },
+      clientFactory: factory,
+    });
+    await withRedirect.run();
+    expect(seen[0]).toMatchObject({
+      redirectUsername: "gateway-bot",
+      redirectPassword: "gateway-pw",
+    });
+
+    seen.length = 0;
+    const withoutRedirect = makePoller({ clientFactory: factory });
+    await withoutRedirect.run();
+    expect(seen[0]).not.toHaveProperty("redirectUsername");
+    expect(seen[0]).not.toHaveProperty("redirectPassword");
+  });
+
+  it("占位键缺失（环境配置无该键）→ 记 warn 跳过本轮，不产事件不抛错", async () => {
     const poller = makePoller({ withSecrets: false });
     await expect(poller.run()).resolves.toBeUndefined();
     expect(fakeQueue.tasks).toHaveLength(0);
+  });
+
+  it("两业务同名占位 key 隔离：各取各业务桶的值", async () => {
+    fakeEnv.setSecret("b2", "jira_user", "bot-b2");
+    fakeEnv.setSecret("b2", "jira_pass", "pw-b2");
+    const seenByBusiness = new Map<string, JiraClientConfig[]>();
+    const factoryFor =
+      (businessId: string) =>
+      (config: JiraClientConfig): JiraSearchClient => {
+        const list = seenByBusiness.get(businessId) ?? [];
+        list.push(config);
+        seenByBusiness.set(businessId, list);
+        return {
+          searchIssues: () => Promise.resolve({ status: "success", data: [] }),
+        };
+      };
+
+    await makePoller({ clientFactory: factoryFor("b1") }).run();
+    await makePoller({
+      businessId: "b2",
+      clientFactory: factoryFor("b2"),
+      withSecrets: false, // 上面已手写 b2 的桶值，避免被缺省值覆盖
+    }).run();
+
+    expect(seenByBusiness.get("b1")?.[0]?.username).toBe("bot");
+    expect(seenByBusiness.get("b1")?.[0]?.password).toBe("pw");
+    expect(seenByBusiness.get("b2")?.[0]?.username).toBe("bot-b2");
+    expect(seenByBusiness.get("b2")?.[0]?.password).toBe("pw-b2");
   });
 
   it("行配置非法（缺 project）→ 跳过本轮，不产事件不抛错", async () => {
@@ -195,8 +282,8 @@ describe("parseJiraEntryConfig", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.problems).toContain("缺 jira_url");
-    expect(result.problems).toContain("缺 username_key");
-    expect(result.problems).toContain("缺 password_key");
+    expect(result.problems).toContain("缺 username");
+    expect(result.problems).toContain("缺 password");
     expect(result.problems).toContain("缺 project");
   });
 
@@ -220,5 +307,22 @@ describe("parseJiraEntryConfig", () => {
       assignees: " a , b ",
     });
     expect(list.ok && list.config.assignees).toEqual(["a", "b"]);
+  });
+
+  it("redirect_username/redirect_password 可选：缺省不带出，配置则收敛进 config", () => {
+    const none = parseJiraEntryConfig(VALID_CONFIG);
+    expect(none.ok && none.config.redirect_username).toBeUndefined();
+    expect(none.ok && none.config.redirect_password).toBeUndefined();
+    const withRedirect = parseJiraEntryConfig({
+      ...VALID_CONFIG,
+      redirect_username: "gw-bot",
+      redirect_password: "gw-pw",
+    });
+    expect(withRedirect.ok && withRedirect.config.redirect_username).toBe(
+      "gw-bot",
+    );
+    expect(withRedirect.ok && withRedirect.config.redirect_password).toBe(
+      "gw-pw",
+    );
   });
 });

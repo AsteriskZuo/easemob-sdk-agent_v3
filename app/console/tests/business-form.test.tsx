@@ -9,7 +9,7 @@ import {
   setupUser,
 } from "./helpers";
 
-/** 出口工具菜单 mock：wecom-webhook 有一个普通项（url）+ 一个机密项（token）；mail 未实现（置灰） */
+/** 出口工具菜单 mock：wecom-webhook 有一个普通项（url）+ 一个 secret 标记项（token）；mail 未实现（置灰） */
 const EXIT_TOOLS: ExitToolMenuItem[] = [
   {
     kind: "wecom-webhook",
@@ -42,7 +42,7 @@ const ENTRY_ADAPTERS = [
     configSchema: [
       { key: "path", label: "URL 路径段", required: true },
       { key: "session_id_key", label: "session_id 字段路径", required: true },
-      { key: "token_key", label: "验签 token 的 secrets 键名" },
+      { key: "token", label: "验签 token" },
     ],
     eventDoc: "# 自定义 Webhook 入口\n\nPOST /hooks/{path}",
   },
@@ -108,7 +108,8 @@ const BIZ_DETAIL = {
     {
       business_id: "biz-1",
       tool: "wecom-webhook",
-      config: { url: "https://old-hook" },
+      // 新语义：全字段（含 secret 标记项的占位文本）都在 binding.config 里
+      config: { url: "https://old-hook", token: "{{wecom_token}}" },
     },
   ],
 };
@@ -232,13 +233,13 @@ describe("业务表单", () => {
     });
   });
 
-  it("② 出口 secret 分流：secret 项进 env PUT（exit.{kind}.{field.key}）且不进 ExitBinding.config", async () => {
+  it("② 出口配置原样进 ExitBinding.config（secret 字段的 {{key}} 占位文本也在内），不再调 env API 拆写", async () => {
     const calls = installBusinessMocks();
     renderApp("/businesses/new");
     const user = setupUser();
 
     await fillRequiredFields(user, "投递业务");
-    // 勾选出口工具并填写普通项 + 机密项
+    // 勾选出口工具并填写普通项 + secret 标记项
     await user.click(
       screen.getByRole("checkbox", { name: /企业微信群机器人/ }),
     );
@@ -246,10 +247,10 @@ describe("业务表单", () => {
       screen.getByLabelText("出口 wecom-webhook url"),
       "https://hook.example.com",
     );
-    await user.type(
-      screen.getByLabelText("出口 wecom-webhook token"),
-      "tok-123",
-    );
+    // "{" 是 user-event 的按键描述符起始符，占位文本用 fireEvent.change 直接设值
+    fireEvent.change(screen.getByLabelText("出口 wecom-webhook token"), {
+      target: { value: "{{wecom_token}}" },
+    });
 
     await user.click(screen.getByRole("button", { name: "创建业务" }));
 
@@ -258,27 +259,25 @@ describe("业务表单", () => {
         calls.some((c) => c.method === "POST" && c.path === "/api/businesses"),
       ).toBe(true);
     });
-    // 非 secret 项进 ExitBinding.config
+    // 全字段（含 secret 标记项的占位文本）原样进 ExitBinding.config
     const createCall = calls.find(
       (c) => c.method === "POST" && c.path === "/api/businesses",
     );
     expect(
       (createCall?.body as { exit_bindings: unknown[] }).exit_bindings,
     ).toEqual([
-      { tool: "wecom-webhook", config: { url: "https://hook.example.com" } },
+      {
+        tool: "wecom-webhook",
+        config: { url: "https://hook.example.com", token: "{{wecom_token}}" },
+      },
     ]);
-    // secret 项写业务层安全桶，键 = exit.{kind}.{field.key}
-    const secretPut = calls.find(
-      (c) => c.method === "PUT" && c.path === "/api/env/businesses/biz-new",
-    );
-    expect(secretPut?.body).toEqual({
-      bucket: "secrets",
-      key: "exit.wecom-webhook.token",
-      value: "tok-123",
-    });
+    // 出口 secret 拆写已删除：保存全程没有任何 env PUT
+    expect(
+      calls.some((c) => c.method === "PUT" && c.path.startsWith("/api/env/")),
+    ).toBe(false);
   });
 
-  it("③ 编辑回填：BusinessDetail + env 键名 → 表单初值（secret 显示「已配置」占位）", async () => {
+  it("③ 编辑回填：BusinessDetail → 表单初值（出口 config 原样回填，secret 字段无特殊处理）", async () => {
     installBusinessMocks();
     renderApp("/businesses/biz-1");
 
@@ -289,15 +288,17 @@ describe("业务表单", () => {
         "旧业务",
       );
     });
-    // 非机密出口项原样回填
+    // 出口 url 原样回填（表单视图读 binding.config）
     expect(screen.getByLabelText("出口 wecom-webhook url")).toHaveProperty(
       "value",
       "https://old-hook",
     );
-    // secret 项：值不回显，占位「已配置」
+    // secret 字段：占位文本原样回填（不再有「已配置」占位/不回显的特殊处理）
     const tokenInput = screen.getByLabelText("出口 wecom-webhook token");
-    expect(tokenInput).toHaveProperty("value", "");
-    expect(tokenInput.getAttribute("placeholder")).toContain("已配置");
+    expect(tokenInput).toHaveProperty("value", "{{wecom_token}}");
+    expect(tokenInput.getAttribute("placeholder") ?? "").not.toContain(
+      "已配置",
+    );
     // 超时覆盖回填
     expect(screen.getByLabelText("超时覆盖")).toHaveProperty("value", "30");
   });
@@ -419,29 +420,21 @@ describe("业务表单", () => {
     expect(links[0].getAttribute("href")).toBe("/assets");
   });
 
-  it("⑨ 出口机密项：键名标注 + 已配置/未配置状态（编辑态已配置，创建态未配置）", async () => {
-    // 编辑态：secret_keys 含 exit.wecom-webhook.token → 已配置
+  it("⑨ 出口 secret 字段只剩 UI 提示：建议 {{key}} 占位，不再有键名标注与已配置/未配置状态", async () => {
     installBusinessMocks();
-    const editView = renderApp("/businesses/biz-1");
-    await waitFor(() => {
-      expect(screen.getByLabelText("业务名称")).toHaveProperty(
-        "value",
-        "旧业务",
-      );
-    });
-    expect(
-      (await screen.findAllByText(/exit\.wecom-webhook\.token/)).length,
-    ).toBeGreaterThan(0);
-    expect(screen.getAllByText("已配置").length).toBeGreaterThan(0);
-    // 同文档双挂载会撞查询范围，先卸载再挂创建态
-    editView.unmount();
-
-    // 创建态：业务未存在 → 全部未配置
     renderApp("/businesses/new");
     const user = setupUser();
+
     await user.click(
       await screen.findByRole("checkbox", { name: /企业微信群机器人/ }),
     );
-    expect(await screen.findAllByText("未配置")).not.toHaveLength(0);
+    // secret 字段的占位用法提示
+    expect(
+      (await screen.findAllByText(/建议填 \{\{key\}\} 占位/)).length,
+    ).toBeGreaterThan(0);
+    // 旧的拆写安全桶 UI 已全部移除
+    expect(screen.queryByText(/键名：exit\./)).toBeNull();
+    expect(screen.queryByText("已配置")).toBeNull();
+    expect(screen.queryByText("未配置")).toBeNull();
   });
 });

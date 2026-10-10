@@ -6,16 +6,19 @@ import type {
   ExitTool,
 } from "@asteriskzuo/agent-exit-tools";
 import type { ExitBinding } from "@asteriskzuo/agent-registry";
-import { createEnvProvider } from "@asteriskzuo/agent-runtime";
+import {
+  createEnvProvider,
+  PlaceholderError,
+} from "@asteriskzuo/agent-runtime";
 import type { EnvProvider } from "@asteriskzuo/agent-runtime";
-import { createExitDriver, exitSecretKey } from "../src/index.js";
+import { createExitDriver } from "../src/index.js";
 
 const BUSINESS_ID = "b_test_exit";
 
 let db: Database;
 let env: EnvProvider;
 
-/** 假 ExitRegistry：记录 destinationOf/bind 收到的 config，可断言回填行为 */
+/** 假 ExitRegistry：记录 destinationOf/bind 收到的 config，可断言占位解析行为 */
 interface FakeRegistry {
   registry: ExitRegistry;
   destinationOfCalls: Array<Record<string, string>>;
@@ -74,8 +77,9 @@ function makeFakeRegistry(schema?: ConfigField[]): FakeRegistry {
 function makeBinding(
   config: Record<string, string>,
   tool = "fake",
+  business_id = BUSINESS_ID,
 ): ExitBinding {
-  return { business_id: BUSINESS_ID, tool, config };
+  return { business_id, tool, config };
 }
 
 beforeEach(() => {
@@ -93,45 +97,95 @@ describe("createExitDriver", () => {
     const driver = createExitDriver({ exits: fake.registry, env });
     const binding = makeBinding({ host: "h1" });
     expect(driver.destinationOf(binding)).toBe("dest:h1");
-    // 透传：收到的就是 binding.config 本体（机密回填不应发生在 destinationOf）
+    // 透传：收到的就是 binding.config 本体（占位解析不应发生在 destinationOf）
     expect(fake.destinationOfCalls).toHaveLength(1);
     expect(fake.destinationOfCalls[0]).toBe(binding.config);
   });
 
-  it("机密回填：secrets 桶有 exit.fake.pass → bind 收到合并后 config", async () => {
+  it("destinationOf 收到含占位的 config：不解析、原样传给工具", () => {
     const fake = makeFakeRegistry();
-    env.set(BUSINESS_ID, "secrets", exitSecretKey("fake", "pass"), "p@ss");
+    env.set(BUSINESS_ID, "secrets", "fake_pass", "p@ss");
     const driver = createExitDriver({ exits: fake.registry, env });
-    await driver.deliver(makeBinding({ host: "h1" }), { ok: 1 });
+    const binding = makeBinding({ host: "h1", pass: "{{fake_pass}}" });
+    driver.destinationOf(binding);
+    // 原始模板文本原样透传（不解析占位，secret 不进 destinationId）
+    expect(fake.destinationOfCalls[0]).toBe(binding.config);
+    expect(fake.destinationOfCalls[0].pass).toBe("{{fake_pass}}");
+  });
+
+  it("占位解析：config 值含 {{key}} → deliver 前解析，bind 收到明文", async () => {
+    const fake = makeFakeRegistry();
+    env.set(BUSINESS_ID, "secrets", "fake_pass", "p@ss");
+    const driver = createExitDriver({ exits: fake.registry, env });
+    await driver.deliver(makeBinding({ host: "h1", pass: "{{fake_pass}}" }), {
+      ok: 1,
+    });
     expect(fake.bindCalls).toHaveLength(1);
     expect(fake.bindCalls[0]).toEqual({ host: "h1", pass: "p@ss" });
     expect(fake.delivered).toEqual([{ ok: 1 }]);
   });
 
-  it("secrets 无回填键 → 不回填（bind 侧 required 抛错透出）", async () => {
+  it("内嵌占位：值的一部分是 {{key}} → 纯字符串替换", async () => {
     const fake = makeFakeRegistry();
+    env.set(BUSINESS_ID, "vars", "fake_host", "smtp.example.com");
+    env.set(BUSINESS_ID, "secrets", "fake_pass", "p@ss");
     const driver = createExitDriver({ exits: fake.registry, env });
-    await expect(
-      driver.deliver(makeBinding({ host: "h1" }), { ok: 1 }),
-    ).rejects.toThrow(/pass/);
+    await driver.deliver(
+      makeBinding({ host: "https://{{fake_host}}:465", pass: "{{fake_pass}}" }),
+      null,
+    );
+    expect(fake.bindCalls[0]).toEqual({
+      host: "https://smtp.example.com:465",
+      pass: "p@ss",
+    });
   });
 
-  it("secret:false 的项绝不回填（即使 secrets 有同名键）", async () => {
+  it("占位缺失 → 抛 PlaceholderError（含缺失键名）", async () => {
     const fake = makeFakeRegistry();
-    // host 是非机密项：同名 secrets 键存在也绝不回填写
-    env.set(BUSINESS_ID, "secrets", exitSecretKey("fake", "host"), "evil");
-    env.set(BUSINESS_ID, "secrets", exitSecretKey("fake", "pass"), "p@ss");
     const driver = createExitDriver({ exits: fake.registry, env });
-    await driver.deliver(makeBinding({ host: "h1" }), null);
-    expect(fake.bindCalls[0]).toEqual({ host: "h1", pass: "p@ss" });
+    const err = await driver
+      .deliver(makeBinding({ host: "h1", pass: "{{missing_key}}" }), null)
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PlaceholderError);
+    expect((err as PlaceholderError).keys).toEqual(["missing_key"]);
+    expect((err as Error).message).toContain("missing_key");
+    // 解析失败即抛出，bind 不应被调用
+    expect(fake.bindCalls).toHaveLength(0);
   });
 
-  it("通用层 secrets 同样参与回填（getFor 合并语义）", async () => {
+  it("两业务同名 key 隔离：解析严格落在 binding.business_id 上", async () => {
     const fake = makeFakeRegistry();
-    env.set(null, "secrets", exitSecretKey("fake", "pass"), "global-p@ss");
+    env.set("b_a", "secrets", "shared_key", "pass-a");
+    env.set("b_b", "secrets", "shared_key", "pass-b");
     const driver = createExitDriver({ exits: fake.registry, env });
-    await driver.deliver(makeBinding({ host: "h1" }), null);
+    await driver.deliver(
+      makeBinding({ host: "h1", pass: "{{shared_key}}" }, "fake", "b_a"),
+      null,
+    );
+    await driver.deliver(
+      makeBinding({ host: "h1", pass: "{{shared_key}}" }, "fake", "b_b"),
+      null,
+    );
+    expect(fake.bindCalls[0].pass).toBe("pass-a");
+    expect(fake.bindCalls[1].pass).toBe("pass-b");
+  });
+
+  it("通用层兜底：业务桶无 key 时落全局桶", async () => {
+    const fake = makeFakeRegistry();
+    env.set(null, "secrets", "fake_pass", "global-p@ss");
+    const driver = createExitDriver({ exits: fake.registry, env });
+    await driver.deliver(
+      makeBinding({ host: "h1", pass: "{{fake_pass}}" }),
+      null,
+    );
     expect(fake.bindCalls[0]).toEqual({ host: "h1", pass: "global-p@ss" });
+  });
+
+  it("无占位的 config 原样 bind（解析是恒等透传）", async () => {
+    const fake = makeFakeRegistry();
+    const driver = createExitDriver({ exits: fake.registry, env });
+    await driver.deliver(makeBinding({ host: "h1", pass: "plain" }), null);
+    expect(fake.bindCalls[0]).toEqual({ host: "h1", pass: "plain" });
   });
 
   it("未知 tool → exits.get 抛错透出", async () => {

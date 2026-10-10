@@ -267,8 +267,7 @@ sdk.return({
 | 普通桶 | `sdk.config()` | 非机密配置（jira 站点地址、项目 key、仓库地址…） | key 名业务自定，明文回显 |
 | 安全桶 | `sdk.secret(name)` | 机密（token、密码…） | key 名业务自定；只写不读明文、掩码回显、不进日志（平台日志管道源头脱敏） |
 
-- github/jira 等账号凭据**一律走安全桶**，key 名业务自定（如 `jira_token`）；入口配置里的 `token_key` / `username_key` / `password_key` 这类字段存的是**安全桶键名引用**（不是值本身）；
-- **例外约定 `exit.{kind}.{field}`**：出口工具的机密配置项（configSchema 里 `secret: true` 的字段，如邮件工具的 `pass`、jira 的 `password`、github 的 `token`）不落库进绑定配置，由平台在投递前从**本业务安全桶**按 `exit.{工具kind}.{字段key}` 回填（如 `exit.mail.pass`）。这组 key 是给平台出口投递用的保留命名，业务代码不要拿它当普通配置用；控制台出口表单会标注每个机密项应配的键名；
+- github/jira 等账号凭据**一律走安全桶**，key 名业务自定（如 `jira_token`）；入口配置与出口绑定配置的任何字符串值里都可写 `{{key}}` 占位（可整值占位，也可内嵌如 `...?key={{wecom_key}}`），平台在使用前统一从环境配置两桶做纯字符串替换解析——key 名业务自定，与环境配置桶里的键对应；
 - 另有平台侧约定：私有资产仓库的 `credential_key` 指向**通用层**安全桶（资产登记用，与业务两桶无关）；
 - 子程序拿不到 secrets（§2.8）——共享工具需要的凭据由流程程序 `sdk.secret()` 读出后经 `sdk.run` 的 `config` 显式传入，给什么由包作者决定。
 
@@ -330,11 +329,11 @@ skill = 给大模型的能力单元（可复用提示词组件）。
   | `path` | 是 | URL 路径段 |
   | `session_id_key` | 是 | payload 内取 session_id 的点分路径（如 `issue.key`）；取不到/非非空字符串 → 400 |
   | `event_id_key` | 否 | payload 内取 event_id 的点分路径；缺省平台生成（此时幂等由推送方自负） |
-  | `token_key` | 否 | 验签 token 的 secrets 键名；设置后请求须带 header `x-webhook-token` 等值，不符 → 401 |
+  | `token` | 否 | 验签 token（可 `{{key}}` 占位）；设置后请求须带 header `x-webhook-token` 等值，不符 → 401 |
 
 - 产出信封：`payload = 请求 body 原样`（body 必须是 JSON object，形状推送方自定义）；`event_type` = match 行配置；`correlation_id = event_id`；`hop_count = 0`；
 - 推送方视角响应：`200 { "event_id" }`（event_id 重推幂等丢弃仍回 200）/ `400`（body 或字段非法）/ `401`（验签失败）/ `404`（未知 path）；body 上限 1MB；
-- 示例：`curl -X POST http://<host>:6200/hooks/jira-listener -H 'Content-Type: application/json' -H 'x-webhook-token: <token>' -d '{"issue":{"key":"PRJ-123"},"action":"updated"}'`（对应 `entry_config = { "path": "jira-listener", "session_id_key": "issue.key", "token_key": "webhook_token" }`）。
+- 示例：`curl -X POST http://<host>:6200/hooks/jira-listener -H 'Content-Type: application/json' -H 'x-webhook-token: <token>' -d '{"issue":{"key":"PRJ-123"},"action":"updated"}'`（对应 `entry_config = { "path": "jira-listener", "session_id_key": "issue.key", "token": "{{webhook_token}}" }`）。
 
 **Jira 定时轮询（source=`jira`，默认关闭）**——内部测试与无外网 webhook 场景的工单拉取：
 
@@ -343,7 +342,8 @@ skill = 给大模型的能力单元（可复用提示词组件）。
   | 键 | 必填 | 说明 |
   | -- | ---- | ---- |
   | `jira_url` | 是 | jira 站点根地址 |
-  | `username_key` / `password_key` | 是 | 凭据的 secrets 键名（键名引用，凭据值在安全桶） |
+  | `username` / `password` | 是 | 登录账号与密码（可 `{{key}}` 占位，如 `{{jira_username}}`） |
+  | `redirect_username` / `redirect_password` | 否 | 网关 Basic 凭据（可占位） |
   | `project` | 是 | 项目 key（JQL `project = "X"`） |
   | `assignees` | 否 | 负责人过滤，逗号分隔；缺省或 `*` = 不过滤 |
   | `days_back` | 否 | JQL `updated >= -Nd`，默认 7 |
@@ -541,8 +541,8 @@ path 全平台唯一（创建/更新业务时校验查重，冲突 400 并列出
 3. **写包**：拷贝模板，流程程序 = §2.11 的完整示例（检查 → dataDir 去重 → `sdk.run('jira-fetch')` 拉详情 → 脱敏 → `sdk.agent({ skills: ['ticket-review'] })` 审查 → 还原/门禁 → 组企微消息形状 `sdk.return`）；清单 `requires: { tools: ["jira-fetch"], skills: ["ticket-review"] }`；
 4. **本地验证**：mock 信封管道喂入跑通到 agent 边界；六条检查全绿；
 5. **登记与绑定**：包仓库推送 git → 控制台登记（kind=package）→ 创建业务：绑定包（选入口程序 `main`）+ 工具 + skill 集合（配置期校验 requires 覆盖与查重）；
-6. **配入口**：jira-polling match 行（`source=jira`，`event_type=jira.issue.updated`，entry_config 填 jira_url/project/username_key/password_key——键名指向业务安全桶里的凭据）；或 webhook match 行 + 让 jira 推送到 `POST /hooks/jira-listener`；
-7. **配出口**：勾选 `wecom-webhook`，在出口配置里填群机器人 webhook 地址（该工具唯一配置项 `url`，非机密，直接进绑定配置；有机密项的工具会标注 `exit.{kind}.{字段}` 键名去安全桶配）；
+6. **配入口**：jira-polling match 行（`source=jira`，`event_type=jira.issue.updated`，entry_config 填 jira_url/project/username/password——凭据可写 `{{key}}` 占位指向业务安全桶里的键）；或 webhook match 行 + 让 jira 推送到 `POST /hooks/jira-listener`；
+7. **配出口**：勾选 `wecom-webhook`，在出口配置里填群机器人 webhook 地址（key 段可用占位，如 `...?key={{wecom_key}}`，真值存安全桶；所有字段原样进绑定配置，secret 标记仅是表单提示）；
 8. **跑通**：工单更新 → 入口落队 → 通道串行执行 → 审查结果投递企微群；`sdk.return(null)` 的重复更新静默跳过投递。
 
 现成参照：模板 `templates/agent-package/`（可运行的工程骨架，`src/programs/main.ts` 注释承载契约四条）；平台仓 `business/jira-ticket-review/` 是该参考业务的三族资产落位目录（`package/`、`tools/`、`skills/`），结构对应本节的 1–3 步。

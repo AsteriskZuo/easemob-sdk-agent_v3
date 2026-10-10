@@ -8,4 +8,4 @@ export type {
   EntryAdapter,
   EntryDeps,
 } from "@asteriskzuo/agent-entry-adapters";
-export { createExitDriver, exitSecretKey } from "./exit-driver.js";
+export { createExitDriver } from "./exit-driver.js";

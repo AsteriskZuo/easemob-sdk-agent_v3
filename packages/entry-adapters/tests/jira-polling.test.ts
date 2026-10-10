@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { initLogger, resetForTests } from "@asteriskzuo/agent-logger";
+import type { JiraIssueLite, JiraResult } from "@asteriskzuo/agent-jira-client";
 import { JiraPollingEntryAdapter } from "../src/jira-polling.js";
 import { ENTRY_ADAPTERS } from "../src/index.js";
 import type { EntryDeps } from "../src/types.js";
@@ -33,7 +34,14 @@ beforeEach(() => {
     registry: fakeRegistry.registry,
     env: fakeEnv.env,
   };
-  adapter = new JiraPollingEntryAdapter();
+  adapter = new JiraPollingEntryAdapter({
+    // 注入立即返回的假客户端：syncTick 内 `void poller.run()` 是 fire-and-forget，
+    // 缺省会走真实 JiraClient 网络请求，拖过套件 teardown（写已删日志目录）
+    clientFactory: () => ({
+      searchIssues: (): Promise<JiraResult<JiraIssueLite[]>> =>
+        Promise.resolve({ status: "success", data: [] }),
+    }),
+  });
   // start 即对账一次 + 起周期对账（10s 间隔、unref，测试期间不会真触发）
   adapter.start(deps);
 });
@@ -60,8 +68,8 @@ describe("jira-polling 适配器：轮询器随 match 行增删", () => {
 
     const bid = addJiraRow("jira.issue.updated", {
       jira_url: "http://jira.local",
-      username_key: "u",
-      password_key: "p",
+      username: "u",
+      password: "p",
       project: "PRJ",
     });
 
@@ -92,8 +100,8 @@ describe("jira-polling 适配器：轮询器随 match 行增删", () => {
   it("同一业务多条 jira 行 → 各一个独立轮询器；配置变化 → 重建（轮询器仍存在）", () => {
     const bid = addJiraRow("jira.issue.updated", {
       jira_url: "http://jira.local",
-      username_key: "u",
-      password_key: "p",
+      username: "u",
+      password: "p",
       project: "PRJ",
       interval_seconds: 30,
     });
@@ -101,8 +109,8 @@ describe("jira-polling 适配器：轮询器随 match 行增删", () => {
       "jira.comment.created",
       {
         jira_url: "http://jira.local",
-        username_key: "u",
-        password_key: "p",
+        username: "u",
+        password: "p",
         project: "PRJ",
       },
       bid,
@@ -117,8 +125,8 @@ describe("jira-polling 适配器：轮询器随 match 行增删", () => {
     fakeRegistry.registry.removeMatch(bid, "jira", "jira.issue.updated");
     fakeRegistry.registry.addMatch(bid, "jira", "jira.issue.updated", {
       jira_url: "http://jira.local",
-      username_key: "u",
-      password_key: "p",
+      username: "u",
+      password: "p",
       project: "OTHER",
       interval_seconds: 120,
     });

@@ -10,7 +10,7 @@ import {
   InputNumber,
   Select,
   Switch,
-  Tag,
+  Tabs,
   Tooltip,
 } from "antd";
 import { QuestionCircleOutlined } from "@ant-design/icons";
@@ -23,14 +23,16 @@ import type {
   CreateBusinessBody,
   EffectiveConfigView,
   EntryAdapterView,
-  EnvListView,
   ExitToolMenuItem,
   MatchBody,
   PatchBusinessBody,
 } from "@asteriskzuo/agent-console-api";
 import { apiFetch, ApiError } from "../api/client";
 import EnvEditor from "../components/EnvEditor";
-import MatchEditor, { toMatchBody } from "../components/MatchEditor";
+import MatchEditor, {
+  parseEntryConfig,
+  toMatchBody,
+} from "../components/MatchEditor";
 import type { MatchRow } from "../components/MatchEditor";
 
 /** 表单字段（antd Form 承载的部分；匹配行与出口配置走独立 state） */
@@ -48,6 +50,41 @@ interface BusinessFormValues {
   max_agent_calls?: number | null;
 }
 
+/** 解析出口绑定配置文本（复用入口的 JSON object 解析：空 → undefined；非法 → null） */
+const parseExitConfigText = parseEntryConfig;
+
+/** 出口表单字段值回写进配置 JSON 文本（空串 = 删键；全部键删光 = 回到空文本） */
+function withExitConfigValue(text: string, key: string, value: string): string {
+  const parsed = parseExitConfigText(text);
+  const base: Record<string, unknown> =
+    parsed.ok && parsed.value !== undefined ? { ...parsed.value } : {};
+  if (value.trim() === "") {
+    delete base[key];
+  } else {
+    base[key] = value;
+  }
+  return Object.keys(base).length > 0 ? JSON.stringify(base) : "";
+}
+
+/** 取出口配置项当前值（字符串原样；其他 JSON 值字符串化展示） */
+function exitConfigFieldValue(text: string, key: string): string {
+  const parsed = parseExitConfigText(text);
+  if (!parsed.ok || parsed.value === undefined) return "";
+  const value = parsed.value[key];
+  if (value === undefined) return "";
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+/** 出口 JSON 视图空绑定预填模板：schema 字段全列出，secret 项给 {{key}} 占位示例 */
+function exitConfigTemplate(tool: ExitToolMenuItem): string {
+  const template: Record<string, string> = {};
+  for (const field of tool.configSchema) {
+    template[field.key] =
+      field.placeholder ?? (field.secret === true ? `{{${field.key}}}` : "");
+  }
+  return JSON.stringify(template, null, 2);
+}
+
 /** 表单区块标题 + 叹号提示（是什么/何时用/配错的后果） */
 function SectionTitle({ title, tip }: { title: string; tip: string }) {
   return (
@@ -60,13 +97,9 @@ function SectionTitle({ title, tip }: { title: string; tip: string }) {
   );
 }
 
-/** 出口 secret 配置项的安全桶键（硬契约：exit.{kind}.{field.key}，与 T12 exit-driver 对齐） */
-function exitSecretKey(kind: string, fieldKey: string): string {
-  return `exit.${kind}.${fieldKey}`;
-}
-
 /** 业务创建/编辑同体页（/businesses/new 与 /businesses/:id 共用）。
- *  主保存按钮只管 registry 侧字段 + 匹配行 diff + 出口 secret 覆盖；
+ *  主保存按钮只管 registry 侧字段 + 匹配行 diff + 出口绑定整体覆盖
+ *  （出口配置全字段原样进 ExitBinding.config，含 {{key}} 占位文本，不再拆写安全桶）；
  *  业务 key-value 由 EnvEditor 独立保存（避免混合提交的部分失败语义） */
 export default function BusinessEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -84,10 +117,10 @@ export default function BusinessEditPage() {
   const [originalMatches, setOriginalMatches] = useState<MatchRow[]>([]);
   const [exitTools, setExitTools] = useState<ExitToolMenuItem[]>([]);
   const [checkedExits, setCheckedExits] = useState<Record<string, boolean>>({});
-  const [exitValues, setExitValues] = useState<
-    Record<string, Record<string, string>>
+  /** 出口绑定配置的 JSON 文本（唯一事实源；「表单」/「JSON」双视图都编辑它） */
+  const [exitConfigTexts, setExitConfigTexts] = useState<
+    Record<string, string>
   >({});
-  const [secretKeys, setSecretKeys] = useState<string[]>([]);
   const [packages, setPackages] = useState<AssetMeta[]>([]);
   const [tools, setTools] = useState<AssetMeta[]>([]);
   const [skills, setSkills] = useState<AssetMeta[]>([]);
@@ -162,16 +195,13 @@ export default function BusinessEditPage() {
       .catch((err: unknown) => reportError(err, "加载业务列表失败"));
   }, [reportError, isEdit, form]);
 
-  // 编辑态：回填详情 + 安全桶键名
+  // 编辑态：回填详情（出口绑定 config 原样回填为 JSON 文本，含 {{key}} 占位）
   useEffect(() => {
     if (!isEdit) return;
     setLoading(true);
     void (async () => {
       try {
         const detail = await apiFetch<BusinessDetail>(`/api/businesses/${id}`);
-        const envView = await apiFetch<EnvListView>(
-          `/api/env/businesses/${id}`,
-        );
         const profile = detail.profile;
         form.setFieldsValue({
           business_name: profile.business_name,
@@ -196,16 +226,15 @@ export default function BusinessEditPage() {
           setMatches(rows);
           setOriginalMatches(rows);
         }
-        // 出口回填：非机密项原样回填；secret 项留空（占位「已配置」，填新值才覆盖）
+        // 出口回填：config 原样回填为 JSON 文本（全字段含占位文本都在 binding.config 里）
         const checked: Record<string, boolean> = {};
-        const values: Record<string, Record<string, string>> = {};
+        const texts: Record<string, string> = {};
         for (const binding of detail.exit_bindings) {
           checked[binding.tool] = true;
-          values[binding.tool] = { ...binding.config };
+          texts[binding.tool] = JSON.stringify(binding.config, null, 2);
         }
         setCheckedExits(checked);
-        setExitValues(values);
-        setSecretKeys(envView.secret_keys);
+        setExitConfigTexts(texts);
         if (profile.package_asset_id !== undefined) {
           await loadEntryPrograms(profile.package_asset_id);
         }
@@ -223,64 +252,49 @@ export default function BusinessEditPage() {
     [],
   );
 
-  /** 出口表单值更新 */
-  const setExitValue = (kind: string, fieldKey: string, value: string) => {
-    setExitValues((prev) => ({
+  /** 出口表单字段值更新（回写进该工具的配置 JSON 文本） */
+  const setExitConfigValue = (
+    kind: string,
+    fieldKey: string,
+    value: string,
+  ) => {
+    setExitConfigTexts((prev) => ({
       ...prev,
-      [kind]: { ...prev[kind], [fieldKey]: value },
+      [kind]: withExitConfigValue(prev[kind] ?? "", fieldKey, value),
     }));
   };
 
-  /** 出口分流：secret 项 → 待写安全桶清单；非 secret 项 → ExitBinding.config */
-  const splitExitConfig = (): {
+  /** 出口绑定构建：checked 工具的配置 JSON 文本 → ExitBinding.config。
+   *  全字段（含 secret 标记项与 {{key}} 占位文本）原样进 config，不再拆写安全桶；
+   *  非法 JSON / 必填缺失进 problems（逐条 message 拦截提交） */
+  const buildExitBindings = (): {
     bindings: Array<{ tool: string; config: Record<string, string> }>;
-    secrets: Array<{ key: string; value: string }>;
     problems: string[];
   } => {
     const bindings: Array<{ tool: string; config: Record<string, string> }> =
       [];
-    const secrets: Array<{ key: string; value: string }> = [];
     const problems: string[] = [];
     for (const tool of exitTools) {
       if (checkedExits[tool.kind] !== true) continue;
+      const parsed = parseExitConfigText(exitConfigTexts[tool.kind] ?? "");
+      if (!parsed.ok) {
+        problems.push(`出口「${tool.name}」的配置不是合法 JSON object`);
+        continue;
+      }
       const config: Record<string, string> = {};
+      for (const [key, value] of Object.entries(parsed.value ?? {})) {
+        const text =
+          typeof value === "string" ? value.trim() : JSON.stringify(value);
+        if (text !== "") config[key] = text;
+      }
       for (const field of tool.configSchema) {
-        const value = (exitValues[tool.kind]?.[field.key] ?? "").trim();
-        if (field.secret === true) {
-          if (value !== "") {
-            secrets.push({ key: exitSecretKey(tool.kind, field.key), value });
-          } else if (
-            field.required === true &&
-            !secretKeys.includes(exitSecretKey(tool.kind, field.key))
-          ) {
-            problems.push(
-              `出口「${tool.name}」的必填机密项「${field.label}」未配置`,
-            );
-          }
-          continue; // secret 项不进 ExitBinding.config
-        }
-        if (value !== "") {
-          config[field.key] = value;
-        } else if (field.required === true) {
+        if (field.required === true && config[field.key] === undefined) {
           problems.push(`出口「${tool.name}」的必填项「${field.label}」未填写`);
         }
       }
       bindings.push({ tool: tool.kind, config });
     }
-    return { bindings, secrets, problems };
-  };
-
-  /** 写出口 secret 项到业务层安全桶（依次 PUT） */
-  const writeExitSecrets = async (
-    businessId: string,
-    secrets: Array<{ key: string; value: string }>,
-  ) => {
-    for (const secret of secrets) {
-      await apiFetch<void>(`/api/env/businesses/${businessId}`, {
-        method: "PUT",
-        body: { bucket: "secrets", key: secret.key, value: secret.value },
-      });
-    }
+    return { bindings, problems };
   };
 
   const submit = async () => {
@@ -303,7 +317,7 @@ export default function BusinessEditPage() {
       message.error("首个匹配行的事件类型不能为空");
       return;
     }
-    const { bindings, secrets, problems } = splitExitConfig();
+    const { bindings, problems } = buildExitBindings();
     if (problems.length > 0) {
       message.error(problems[0]);
       return;
@@ -312,7 +326,7 @@ export default function BusinessEditPage() {
     setSubmitting(true);
     try {
       if (!isEdit) {
-        // 创建：POST → 拿 business_id → 追加匹配行/写出口 secret → 跳编辑页
+        // 创建：POST → 拿 business_id → 追加匹配行 → 跳编辑页
         const [firstBody, ...restBodies] = validMatchBodies;
         const body: CreateBusinessBody = {
           business_name: values.business_name,
@@ -350,13 +364,12 @@ export default function BusinessEditPage() {
             },
           );
         }
-        await writeExitSecrets(created.business_id, secrets);
         message.success("业务已创建");
         navigate(`/businesses/${created.business_id}`, { replace: true });
         return;
       }
 
-      // 编辑：PATCH 资料字段（超时/配额清除 = null）+ 匹配行增删 diff + 出口 secret 覆盖
+      // 编辑：PATCH 资料字段（超时/配额清除 = null）+ 匹配行增删 diff + 出口绑定整体覆盖
       const patch: PatchBusinessBody = {
         business_name: values.business_name,
         on_failure: values.on_failure,
@@ -396,7 +409,6 @@ export default function BusinessEditPage() {
           });
         }
       }
-      await writeExitSecrets(id, secrets);
       message.success("已保存");
       navigate("/businesses");
     } catch (err) {
@@ -615,13 +627,15 @@ export default function BusinessEditPage() {
           title={
             <SectionTitle
               title="出口（可选）"
-              tip="是什么：业务结果的投递目的地（企微/邮件/webhook 等），投递不过大模型。何时用：结果需要通知人或系统时勾选并按 schema 填配置。配错后果：地址/账号填错 = 运行时投递失败进死信；机密项没配进安全桶 = 必填校验拦截或投递失败。"
+              tip="是什么：业务结果的投递目的地（企微/邮件/webhook 等），投递不过大模型。何时用：结果需要通知人或系统时勾选并按 schema 填配置，敏感值建议填 {{key}} 占位（真值存环境配置）。配错后果：地址/账号填错 = 运行时投递失败进死信；占位键不存在 = 保存时被服务端拒绝。"
             />
           }
           style={{ marginBottom: 16 }}
         >
           {exitTools.map((tool) => {
             const checked = checkedExits[tool.kind] === true;
+            const configText = exitConfigTexts[tool.kind] ?? "";
+            const parsedConfig = parseExitConfigText(configText);
             return (
               <div key={tool.kind} style={{ marginBottom: 12 }}>
                 <Checkbox
@@ -640,83 +654,100 @@ export default function BusinessEditPage() {
                   )}
                 </Checkbox>
                 {checked && (
-                  <div
-                    style={{
-                      marginLeft: 24,
-                      marginTop: 8,
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 8,
-                    }}
-                  >
-                    {tool.configSchema.map((field) => {
-                      const isSecret = field.secret === true;
-                      const configured =
-                        isSecret &&
-                        secretKeys.includes(
-                          exitSecretKey(tool.kind, field.key),
-                        );
-                      const placeholder = configured
-                        ? "已配置（留空 = 不改动，填新值 = 覆盖）"
-                        : field.placeholder;
-                      return (
-                        <div key={field.key}>
-                          <div style={{ marginBottom: 4 }}>
-                            {field.required === true && (
-                              <span style={{ color: "#ff4d4f" }}>* </span>
-                            )}
-                            {field.label}
-                            {isSecret && (
-                              <>
-                                <Tag
-                                  color={configured ? "success" : "warning"}
-                                  style={{ marginLeft: 8 }}
-                                >
-                                  {configured ? "已配置" : "未配置"}
-                                </Tag>
-                                <div style={{ color: "#999", fontSize: 12 }}>
-                                  机密项，值存业务安全桶，键名：
-                                  {exitSecretKey(tool.kind, field.key)}
-                                  {isEdit
-                                    ? "（也可在下方「业务 key-value」安全桶维护）"
-                                    : "（此处填写将在创建后写入安全桶）"}
+                  <div style={{ marginLeft: 24, marginTop: 8 }}>
+                    {!parsedConfig.ok && (
+                      <Alert
+                        type="error"
+                        showIcon
+                        style={{ marginBottom: 8 }}
+                        message={`出口「${tool.name}」的配置不是合法 JSON object（请先在「JSON」视图修正）`}
+                      />
+                    )}
+                    <Tabs
+                      size="small"
+                      aria-label={`出口 ${tool.kind} 配置视图`}
+                      items={[
+                        {
+                          key: "form",
+                          label: "表单",
+                          disabled: !parsedConfig.ok,
+                          children: (
+                            <div
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 8,
+                              }}
+                            >
+                              {tool.configSchema.map((field) => (
+                                <div key={field.key}>
+                                  <div style={{ marginBottom: 4 }}>
+                                    {field.required === true && (
+                                      <span style={{ color: "#ff4d4f" }}>
+                                        *{" "}
+                                      </span>
+                                    )}
+                                    {field.label}
+                                    <span
+                                      style={{ color: "#999", fontSize: 12 }}
+                                    >
+                                      （{field.key}）
+                                    </span>
+                                  </div>
+                                  <Input
+                                    aria-label={`出口 ${tool.kind} ${field.key}`}
+                                    placeholder={field.placeholder}
+                                    disabled={!parsedConfig.ok}
+                                    value={exitConfigFieldValue(
+                                      configText,
+                                      field.key,
+                                    )}
+                                    onChange={(e) =>
+                                      setExitConfigValue(
+                                        tool.kind,
+                                        field.key,
+                                        e.target.value,
+                                      )
+                                    }
+                                  />
+                                  {field.secret === true && (
+                                    <div
+                                      style={{ color: "#999", fontSize: 12 }}
+                                    >
+                                      {
+                                        "建议填 {{key}} 占位，真值存安全变量（本业务环境配置的 secrets）"
+                                      }
+                                    </div>
+                                  )}
                                 </div>
-                              </>
-                            )}
-                          </div>
-                          {isSecret ? (
-                            <Input.Password
-                              aria-label={`出口 ${tool.kind} ${field.key}`}
-                              placeholder={placeholder}
-                              value={exitValues[tool.kind]?.[field.key] ?? ""}
+                              ))}
+                            </div>
+                          ),
+                        },
+                        {
+                          key: "json",
+                          label: "JSON",
+                          children: (
+                            <Input.TextArea
+                              aria-label={`出口 ${tool.kind} 配置 JSON`}
+                              rows={4}
+                              placeholder={exitConfigTemplate(tool)}
+                              value={configText}
+                              status={parsedConfig.ok ? "" : "error"}
                               onChange={(e) =>
-                                setExitValue(
-                                  tool.kind,
-                                  field.key,
-                                  e.target.value,
-                                )
+                                setExitConfigTexts((prev) => ({
+                                  ...prev,
+                                  [tool.kind]: e.target.value,
+                                }))
                               }
                             />
-                          ) : (
-                            <Input
-                              aria-label={`出口 ${tool.kind} ${field.key}`}
-                              placeholder={placeholder}
-                              value={exitValues[tool.kind]?.[field.key] ?? ""}
-                              onChange={(e) =>
-                                setExitValue(
-                                  tool.kind,
-                                  field.key,
-                                  e.target.value,
-                                )
-                              }
-                            />
-                          )}
-                        </div>
-                      );
-                    })}
+                          ),
+                        },
+                      ]}
+                    />
                     {/* 该出口期望 sdk.return 返回的形状（markdown 原文展示，不引渲染器依赖） */}
                     {tool.resultDoc != null && tool.resultDoc !== "" && (
-                      <div>
+                      <div style={{ marginTop: 8 }}>
                         <div style={{ color: "#666", marginBottom: 4 }}>
                           该出口期望 sdk.return 返回的形状：
                         </div>
@@ -793,7 +824,7 @@ export default function BusinessEditPage() {
           title={
             <SectionTitle
               title="业务 key-value"
-              tip="是什么：按业务注入的 key-value 配置——普通桶明文回显，安全桶只写不读（掩码）。何时用：包代码 sdk.config()/sdk.secret() 要读的参数与凭据（含出口机密项）。配错后果：键名写错 = 业务代码取不到值而失败；机密放普通桶 = 明文泄漏。"
+              tip="是什么：按业务注入的 key-value 配置——普通桶明文回显，安全桶只写不读（掩码）。何时用：包代码 sdk.config()/sdk.secret() 要读的参数与凭据；入口/出口配置里 {{key}} 占位的真值也在这里建键。配错后果：键名写错 = 业务代码取不到值或占位解析失败；机密放普通桶 = 明文泄漏。"
             />
           }
           style={{ marginTop: 16 }}

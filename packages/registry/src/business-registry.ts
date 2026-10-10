@@ -32,11 +32,11 @@ export interface BusinessProfile {
   max_agent_calls?: number; // agent 调用次数配额覆盖；undefined = 用全局默认
 }
 
-/** 出口绑定：业务配置的一部分。config 只存非机密项 */
+/** 出口绑定：业务配置的一部分。config 存全部字段，任何字符串值可含 `{{key}}` 占位，投递前由平台统一解析（真值归环境配置两桶） */
 export interface ExitBinding {
   business_id: string; // 归属业务 = 出口循环的归属匹配键
   tool: string; // 出口工具 kind
-  config: Record<string, string>; // 非机密配置（token 等机密项归环境配置模块，不存此处）
+  config: Record<string, string>; // 出口配置全字段原样落库；字符串值可含 `{{key}}` 占位（指向环境配置两桶的键名），投递前平台统一解析
 }
 
 /** 业务级字段补丁（行级字段 source/event_type 不可 patch——改匹配 = 增删行） */

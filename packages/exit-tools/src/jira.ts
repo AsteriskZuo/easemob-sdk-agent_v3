@@ -1,5 +1,6 @@
 import { JiraClient } from "@asteriskzuo/agent-jira-client";
 import type { JiraResult } from "@asteriskzuo/agent-jira-client";
+import { hasPlaceholder, templateDestination } from "./destination.js";
 import type { ConfigField, ExitTool } from "./types.js";
 
 const KIND = "jira";
@@ -103,14 +104,18 @@ export function createJiraExitTool(
 `,
     destinationOf(config) {
       const url = requireUrl(config);
+      const project = requireProject(config);
+      const issueKey = config.issue_key?.trim();
+      if (hasPlaceholder(url, project, issueKey)) {
+        return templateDestination([url, project, issueKey ?? ""].join("\n"));
+      }
       let host: string;
       try {
         host = new URL(url).host;
       } catch {
         throw new Error(`${KIND} 配置非法：url 不是合法地址（${url}）`);
       }
-      const project = requireProject(config);
-      const key = config.issue_key?.trim() || project;
+      const key = issueKey || project;
       return `${sanitizePathSegment(host)}__${sanitizePathSegment(key)}`;
     },
     bind(config) {

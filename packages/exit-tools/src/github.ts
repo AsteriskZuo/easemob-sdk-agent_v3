@@ -1,5 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { getOctokit } from "@actions/github";
+import { hasPlaceholder, templateDestination } from "./destination.js";
 import type { ConfigField, Exit, ExitTool } from "./types.js";
 
 const KIND = "github";
@@ -369,7 +370,9 @@ export function createGithubExitTool(options?: {
     configSchema,
     resultDoc: RESULT_DOC,
     destinationOf(config) {
-      const parsed = parseRepo(config.repo ?? "");
+      const repo = config.repo?.trim() ?? "";
+      if (hasPlaceholder(repo)) return templateDestination(repo);
+      const parsed = parseRepo(repo);
       // destination_id 契约：host/owner/repo 的 ':'/'/' → '_'
       return `${parsed.host}_${parsed.owner}_${parsed.repo}`;
     },

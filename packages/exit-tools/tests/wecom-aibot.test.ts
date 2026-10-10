@@ -71,6 +71,22 @@ describe("wecom-aibot destinationOf", () => {
       "'user_id'",
     );
   });
+
+  it("任一字段含占位 → 模板哈希身份（tpl_ 前缀）", () => {
+    const dest = tool.destinationOf({
+      ...fullConfig,
+      chat_id: "{{aibot_chat_id}}",
+    });
+    expect(dest).toMatch(/^tpl_[0-9a-f]{12}$/);
+    // 同模板同身份
+    expect(
+      tool.destinationOf({ ...fullConfig, chat_id: "{{aibot_chat_id}}" }),
+    ).toBe(dest);
+  });
+
+  it("字段均不含占位 → 行为不变（明文三段拼接）", () => {
+    expect(tool.destinationOf(fullConfig)).toBe("bot-123__chat-456__user-789");
+  });
 });
 
 describe("wecom-aibot bind", () => {

@@ -59,6 +59,16 @@ describe("webhook destinationOf", () => {
   it("缺 url → 抛错", () => {
     expect(() => tool.destinationOf({})).toThrow("'url'");
   });
+
+  it("url 含占位 → 模板哈希身份（tpl_ 前缀），不做 url 合法性校验", () => {
+    const dest = tool.destinationOf({ url: "{{webhook_url}}" });
+    expect(dest).toMatch(/^tpl_[0-9a-f]{12}$/);
+  });
+
+  it("同模板 url → 同一目标标识", () => {
+    const config = { url: "https://example.com/hooks/{{hook_id}}" };
+    expect(tool.destinationOf(config)).toBe(tool.destinationOf({ ...config }));
+  });
 });
 
 describe("webhook bind", () => {

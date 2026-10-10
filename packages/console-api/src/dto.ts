@@ -198,7 +198,8 @@ export interface EnvListView {
 }
 
 /** GET /api/exit-tools 响应项：出口工具菜单（console 据此渲染表单；
- *  secret=true 的项写安全桶、非 secret 项进 ExitBinding.config） */
+ *  配置值可含 {{key}} 占位（真值存环境配置两桶，保存时校验键存在性）；
+ *  secret=true 仅为 UI 提示（建议占位、真值存安全桶），所有字段原样存 ExitBinding.config） */
 export interface ExitToolMenuItem {
   /** 工具标识（ExitBinding.tool 取值） */
   kind: string;
@@ -227,7 +228,8 @@ export interface EntryAdapterView {
   defaultEnabled: boolean;
   /** 当前生效开关状态（装配层解析部署配置后的结果；false = 该适配器未启动） */
   enabled: boolean;
-  /** entry_config 字段声明（console 据此渲染表单；secret 引用性质的字段填 secrets 键名） */
+  /** entry_config 字段声明（console 据此渲染表单；字段值可含 {{key}} 占位，
+   *  真值存环境配置两桶，保存时校验键存在性；secret=true 仅为 UI 提示） */
   configSchema: ConfigField[];
   /** markdown：事件类型清单 + payload 形状 + 示例 JSON（业务开发者对接依据） */
   eventDoc: string;

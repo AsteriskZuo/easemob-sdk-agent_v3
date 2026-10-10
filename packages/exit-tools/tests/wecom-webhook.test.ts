@@ -56,6 +56,28 @@ describe("wecom-webhook destinationOf", () => {
   it("缺 url → 抛错", () => {
     expect(() => tool.destinationOf({})).toThrow("'url'");
   });
+
+  it("url 含占位（?key={{wecom_key}}）→ 模板哈希身份（tpl_ 前缀），不走 parseKey", () => {
+    const dest = tool.destinationOf({
+      url: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={{wecom_key}}",
+    });
+    expect(dest).toMatch(/^tpl_[0-9a-f]{12}$/);
+  });
+
+  it("同模板 url → 同一目标标识（串行身份稳定）", () => {
+    const config = {
+      url: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={{wecom_key}}",
+    };
+    expect(tool.destinationOf(config)).toBe(tool.destinationOf({ ...config }));
+  });
+
+  it("url 不含占位 → 行为不变（仍提取 key 段）", () => {
+    expect(
+      tool.destinationOf({
+        url: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=abc123",
+      }),
+    ).toBe("abc123");
+  });
 });
 
 describe("wecom-webhook bind", () => {

@@ -1,10 +1,9 @@
-/** 配置项声明：控制台据此渲染表单；secret=true 的项不存入绑定配置，
- *  由控制台写入 EnvProvider、装配根 bind 前合并注入 */
+/** 配置项声明：控制台据此渲染表单 */
 export interface ConfigField {
   key: string; // 配置键（bind 收到的 config 里的键名）
   label: string; // 展示名（控制台表单 label）
   required?: boolean; // 缺省 false；true 时 bind 校验缺失即抛错
-  secret?: boolean; // 缺省 false；true = 机密项（不落库进绑定、不进日志）
+  secret?: boolean; // 缺省 false；true = 敏感项的纯 UI 提示（建议 {{key}} 占位、真值存安全变量桶），不再触发平台拆写/回填
   placeholder?: string; // 表单占位提示
 }
 
@@ -19,13 +18,14 @@ export interface ExitTool {
    *  各工具文档不再重复此条 */
   readonly resultDoc: string;
 
-  /** 投递目标标识：从非机密配置提取——出口 channel_id 的第二维。
-   *  必须文件路径安全；配置缺失/非法抛错（该绑定将被调度循环判失败）。
+  /** 投递目标标识：出口 channel_id 的第二维，消费**未解析的原始配置**（可含 {{key}} 占位）。
+   *  消费字段任一含占位 → 模板哈希身份（templateDestination），不解析、不把 secret 泄进通道标识；
+   *  否则按工具自有规则提取。必须文件路径安全；配置缺失/非法抛错（该绑定将被调度循环判失败）。
    *  占位工具调用即抛「未实现」 */
   destinationOf(config: Record<string, string>): string;
 
-  /** 用完整配置（含已合并的机密项）实例化出口；required 项缺失即抛错。
-   *  配置由实例持有，deliver 不再传。占位工具调用即抛「未实现」 */
+  /** 用完整配置实例化出口（调用方负责先做占位解析，此处收到的应是明文终值）；
+   *  required 项缺失即抛错。配置由实例持有，deliver 不再传。占位工具调用即抛「未实现」 */
   bind(config: Record<string, string>): Exit;
 }
 

@@ -1,4 +1,4 @@
-import { Alert, Button, Collapse, Input, Select, Tooltip } from "antd";
+import { Alert, Button, Input, Select, Tabs, Tooltip } from "antd";
 import { DeleteOutlined, QuestionCircleOutlined } from "@ant-design/icons";
 import type {
   BusinessProfile,
@@ -134,8 +134,9 @@ export interface MatchEditorProps {
 }
 
 /** 匹配行编辑器：source 下拉 + event_type + entry_config。
- *  source 命中某适配器（kind===source）→ 下方渲染该适配器 eventDoc，entry_config 升级为
- *  按 configSchema 生成的表单项（裸 JSON 保留为折叠高级模式）；source=internal → 上游业务 +
+ *  source 命中某适配器（kind===source）→ 下方渲染该适配器 eventDoc，entry_config 为
+ *  「表单」（按 configSchema 生成）/「JSON」（裸文本）Tab 双视图（entry_config_text 是唯一事实源，
+ *  两视图天然同步；JSON 非法时「表单」Tab 禁用）；source=internal → 上游业务 +
  *  结果类型引导，自动生成 event_type={业务id}.completed|failed；其余 source 维持裸 JSON 文本域 */
 export default function MatchEditor({
   value,
@@ -278,7 +279,7 @@ export default function MatchEditor({
               </div>
             )}
 
-            {/* 适配器命中的 source：eventDoc + configSchema 表单（裸 JSON 收进折叠高级模式） */}
+            {/* 适配器命中的 source：eventDoc + configSchema「表单」/「JSON」Tab 双视图 */}
             {hasSchema ? (
               <>
                 {!parsed.ok && (
@@ -286,66 +287,58 @@ export default function MatchEditor({
                     type="error"
                     showIcon
                     style={{ marginBottom: 8 }}
-                    message="入口配置不是合法 JSON object（高级模式内容非法，请先修正）"
+                    message="入口配置不是合法 JSON object（请先在「JSON」视图修正）"
                   />
                 )}
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
-                    marginBottom: 8,
-                  }}
-                >
-                  {adapter.configSchema.map((field) => {
-                    // secret 引用性质的字段（token_key/username_key/password_key 等键名引用，
-                    // 区别于 session_id_key/event_id_key 这类 payload 字段路径）
-                    const secretRef =
-                      field.secret === true ||
-                      /^(token|username|password|credential|secret|api_key)_key$/.test(
-                        field.key,
-                      );
-                    return (
-                      <div key={field.key}>
-                        <div style={{ marginBottom: 4 }}>
-                          {field.required === true && (
-                            <span style={{ color: "#ff4d4f" }}>* </span>
-                          )}
-                          {field.label}
-                          <span style={{ color: "#999", fontSize: 12 }}>
-                            （{field.key}）
-                          </span>
-                        </div>
-                        <Input
-                          aria-label={`匹配行 ${index + 1} ${field.key}`}
-                          placeholder={field.placeholder}
-                          disabled={!parsed.ok}
-                          value={entryConfigValue(row, field.key)}
-                          onChange={(e) =>
-                            updateRow(index, {
-                              entry_config_text: withEntryConfigValue(
-                                row.entry_config_text,
-                                field.key,
-                                e.target.value,
-                              ),
-                            })
-                          }
-                        />
-                        {secretRef && (
-                          <div style={{ color: "#999", fontSize: 12 }}>
-                            填 secrets
-                            键名（凭据值存业务安全桶，此处只存键名引用）
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                <Collapse
+                <Tabs
+                  size="small"
                   items={[
                     {
-                      key: "raw",
-                      label: "高级模式（裸 JSON）",
+                      key: "form",
+                      label: "表单",
+                      disabled: !parsed.ok,
+                      children: (
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 8,
+                          }}
+                        >
+                          {adapter.configSchema.map((field) => (
+                            <div key={field.key}>
+                              <div style={{ marginBottom: 4 }}>
+                                {field.required === true && (
+                                  <span style={{ color: "#ff4d4f" }}>* </span>
+                                )}
+                                {field.label}
+                                <span style={{ color: "#999", fontSize: 12 }}>
+                                  （{field.key}）
+                                </span>
+                              </div>
+                              <Input
+                                aria-label={`匹配行 ${index + 1} ${field.key}`}
+                                placeholder={field.placeholder}
+                                disabled={!parsed.ok}
+                                value={entryConfigValue(row, field.key)}
+                                onChange={(e) =>
+                                  updateRow(index, {
+                                    entry_config_text: withEntryConfigValue(
+                                      row.entry_config_text,
+                                      field.key,
+                                      e.target.value,
+                                    ),
+                                  })
+                                }
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      ),
+                    },
+                    {
+                      key: "json",
+                      label: "JSON",
                       children: rawJsonEditor(row, index),
                     },
                   ]}

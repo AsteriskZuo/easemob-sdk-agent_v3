@@ -1,3 +1,4 @@
+import { hasPlaceholder, templateDestination } from "./destination.js";
 import type { ConfigField, ExitTool } from "./types.js";
 
 const KIND = "wecom-webhook";
@@ -12,7 +13,8 @@ const configSchema: ConfigField[] = [
     key: "url",
     label: "Webhook 地址",
     required: true,
-    placeholder: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=<key>",
+    placeholder:
+      "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={{wecom_key}}",
   },
 ];
 
@@ -105,7 +107,10 @@ export function createWecomWebhookExitTool(): ExitTool {
 \`\`\`
 `,
     destinationOf(config) {
-      return parseKey(requireUrl(config));
+      const url = requireUrl(config);
+      // url 含占位（如 ?key={{wecom_key}}）：用模板原文做哈希身份，不解析不泄密
+      if (hasPlaceholder(url)) return templateDestination(url);
+      return parseKey(url);
     },
     bind(config) {
       const url = requireUrl(config);

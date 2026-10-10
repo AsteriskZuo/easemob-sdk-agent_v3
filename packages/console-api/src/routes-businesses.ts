@@ -13,6 +13,7 @@ import type { User } from "./accounts.js";
 import { validateBusinessWrite } from "./binding-validation.js";
 import { assertWebhookPathUnique } from "./binding-validation.js";
 import { ApiError } from "./errors.js";
+import { assertPlaceholderKeysExist } from "./placeholder-validation.js";
 import type {
   BusinessDetail,
   CreateBusinessBody,
@@ -265,6 +266,31 @@ export function businessRoutes(deps: {
         });
 
         const businessId = registry.create(input);
+        // 占位 key 存在性校验（fail fast）：业务 id 生成后方能核对业务两桶；
+        // 校验不过 → 回滚已建业务（占位配置不落库）
+        try {
+          if (entryConfig !== undefined) {
+            assertPlaceholderKeysExist(
+              deps.env,
+              businessId,
+              entryConfig,
+              "entry_config",
+            );
+          }
+          for (const [index, binding] of (
+            input.exit_bindings ?? []
+          ).entries()) {
+            assertPlaceholderKeysExist(
+              deps.env,
+              businessId,
+              binding.config,
+              `exit_bindings[${index}].config`,
+            );
+          }
+        } catch (err) {
+          registry.remove(businessId);
+          throw err;
+        }
         // 首个匹配行的入口配置：CreateBusinessInput 不含 entry_config（既有契约不改动），
         // 先建后删补 addMatch 落定（同一事务外两步，失败面仅留下无入口配置的匹配行）
         if (entryConfig !== undefined) {
@@ -390,6 +416,18 @@ export function businessRoutes(deps: {
           agent_kind: patch.agent_kind,
         });
 
+        // 占位 key 存在性校验（fail fast）：exit_bindings 出现在 patch 中才校验
+        if (exitBindings !== undefined) {
+          for (const [index, binding] of exitBindings.entries()) {
+            assertPlaceholderKeysExist(
+              deps.env,
+              businessId,
+              binding.config,
+              `exit_bindings[${index}].config`,
+            );
+          }
+        }
+
         registry.update(businessId, patch);
         log.info("API 更新业务", {
           operator_id: actor.user_id,
@@ -433,6 +471,15 @@ export function businessRoutes(deps: {
         // webhook 行端点 path 全平台唯一（含与本业务既有行比对；冲突 → 400）
         if (source === "webhook") {
           assertWebhookPathUnique(registry, entryConfig);
+        }
+        // 占位 key 存在性校验（fail fast）：无占位 → 放行
+        if (entryConfig !== undefined) {
+          assertPlaceholderKeysExist(
+            deps.env,
+            businessId,
+            entryConfig,
+            "entry_config",
+          );
         }
         registry.addMatch(businessId, source, eventType, entryConfig);
         log.info("API 新增匹配行", {

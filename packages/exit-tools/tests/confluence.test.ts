@@ -237,6 +237,33 @@ describe("confluence destinationOf", () => {
       }),
     ).toThrow("不是合法地址");
   });
+
+  it("任一消费字段含占位 → 模板哈希身份（tpl_ 前缀）", () => {
+    const dest = tool.destinationOf({
+      base_url: "{{confluence_base_url}}",
+      space_key: "AIR",
+      page_title: "周报",
+    });
+    expect(dest).toMatch(/^tpl_[0-9a-f]{12}$/);
+    // 同模板同身份
+    expect(
+      tool.destinationOf({
+        base_url: "{{confluence_base_url}}",
+        space_key: "AIR",
+        page_title: "周报",
+      }),
+    ).toBe(dest);
+  });
+
+  it("字段均不含占位 → 行为不变", () => {
+    expect(
+      tool.destinationOf({
+        base_url: "https://c1.private.easemob.com",
+        space_key: "AIR",
+        page_title: "周报 10/03",
+      }),
+    ).toBe("c1.private.easemob.com__AIR__周报 10_03");
+  });
 });
 
 describe("confluence bind", () => {

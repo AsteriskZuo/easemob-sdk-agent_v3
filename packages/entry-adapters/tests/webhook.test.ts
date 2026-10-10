@@ -130,11 +130,11 @@ describe("webhook 入口适配器", () => {
     expect(res.json.event_id).toMatch(/^evt_/);
   });
 
-  it("验签：token_key 配置后，无头/错值 → 401；等值 → 200（值取自业务 secrets 桶）", async () => {
+  it("验签：token 占位 {{webhook_token}} 解析后验签，无头/错值 → 401；等值 → 200", async () => {
     const businessId = addWebhookRow("secure.event", {
       path: "secure",
       session_id_key: "id",
-      token_key: "webhook_token",
+      token: "{{webhook_token}}",
     });
     fakeEnv.setSecret(businessId, "webhook_token", "s3cret");
 
@@ -153,17 +153,37 @@ describe("webhook 入口适配器", () => {
     expect(fakeQueue.tasks[0]?.event.session_id).toBe("S1");
   });
 
-  it("验签：secrets 桶缺该键 → 401（无法比对视为失败）", async () => {
+  it("验签：token 明文直填（不占位）同样生效", async () => {
     addWebhookRow("secure.event", {
-      path: "secure",
+      path: "plain",
       session_id_key: "id",
-      token_key: "webhook_token",
+      token: "literal-token",
     });
 
-    const res = await post("/hooks/secure", JSON.stringify({ id: "S1" }), {
+    expect(
+      await post("/hooks/plain", JSON.stringify({ id: "S1" }), {
+        "x-webhook-token": "literal-token",
+      }),
+    ).toMatchObject({ status: 200 });
+    expect(
+      await post("/hooks/plain", JSON.stringify({ id: "S1" }), {
+        "x-webhook-token": "nope",
+      }),
+    ).toMatchObject({ status: 401 });
+  });
+
+  it("占位键缺失（环境配置无该键）→ 500 端点配置缺陷，不落队", async () => {
+    addWebhookRow("secure.event", {
+      path: "broken",
+      session_id_key: "id",
+      token: "{{webhook_token}}",
+    });
+
+    const res = await post("/hooks/broken", JSON.stringify({ id: "S1" }), {
       "x-webhook-token": "whatever",
     });
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(500);
+    expect(fakeQueue.tasks).toHaveLength(0);
   });
 
   it("400：非法 JSON / 非 object body / session_id 取不到 / event_id 值非法", async () => {

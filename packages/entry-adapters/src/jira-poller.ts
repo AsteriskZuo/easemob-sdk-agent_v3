@@ -9,6 +9,10 @@ import type {
 } from "@asteriskzuo/agent-jira-client";
 import { logger } from "@asteriskzuo/agent-logger";
 import type { TaskQueue } from "@asteriskzuo/agent-queue";
+import {
+  PlaceholderError,
+  resolveConfigPlaceholders,
+} from "@asteriskzuo/agent-runtime";
 import type { EnvProvider } from "@asteriskzuo/agent-runtime";
 import { configString } from "./match-scan.js";
 
@@ -24,14 +28,18 @@ export interface JiraSearchClient {
 export const JIRA_POLL_INTERVAL_DEFAULT_SECONDS = 60;
 export const JIRA_POLL_INTERVAL_MIN_SECONDS = 30;
 
-/** jira-polling match 行 entry_config 的解析结果（必填齐全后） */
+/** jira-polling match 行 entry_config 的解析结果（必填齐全后；输入侧须先过占位符解析） */
 export interface JiraPollConfig {
   /** jira 站点根地址 */
   jira_url: string;
-  /** jira 用户名的 secrets 键名（凭据存业务 secrets 桶，此处只存键名引用） */
-  username_key: string;
-  /** jira 密码的 secrets 键名 */
-  password_key: string;
+  /** jira 登录用户名（真值；entry_config 里可写 {{key}} 占位，解析后落到这里） */
+  username: string;
+  /** jira 登录密码（真值；同上可占位） */
+  password: string;
+  /** 网关 Basic 账号（可选；对应 JiraClientConfig.redirectUsername） */
+  redirect_username?: string;
+  /** 网关 Basic 密码（可选；对应 JiraClientConfig.redirectPassword） */
+  redirect_password?: string;
   /** 项目 key（JQL `project = "X"`） */
   project: string;
   /** 负责人过滤列表；undefined = 不过滤（缺省或 `*`） */
@@ -63,12 +71,14 @@ export function parseJiraEntryConfig(
 ): { ok: true; config: JiraPollConfig } | { ok: false; problems: string[] } {
   const problems: string[] = [];
   const jiraUrl = configString(entryConfig, "jira_url");
-  const usernameKey = configString(entryConfig, "username_key");
-  const passwordKey = configString(entryConfig, "password_key");
+  const username = configString(entryConfig, "username");
+  const password = configString(entryConfig, "password");
+  const redirectUsername = configString(entryConfig, "redirect_username");
+  const redirectPassword = configString(entryConfig, "redirect_password");
   const project = configString(entryConfig, "project");
   if (jiraUrl === undefined) problems.push("缺 jira_url");
-  if (usernameKey === undefined) problems.push("缺 username_key");
-  if (passwordKey === undefined) problems.push("缺 password_key");
+  if (username === undefined) problems.push("缺 username");
+  if (password === undefined) problems.push("缺 password");
   if (project === undefined) problems.push("缺 project");
 
   // assignees：缺省或 '*' = 不过滤；否则逗号分隔解析
@@ -92,8 +102,14 @@ export function parseJiraEntryConfig(
     ok: true,
     config: {
       jira_url: jiraUrl as string,
-      username_key: usernameKey as string,
-      password_key: passwordKey as string,
+      username: username as string,
+      password: password as string,
+      ...(redirectUsername !== undefined
+        ? { redirect_username: redirectUsername }
+        : {}),
+      ...(redirectPassword !== undefined
+        ? { redirect_password: redirectPassword }
+        : {}),
       project: project as string,
       ...(assignees !== undefined && assignees.length > 0 ? { assignees } : {}),
       days_back: daysBack,
@@ -106,7 +122,7 @@ export function parseJiraEntryConfig(
 export interface JiraPollerDeps {
   /** 入口队列（产出事件的唯一出口） */
   queue: TaskQueue;
-  /** 两桶环境配置（username_key/password_key 键名引用在此取真值） */
+  /** 两桶环境配置（entry_config 中的 {{key}} 占位经 EnvProvider.lookup 取真值） */
   env: EnvProvider;
 }
 
@@ -154,7 +170,28 @@ export function createJiraPoller(options: JiraPollerOptions): JiraPoller {
       if (running) return;
       running = true;
       try {
-        const parsed = parseJiraEntryConfig(options.entry_config);
+        // ① 占位符解析：{{key}} → 环境配置真值（按本业务 business_id 隔离查桶）。
+        //    缺失占位键 = 配置非法，记 warn 跳过本轮（行配置是用户数据，不抛错）
+        let resolved: Record<string, unknown>;
+        try {
+          resolved = resolveConfigPlaceholders(
+            options.entry_config ?? {},
+            options.deps.env,
+            options.business_id,
+          );
+        } catch (err) {
+          if (err instanceof PlaceholderError) {
+            log.warn("jira 轮询行配置占位键缺失，跳过本轮", {
+              business_id: options.business_id,
+              event_type: options.event_type,
+              missing_keys: err.keys,
+            });
+            return;
+          }
+          throw err;
+        }
+
+        const parsed = parseJiraEntryConfig(resolved);
         if (!parsed.ok) {
           log.warn("jira 轮询行配置非法，跳过本轮", {
             business_id: options.business_id,
@@ -165,23 +202,16 @@ export function createJiraPoller(options: JiraPollerOptions): JiraPoller {
         }
         const config = parsed.config;
 
-        // 凭据：entry_config 存 secrets 键名引用，真值从业务 secrets 桶取
-        const secrets = options.deps.env.getFor(options.business_id).secrets;
-        const username = secrets[config.username_key];
-        const password = secrets[config.password_key];
-        if (username === undefined || password === undefined) {
-          log.warn("jira 轮询凭据缺失，跳过本轮", {
-            business_id: options.business_id,
-            username_key: config.username_key,
-            password_key: config.password_key,
-          });
-          return;
-        }
-
         const client = clientFactory({
           baseUrl: config.jira_url,
-          username,
-          password,
+          username: config.username,
+          password: config.password,
+          ...(config.redirect_username !== undefined
+            ? { redirectUsername: config.redirect_username }
+            : {}),
+          ...(config.redirect_password !== undefined
+            ? { redirectPassword: config.redirect_password }
+            : {}),
         });
         const result = await client.searchIssues({
           project: config.project,

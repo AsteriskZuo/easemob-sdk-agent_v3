@@ -1,3 +1,4 @@
+import { hasPlaceholder, templateDestination } from "./destination.js";
 import { postJson } from "./http.js";
 import type { ConfigField, ExitTool } from "./types.js";
 
@@ -50,7 +51,9 @@ export function createWebhookExitTool(): ExitTool {
 \`\`\`
 `,
     destinationOf(config) {
-      return normalizeUrl(requireUrl(config));
+      const url = requireUrl(config);
+      if (hasPlaceholder(url)) return templateDestination(url);
+      return normalizeUrl(url);
     },
     bind(config) {
       const url = requireUrl(config);

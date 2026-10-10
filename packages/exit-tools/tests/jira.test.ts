@@ -52,6 +52,39 @@ describe("jira destinationOf", () => {
       "'project'",
     );
   });
+
+  it("任一消费字段含占位 → 模板哈希身份（tpl_ 前缀）", () => {
+    const dest = tool.destinationOf({
+      url: "https://j1.private.easemob.com",
+      project: "{{jira_project}}",
+    });
+    expect(dest).toMatch(/^tpl_[0-9a-f]{12}$/);
+    // 同模板同身份
+    expect(
+      tool.destinationOf({
+        url: "https://j1.private.easemob.com",
+        project: "{{jira_project}}",
+      }),
+    ).toBe(dest);
+  });
+
+  it("url 含占位 → 模板哈希身份，不做 url 合法性校验", () => {
+    const dest = tool.destinationOf({
+      url: "{{jira_url}}",
+      project: "HIM",
+    });
+    expect(dest).toMatch(/^tpl_[0-9a-f]{12}$/);
+  });
+
+  it("字段均不含占位 → 行为不变", () => {
+    expect(
+      tool.destinationOf({
+        url: "https://j1.private.easemob.com",
+        project: "HIM",
+        issue_key: "HIM-123",
+      }),
+    ).toBe("j1.private.easemob.com__HIM-123");
+  });
 });
 
 describe("jira bind 校验", () => {
