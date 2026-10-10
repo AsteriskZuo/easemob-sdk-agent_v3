@@ -169,7 +169,7 @@ export interface EntryAdapterFactory {
   | `event_id_key`   | 否   | payload 中取 event_id 的字段路径；缺省平台生成（此时幂等由推送方自负）                     |
   | `token`          | 否   | 验签 token（可 `{{key}}` 占位）；设置后请求须带 header `x-webhook-token` 等值，不符 → 401   |
 
-- **处理链**：path 路由（§7.2 多端点模型）→ 占位解析（resolveConfigPlaceholders，解析失败 500）→ 验签（token 配置时，解析后的值比对）→ body 必须 JSON object → 提取 session_id/event_id → 包装信封（source='webhook'，event_type = match 行的 event_type，payload = body 原样，hop_count=0，correlation_id = event_id）→ 落队。
+- **处理链**：path 路由（§7.2 多端点模型）→ 占位解析（resolveConfigPlaceholders，解析失败 500）→ 验签（token 配置时，解析后的值比对）→ body 必须 JSON object → 提取 session_id/event_id → 包装信封（source='webhook'，event_type = match 行的 event_type，**留空则落默认标签 `webhook.event`**（T25），payload = body 原样，hop_count=0，correlation_id = event_id）→ 落队。
 - **响应**：落队成功 `200 { event_id }`；未知 path `404`；验签失败 `401`；body/字段非法 `400`（message 列出原因）。event_id 重复 → 队列幂等丢弃，仍回 200（携带原 event_id）。
 - **eventDoc**：说明上述契约 + payload 形状由推送方自定义的约定 + curl 示例。
 
@@ -192,7 +192,7 @@ export interface EntryAdapterFactory {
 
 - **轮询器管理**：适配器 start 后每个 tick 现查 registry 内存视图的 `source='jira'` 行集合，动态增删轮询器（业务创建/更新/删除即时生效）；每行一个独立轮询器（防重入：上一轮未完跳过本轮）。
 - **jira 客户端**：适配器内嵌轻量客户端，只含 searchIssues（表单登录 + cookie 罐 + 401 重登一次；实现时从 v2 搬运最小集：`/Users/asterisk/Codes/ai/easemob-sdk-agent_v2/src/jira/jira-client.ts` 的登录/search 路径，本 spec 不复制其代码）。与业务工具 jira-fetch 的完整客户端是两份代码，v1 接受（适配器只 search，范围小）。
-- **事件产出**：search 结果每工单一个事件——`source='jira'`；`session_id = issueKey`；`event_id = jira:{issueKey}:{updated}`（同 updated 重推被队列幂等丢弃，updated 变化 = 新事件，天然增量）；`event_type` = match 行的 event_type（建议 `jira.issue.updated`）；`payload = { issue_key, summary, status, priority, issue_type, assignee, reporter, updated }`（轻量字段；详情由业务自行 sdk.run 拉取——平台不做业务预取）。
+- **事件产出**：search 结果每工单一个事件——`source='jira'`；`session_id = issueKey`；`event_id = jira:{issueKey}:{updated}`（同 updated 重推被队列幂等丢弃，updated 变化 = 新事件，天然增量）；`event_type` = match 行的 event_type（留空则落默认标签 `jira.issue.updated`，T25）；`payload = { issue_key, summary, status, priority, issue_type, assignee, reporter, updated }`（轻量字段；详情由业务自行 sdk.run 拉取——平台不做业务预取）。
 - **eventDoc**：列 jira 主要事件类型（`jira:issue_created` / `jira:issue_updated` / `jira:issue_deleted` / `comment_created`，说明本适配器统一产出为 match 行配置的 event_type）+ payload schema + 示例 JSON + 「认证为 easemob jira 表单登录形态」的环境约束说明。
 
 ### 7.4 适配器开关（server config）

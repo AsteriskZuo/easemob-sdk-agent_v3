@@ -68,6 +68,7 @@
 | T22 | 首个业务迁移验证 | business/jira-ticket-review 独立仓库：包/工具/skill 三资产 + codex→pi + 真机验证（polling 入口 + 企微出口） | T21 | [spec](../specs/2026-10-09-t22-jira-ticket-review-migration-spec.md) | [x]（实现完成，真机验证待用户手动执行） |
 | T23 | jira 客户端抽取为可发布基础包 | `packages/jira-client`（`@asteriskzuo/agent-jira-client`，发布 npm，零依赖）；exit-tools/entry-adapters 删内嵌客户端改依赖共享包；业务 jira-fetch 重构待用户发布后跟进 | T21 | [spec](../specs/2026-10-09-t23-jira-client-extraction-spec.md) | [x] |
 | T24 | 入口/出口配置统一占位符机制 | runtime 占位解析层（resolveConfigPlaceholders + EnvProvider.lookup 四级顺序）+ jira/webhook 入口字段重构（username/password/token 可占位，补 redirect 凭据）+ 出口 exitSecretKey 约定废弃（destinationOf 吃未解析配置）+ console-api 保存校验占位 key + console 表单/JSON Tabs 双视图 | T23 | [spec](../specs/2026-10-10-t24-config-placeholder-spec.md) | [x] |
+| T25 | event_type 通配 + 创建页草稿与随建环境配置 | registry match 通配语义（event_type 空串 = 该 source 全量）+ console-api event_type 可选与创建 body 随建 env（先写桶再校验、失败整体回滚）+ 适配器默认事件标签（jira.issue.updated / webhook.event）+ console 创建页 localStorage 草稿与随建环境配置区 | T24 | [spec](../specs/2026-10-10-t25-event-type-wildcard-and-draft-spec.md) | [x] |
 
 ## 4. 执行批次（并发 ≤2）
 
@@ -127,6 +128,8 @@
 - T21 ← T12, T16, T20
 - T22 ← T21
 - T23 ← T21
+- T24 ← T23
+- T25 ← T24
 
 ## 变更记录
 
@@ -138,3 +141,4 @@
 - 2026-10-04：T12 范围收缩（owner 裁决）——webhook 入口适配器移出为 T18（外部业务推送形态复杂，验签/会话标识/幂等约定随 T18 单独设计），AibotConnector 维持归企微入口任务；T12 = 平台装配 + EntryAdapter 接口 + 启动自检 + ExitDriver。入口流量与管理 API 各自独立 HTTP 服务。范围外删除「github/jira/confluence 出口工具」一行（T9 已扩展为七工具全实现）。
 - 2026-10-08：插入 T20/T21/T22，T18 并入 T21——① T20 包名改名 @easemob→@asterisk + sdk 发布准备（决策 docs/decisions/2026-10-08-package-scope-rename.md，机械改动无 spec）；② T21 平台侧可落地批次（决策 docs/decisions/2026-10-08-asset-materialization-build.md）：v2 迁移验证暴露物化构建链路缺口（清单指 dist/ 但 git 忽略，无任何转译实现），连带回补 jira-polling/webhook 入口（T18 吸收）、适配器开关、信封 dataDir、出口 null 跳过、出入口 schema 自描述、内部入口（上游业务）建模、sdk 文档；③ T22 首个业务迁移验证（v2 单轮审查工单 → business/jira-ticket-review 独立仓库）。
 - 2026-10-09：插入 T23（jira 客户端抽取为可发布基础包 @asteriskzuo/agent-jira-client）——用户决策：基础工具包可发布 npm，平台包与业务包共同依赖，认证链（表单登录 + cookie 罐 + 401 自愈）单点化；github/wecom 出现第二消费者再抽同模式；business jira-fetch 重构与 T22 真机验证待用户手动发布 sdk + agent-jira-client 后跟进。
+- 2026-10-10：插入 T24（入口/出口配置统一 {{key}} 占位符机制——废弃 username_key/token_key/exitSecretKey 三套私有约定）与 T25（event_type 留空通配 + 创建页 localStorage 草稿 + 创建接口随建 env 解决业务级配置死锁）。

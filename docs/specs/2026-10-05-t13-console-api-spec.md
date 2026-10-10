@@ -84,7 +84,7 @@ export interface BusinessPatch {
 }
 export interface CreateBusinessInput {
   business_name: string; creator_id: string;
-  source: EventSource; event_type: string; // 首个匹配行
+  source: EventSource; event_type?: string; // 首个匹配行（缺省/空串 = 通配，T25）
   on_failure?: boolean;
   exit_bindings?: Array<{ tool: string; config: Record<string, string> }>;
   prompt?: string; model?: string; agent_kind?: string;
@@ -379,12 +379,12 @@ export function createAccountService(db: Database): AccountService;
 | 方法 路径 | 说明 |
 |-----------|------|
 | GET `/api/businesses` | 全部业务的 `BusinessProfile[]`（列表 = 注册表视图）。实现：registry 无 listAll——**本任务给 BusinessRegistry 增补 `list(): BusinessProfile[]`**（见 §5.7） |
-| POST `/api/businesses` | body 见 DTO；API 层只强校验 `business_name` 非空、`source` 是合法 EventSource、`event_type` 非空（其余按 registry 缺省；「包绑定/总纲必填」是 console UI 的表单职责，不在 API 强制）；201 返回 `BusinessProfile` |
+| POST `/api/businesses` | body 见 DTO；API 层只强校验 `business_name` 非空、`source` 是合法 EventSource（`event_type` 可选：缺省/空串 = 通配该来源全部事件，T25；「包绑定/总纲必填」是 console UI 的表单职责，不在 API 强制）；可选 `env`（随建环境配置：业务 id 生成后逐条写两桶、先于占位校验、失败整体回滚，T25）；201 返回 `BusinessProfile` |
 | GET `/api/businesses/:id` | `BusinessDetail = { profile: BusinessProfile; matches: BusinessMatch[]; exit_bindings: ExitBinding[] }` |
 | PATCH `/api/businesses/:id` | body = `BusinessPatch` 同形（API 层校验字段白名单，未知字段拒绝 invalid_input）；204 |
 | DELETE `/api/businesses/:id` | 删业务（匹配行、出口绑定一并删）；204 |
-| POST `/api/businesses/:id/matches` | body `{source, event_type, entry_config?}`；201 |
-| DELETE `/api/businesses/:id/matches` | body `{source, event_type}`（ query 不便带 body，用 body 传）；204 |
+| POST `/api/businesses/:id/matches` | body `{source, event_type?, entry_config?}`（event_type 缺省/空串 = 通配行，T25）；201 |
+| DELETE `/api/businesses/:id/matches` | body `{source, event_type?}`（缺省 = 删通配行；query 不便带 body，用 body 传）；204 |
 
 ### 5.5 路由：资产（routes-assets.ts）
 
@@ -531,7 +531,8 @@ export function createConsoleApi(deps: ConsoleApiDeps, options: ConsoleApiOption
 export interface CreateBusinessBody {
   business_name: string;
   source: EventSource;        // 首个匹配行来源
-  event_type: string;         // 首个匹配行事件类型
+  event_type?: string;        // 首个匹配行事件类型；缺省/空串 = 通配（T25）
+  env?: { vars?: Record<string, string>; secrets?: Record<string, string> }; // 随建环境配置（T25，失败整体回滚）
   entry_config?: Record<string, unknown>;
   on_failure?: boolean;
   prompt?: string;
@@ -546,7 +547,7 @@ export interface CreateBusinessBody {
   exit_bindings?: Array<{ tool: string; config: Record<string, string> }>;
 }
 export interface PatchBusinessBody { /* BusinessPatch 同形 */ }
-export interface MatchBody { source: EventSource; event_type: string; entry_config?: Record<string, unknown>; }
+export interface MatchBody { source: EventSource; event_type?: string; entry_config?: Record<string, unknown>; } // event_type 缺省/空串 = 通配（T25）
 export interface RegisterAssetBody { kind: AssetKind; url: string; ref: string; subpath?: string; shared?: boolean; is_private?: boolean; credential_key?: string; }
 export interface EnvSetBody { bucket: "vars" | "secrets"; key: string; value: string; }
 export interface EnvRemoveBody { bucket: "vars" | "secrets"; key: string; }

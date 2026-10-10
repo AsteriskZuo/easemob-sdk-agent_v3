@@ -55,7 +55,7 @@ export interface BusinessMatch {
   business_name: string;      // 展示名，可修改，不参与匹配
   creator_id: string;         // 创建者，不可修改（权限归属判定用）
   source: EventSource;        // 关注的来源（行级）
-  event_type: string;         // 关注的事件类型（行级）
+  event_type: string;         // 关注的事件类型（行级）；空串 = 通配（该 source 全部事件，T25）
   on_failure?: boolean;       // 失败也扇出；默认 false
 }
 
@@ -84,7 +84,8 @@ export interface CreateBusinessInput {
 }
 
 export interface BusinessRegistry {
-  /** 入口循环订阅匹配（热路径，走内存视图）；无关注者返回空数组 */
+  /** 入口循环订阅匹配（热路径，走内存视图）；无关注者返回空数组。
+   *  通配（T25）：除精确命中外，同时返回该 source 下 event_type 为空串的行 */
   match(source: EventSource, event_type: string): BusinessMatch[];
 
   /** 出口循环归属匹配：产出方业务的全部出口绑定；无绑定返回空数组 */

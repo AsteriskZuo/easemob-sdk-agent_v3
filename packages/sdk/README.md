@@ -29,7 +29,7 @@
 
 平台有两个调度循环：
 
-- **入口事件循环**：入口适配器把外部事件包装成信封落入口队列 → 按 `(source, event_type)` 订阅匹配出关注业务 → 挂业务通道（`source__session_id__business_id`，**同通道严格串行**）→ spawn 你的流程程序执行；
+- **入口事件循环**：入口适配器把外部事件包装成信封落入口队列 → 按 `(source, event_type)` 订阅匹配出关注业务（match 行 event_type 留空 = 通配该来源全部事件）→ 挂业务通道（`source__session_id__business_id`，**同通道严格串行**）→ spawn 你的流程程序执行；
 - **出口事件循环**：你的 `sdk.return(output)` 产出后，平台派生 internal 事件（`event_type = {你的业务id}.completed`，payload = output 原样）**无脑扇出**到入口队列（下游业务订阅消化）与出口队列（按出口绑定投递：企微/邮件/webhook/jira/confluence/github）。
 
 **业务代码里一行通知/投递代码都没有**：投递、投递重试（有界退避、耗尽死信）、结果扇出、下游触发，全部平台包办。
@@ -331,7 +331,7 @@ skill = 给大模型的能力单元（可复用提示词组件）。
   | `event_id_key` | 否 | payload 内取 event_id 的点分路径；缺省平台生成（此时幂等由推送方自负） |
   | `token` | 否 | 验签 token（可 `{{key}}` 占位）；设置后请求须带 header `x-webhook-token` 等值，不符 → 401 |
 
-- 产出信封：`payload = 请求 body 原样`（body 必须是 JSON object，形状推送方自定义）；`event_type` = match 行配置；`correlation_id = event_id`；`hop_count = 0`；
+- 产出信封：`payload = 请求 body 原样`（body 必须是 JSON object，形状推送方自定义）；`event_type` = match 行配置（留空则落默认标签 `webhook.event`）；`correlation_id = event_id`；`hop_count = 0`；
 - 推送方视角响应：`200 { "event_id" }`（event_id 重推幂等丢弃仍回 200）/ `400`（body 或字段非法）/ `401`（验签失败）/ `404`（未知 path）；body 上限 1MB；
 - 示例：`curl -X POST http://<host>:6200/hooks/jira-listener -H 'Content-Type: application/json' -H 'x-webhook-token: <token>' -d '{"issue":{"key":"PRJ-123"},"action":"updated"}'`（对应 `entry_config = { "path": "jira-listener", "session_id_key": "issue.key", "token": "{{webhook_token}}" }`）。
 
@@ -349,7 +349,7 @@ skill = 给大模型的能力单元（可复用提示词组件）。
   | `days_back` | 否 | JQL `updated >= -Nd`，默认 7 |
   | `interval_seconds` | 否 | 轮询间隔秒，默认 60，下限 30 |
 
-- 产出信封：`session_id = 工单 key`；`event_id = jira:{issueKey}:{updated}`（updated 变化 = 新事件，天然增量）；`event_type` = match 行配置（建议 `jira.issue.updated`；轮询形态不区分 jira 原生事件类型）；
+- 产出信封：`session_id = 工单 key`；`event_id = jira:{issueKey}:{updated}`（updated 变化 = 新事件，天然增量）；`event_type` = match 行配置（留空则落默认标签 `jira.issue.updated`；轮询形态不区分 jira 原生事件类型）；
 - `payload`（轻量字段；**详情由业务自行 `sdk.run` 拉取，平台不做预取**）：
 
   ```json

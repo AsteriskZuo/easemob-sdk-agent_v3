@@ -151,7 +151,7 @@ app/console/
 | skill 绑定 | 多选：`GET /api/assets?kind=skill&scope=all` | `skill_asset_ids` |
 | agent / 大模型 | Select 固定项 `pi` / `qwen3.8max`（注册表驱动，MVP 单值） | `agent_kind` / `model` |
 | 提示词总纲 | Textarea（rows≥6） | `prompt` |
-| 入口（匹配行） | `MatchEditor` 列表：source 下拉（contracts 七值）、event_type Input、entry_config JSON Textarea（空 = 不传；非法 JSON 表单内报错）；增删行。提示文案：「关注上游业务产出 = source 选 internal + event_type 填 `业务id.产出类型`」 | 创建时首个匹配行进 `CreateBusinessBody`；编辑态增删行 = `POST/DELETE /api/businesses/:id/matches` |
+| 入口（匹配行） | `MatchEditor` 列表：source 下拉（contracts 七值）、event_type Input（**可留空** = 通配该来源全部事件，T25；填写 = 精确过滤）、entry_config 表单/JSON Tabs 双视图；增删行。提示文案：「关注上游业务产出 = source 选 internal + event_type 填 `业务id.产出类型`」 | 创建时首个匹配行进 `CreateBusinessBody`；编辑态增删行 = `POST/DELETE /api/businesses/:id/matches` |
 | 出口（可选） | `GET /api/exit-tools` 菜单勾选；勾选后按 `configSchema` 动态渲染表单项（required 标红星）；`implemented=false` 的工具置灰不可选 | 见下方「出口配置分流」 |
 | 失败传播 | Switch（默认关） | `on_failure` |
 | 超时/配额覆盖 | InputNumber 可清空（空 = 用全局默认） | `timeout_minutes` / `max_agent_calls`（清除 = null） |
@@ -163,7 +163,9 @@ app/console/
 3. 编辑态回填：ExitBinding.config 原样回填（占位文本原样回显）。
 
 **提交流程**：
-- 创建：表单校验（business_name 非空、首个匹配行 source/event_type 非空）→ `POST /api/businesses` → 拿 business_id → 业务 env 变更 → 跳编辑页；
+- 创建：表单校验（business_name 非空、首个匹配行 source 必选；event_type 可留空 = 通配，T25）→ `POST /api/businesses`（可携带随建 `env`，T25）→ 拿 business_id → 跳编辑页；
+- **创建页草稿（T25）**：仅创建模式，表单全量状态防抖 500ms 写 `localStorage["business-create-draft-v1"]`，重进恢复 + 可手动清除，提交成功自动清除；编辑模式不做草稿；
+- **随建环境配置区（T25）**：仅创建模式的折叠区（普通/安全两组 key-value 行），随 POST body 的 `env` 一并提交，解决「业务级 secrets 需要 business_id、而 id 要创建成功才有」的死锁；占位校验失败的错误提示引导用户在该区补键重提；
 - 编辑：进入时 `GET /api/businesses/:id` + `GET /api/env/businesses/:id` 回填；保存 = `PATCH`（资料字段，含出口绑定）+ 匹配行增删 diff + env diff；
 - env/secret 的「diff」v1 从简：**编辑页的环境配置区独立保存按钮**（EnvEditor 自管理 PUT/DELETE，不并入主表单提交），主保存按钮只管 registry 侧字段——避免一次提交混合多资源的部分失败语义。
 
