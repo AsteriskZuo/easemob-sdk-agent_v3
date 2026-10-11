@@ -173,7 +173,7 @@ app/console/
 
 - kind Tab（包/工具/skill）+ scope 筛选（我的/共享的/全部——member 的「全部」= 可见全集）；
 - 登记表单（Drawer）：kind（当前 Tab）、url、ref、subpath、shared（仅 tool/skill 可勾，package 隐藏）、is_private + credential_key（is_private 时必填，叹号提示「凭据值需先在通用配置安全桶登记同名 key」）；
-- 列表：asset_id（截断+复制）、名称（manifest.name 无则 —）、owner_id、shared/is_private 徽标、created_at；行操作：详情（`GET /api/assets/:id`，Modal 展示 manifest 美化 JSON + meta；提示「首次查看可能触发 git 克隆，较慢」）、下架（**仅 `owner_id === 当前用户` 显示**；确认框文案提示「下架不校验在役引用，绑定该资产的业务运行时将报错」）；
+- 列表：asset_id（截断+复制）、名称（manifest.name 无则 —）、owner_id、shared/is_private 徽标、created_at；行操作：详情（`GET /api/assets/:id`，Modal 展示 manifest 美化 JSON + meta；提示「首次查看可能触发 git 克隆，较慢」）、更新（T26：**仅 `owner_id === 当前用户` 显示**；非共享资产可点，Modal 输入新 ref → `PUT /api/assets/:id`，成功后提示「已重新物化」；**共享资产按钮禁用**，tooltip 说明「共享资产不可更新版本，如需新版本请下架后重新登记」）、下架（**仅 `owner_id === 当前用户` 显示**；确认框文案提示「下架不校验在役引用，绑定该资产的业务运行时将报错」）；
 - admin 提示：admin 不持有资产——登记表单对 admin 隐藏（API 也 403）。
 
 ### 5.5 后端扩展：console-api 静态托管（小增补）
@@ -218,7 +218,7 @@ jsdom + @testing-library；API 一律 mock（`apiFetch` 层注入或 globalThis.
 - **auth-guard.test.tsx**：me 200 → 渲染子路由；me 401 → 跳 /login；loading 中显示加载态（不闪现登录页）。
 - **login-page.test.tsx**：提交调用 login 且成功跳转；失败展示统一错误文案；已登录重定向。
 - **business-form.test.tsx**（核心）：① 创建提交映射——表单值 → `CreateBusinessBody`（首个匹配行/agent/model/资产绑定/超时覆盖）；② **出口配置全量进绑定**——所有字段（含 secret 提示项）原样进 ExitBinding.config，表单/JSON Tabs 双视图同步；③ 编辑回填——BusinessDetail → 表单初值（占位文本原样回显）；④ entry_config 非法 JSON 表单内报错不提交；⑤ 清除超时覆盖提交 null。
-- **assets-page.test.tsx**：登记表单提交映射（package 隐藏 shared；is_private 必填 credential_key）；下架按钮仅属主可见；admin 不见登记入口。
+- **assets-page.test.tsx**：登记表单提交映射（package 隐藏 shared；is_private 必填 credential_key）；下架按钮仅属主可见；admin 不见登记入口；更新入口（T26：非共享资产弹窗提交 PUT 带 ref；共享资产更新按钮禁用）。
 - **pages-smoke.test.tsx**：Dashboard（队列卡片渲染 mock 计数）、Settings（config 只读展示 + member 隐藏编辑）、Users（admin 表格渲染、停用确认）。
 - console-api 静态托管用例见 §5.5。
 

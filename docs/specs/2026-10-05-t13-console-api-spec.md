@@ -388,12 +388,13 @@ export function createAccountService(db: Database): AccountService;
 
 ### 5.5 路由：资产（routes-assets.ts）
 
-权限：读 = 登录用户；列表过滤——member 看「自己的 + 共享的」，admin 看全部（admin 只读）。写（登记/下架）= **仅 member**（admin 不持有资产，`design/accounts.md` §1 权限表）；下架仅限属主本人。
+权限：读 = 登录用户；列表过滤——member 看「自己的 + 共享的」，admin 看全部（admin 只读）。写（登记/更新/下架）= **仅 member**（admin 不持有资产，`design/accounts.md` §1 权限表）；更新/下架仅限属主本人。
 
 | 方法 路径 | 说明 |
 |-----------|------|
 | GET `/api/assets?kind=&scope=mine\|shared\|all` | `AssetMeta[]`；scope 缺省：member = mine+shared 两个查询合并，admin = all |
 | POST `/api/assets` | body `{kind, url, ref, subpath?, shared?, is_private?, credential_key?}`；`owner_id = actor.user_id`；私有资产凭据解析见下；**登记即校验（fail fast）**：物化（clone+构建）+ 清单校验不过 → 400 透出真实原因（`validation_failed`/`materialize_failed` 原文），登记行回滚不落库；201 `AssetMeta` |
+| PUT `/api/assets/:id` | 版本更新（T26）：body `{ref}`；仅属主 member；asset_id 不变（业务绑定不断），重新物化+校验，失败回滚 commit；**共享资产（tool/skill shared=true）→ 409**（`shared_immutable`，防止静默换版本影响他人业务）；200 `AssetMeta` |
 | GET `/api/assets/:id` | `AssetObject`（meta + manifest）；命中物化缓存直接返回（登记时已物化），缓存被清后首次会重新 clone（慢）——路由不另设超时，由 node:http 默认行为承载 |
 | DELETE `/api/assets/:id` | 下架：仅属主本人；删登记行 + 清物化缓存（§5.6）；204 |
 

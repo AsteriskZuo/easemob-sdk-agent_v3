@@ -11,3 +11,4 @@
 - [ ] MVP M3：代码 Review + 企微出口工具，端到端跑通；单轮审查工单全链验收
 - [x] T24：入口/出口配置统一占位符（{{key}}）机制——runtime 解析层 + EnvProvider.lookup 四级顺序、jira/webhook 入口字段重构、出口 exitSecretKey 约定废弃、console-api 保存校验、console Tabs 双视图（2026-10-10）
 - [x] T25：event_type 留空通配（接收该来源全部事件）+ 创建页 localStorage 草稿 + 创建接口随建 env（解创建死锁）；适配器默认事件标签（2026-10-10）
+- [x] T26：资产版本更新——asset_id 哈希去 commit（升级不换 id、绑定不断）、asset-registry updateRef（重新物化+失败回滚）、共享资产禁止更新（409）、console-api PUT /api/assets/:id、console 资产页更新入口（2026-10-11）
