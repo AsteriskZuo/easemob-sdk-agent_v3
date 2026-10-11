@@ -96,7 +96,7 @@ wecom-webhook 出口工具（平台，已内置）→ 企业微信群
 流程（严格按序）：
 
 1. **去重判断**：`checkSkip(issueKey, payload.updated)`（§5.1）→ 有跳过原因 → `sdk.log('info', ...)` + `sdk.return(null)`（不写新记录）。
-2. **拉取工单**：`sdk.run('jira-fetch', { input: { issue_key }, config: { jira_url: sdk.config().jira_url, username: sdk.secret('jira_username'), password: sdk.secret('jira_password') } })`。返回 `status:'error'` → `sdk.fail(\`获取工单 ${issueKey} 失败：${code} ${message}\`)`（含 ticket_not_found——失败语义进控制台 run 记录，不静默）。
+2. **拉取工单**：`sdk.run('jira-fetch', { input: { issue_key }, config: { jira_url: sdk.config().jira_url, username: sdk.secret('jira_username'), password: sdk.secret('jira_password'), redirect_username: sdk.secret('jira_redirect_username'), redirect_password: sdk.secret('jira_redirect_password') } })`。返回 `status:'error'` → `sdk.fail(\`获取工单 ${issueKey} 失败：${code} ${message}\`)`（含 ticket_not_found——失败语义进控制台 run 记录，不静默）。**redirect 凭据不可省**：easemob jira 前置网关要求每个请求带 Basic 头，漏传会被网关 401 拦截（表象为 authentication_failed，根本没到 jira）。
 3. **终态短路**：`ticket.statusCategory === 'Complete'` → `markReviewed(issueKey, 'skip', payload.updated)` + `sdk.return(null)`（不调大模型，v2 语义）。
 4. **人员标签**：`lookupPersonTags({ emailAddress: identity?.assigneeEmail, name: identity?.assigneeName })`（§8），注入 prompt。
 5. **大模型审查**：`sdk.agent({ skills: ['jira-ticket-review'], input, mode: 'fresh' })`，input 拼装（§5.2）。**`mode: 'fresh'` 必带**：单轮审查是无状态一次性任务（v2 `resetSession: true` 语义）——同工单 updated 变化后复审时，缺省 `channel` 模式会沿用该通道的历史会话，token 膨胀且陈旧上下文干扰审查判断。
@@ -156,7 +156,7 @@ v2 的 system.md（企微多轮交互语境）与 jira-ticket-review.md（用户
 **契约**（一入一出，与流程程序同构）：
 
 - `input`：`{ issue_key: string }`（缺/非字符串 → `sdk.fail`）。
-- `config`：`{ jira_url, username, password }`（三键缺一 → `sdk.fail` 列出缺哪个）。**工具拿不到 secrets，凭据由胶水显式放进 config**（平台机制，sdk README §2.8）。
+- `config`：`{ jira_url, username, password, redirect_username?, redirect_password? }`（前三键缺一 → `sdk.fail` 列出缺哪个；redirect_* 为网关 Basic 凭据，可选，经网关反代时必传）。**工具拿不到 secrets，凭据由胶水显式放进 config**（平台机制，sdk README §2.8）。
 - 成功 `sdk.return({ status: 'success', data: <脱敏工单>, identity })`；jira 层失败也走 `sdk.return({ status: 'error', code, message })`（**不用 sdk.fail**——error 双态是业务可判别的正常输出，胶水据此决定措辞；sdk.fail 只留给信封/参数非法）。
 - `identity`（脱敏前旁路）：`{ reporterEmail?, reporterName?, assigneeEmail?, assigneeName? }`，不进 data。
 
@@ -185,7 +185,9 @@ v2 的 system.md（企微多轮交互语境）与 jira-ticket-review.md（用户
 | config | `jira_url` | `https://j1.private.easemob.com` | jira-fetch config + 通知消息工单链接派生 |
 | secrets | `jira_username` | jira 用户名 | 胶水取出放进 jira-fetch config |
 | secrets | `jira_password` | jira 密码 | 同上 |
-| 入口 match 行 | source=`jira`, event_type=`jira.issue.updated` | entry_config：`{ jira_url, username: "{{jira_username}}", password: "{{jira_password}}", project: "HIM", days_back: 7, interval_seconds: 60 }` | jira-polling 适配器（占位 key 与上行 secrets 键一致） |
+| secrets | `jira_redirect_username` | 网关 Basic 账号 | 同上（前置网关反代时必须） |
+| secrets | `jira_redirect_password` | 网关 Basic 密码 | 同上 |
+| 入口 match 行 | source=`jira`, event_type=`jira.issue.updated` | entry_config：`{ jira_url, username: "{{jira_username}}", password: "{{jira_password}}", redirect_username: "{{jira_redirect_username}}", redirect_password: "{{jira_redirect_password}}", project: "HIM", days_back: 7, interval_seconds: 60 }` | jira-polling 适配器（占位 key 与上行 secrets 键一致） |
 | 出口 | wecom-webhook | config 的 url：`https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={{wecom_key}}`（真值存安全桶） | 群通知 |
 | server 配置 | `AGENT_ENTRY_JIRA_POLLING_ENABLED` | `true`（默认 false，验证时开启） | 入口开关 |
 
