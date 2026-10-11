@@ -41,7 +41,7 @@ export interface AssetMeta {
   credential_key?: string;
   /** ISO 时间戳 */
   created_at: string;
-  /** 本版无修改操作，恒等于 created_at */
+  /** 最近版本更新时间（register 时 = created_at；updateRef 成功时刷新） */
   modified_at: string;
 }
 
@@ -76,6 +76,18 @@ export interface AssetRegistry {
    *  不校验在役引用——业务绑定着已下架资产时，运行时取用在 ContextLoader 处抛 asset_not_found，
    *  属配置错误，由控制台操作者负责（console UI 可在删除前提示在役业务，非本包职责） */
   remove(asset_id: string): void;
+
+  /** 版本更新：解析 ref→commit 换版本并重新物化，asset_id 不变（业务绑定不断）。
+   *  - 共享资产（tool/skill 且 shared=true）禁止更新 → 抛 shared_immutable
+   *    （共享资产被他人业务引用，静默换版本会让别人莫名出问题；package 无共享属性恒可更新）
+   *  - ref 解析出的 commit 与当前相同 → 幂等返回，不重新物化
+   *  - 物化/校验失败 → 回滚 commit 到旧值，旧版本缓存下次取用懒重建
+   *  opts.credential 同 register（私有资产 ls-remote/补拉需要） */
+  updateRef(
+    asset_id: string,
+    ref: string,
+    opts?: { credential?: string },
+  ): AssetMeta;
 
   /** 清空物化缓存根目录下全部内容（登记行不动）；cacheRoot 不存在时不报错（幂等）。
    *  清理后已登记资产下次 get/materialize 触发重新物化构建（懒重建，可能耗时分钟级） */
@@ -187,7 +199,7 @@ class AssetRegistryImpl implements AssetRegistry {
     const assetId = computeAssetId(
       input.owner_id,
       input.url,
-      commit,
+      input.kind,
       input.subpath,
     );
 
@@ -299,6 +311,59 @@ class AssetRegistryImpl implements AssetRegistry {
       recursive: true,
       force: true,
     });
+  }
+
+  updateRef(
+    asset_id: string,
+    ref: string,
+    opts?: { credential?: string },
+  ): AssetMeta {
+    const row = this.getRow(asset_id);
+    if (!row) {
+      throw new Error(`asset_not_found: ${asset_id}`);
+    }
+    if (typeof ref !== "string" || ref.length === 0) {
+      invalid("ref 不能为空");
+    }
+    if (row.shared === 1) {
+      throw new Error(
+        `shared_immutable: 共享资产不可更新版本（${asset_id}）；如需新版本请下架后重新登记`,
+      );
+    }
+    if (row.is_private === 1 && !opts?.credential) {
+      throw new Error(`credential_required: ${row.credential_key}`);
+    }
+
+    const commit = resolveRef(row.url, ref, opts?.credential);
+    if (commit === row.commit) {
+      return rowToMeta(row);
+    }
+
+    const oldCommit = row.commit;
+    this.db.run(
+      'UPDATE assets SET "commit" = ?, modified_at = ? WHERE asset_id = ?',
+      [commit, new Date().toISOString(), asset_id],
+    );
+    // 清旧缓存再物化新版本 + 校验；失败回滚 commit（旧缓存已删，下次取用懒重建）
+    rmSync(path.join(this.cacheRoot, asset_id), {
+      recursive: true,
+      force: true,
+    });
+    try {
+      const root = this.materialize(asset_id, { credential: opts?.credential });
+      validateAsset(root, row.kind as AssetKind);
+    } catch (err) {
+      this.db.run('UPDATE assets SET "commit" = ? WHERE asset_id = ?', [
+        oldCommit,
+        asset_id,
+      ]);
+      rmSync(path.join(this.cacheRoot, asset_id), {
+        recursive: true,
+        force: true,
+      });
+      throw err;
+    }
+    return rowToMeta(this.getRow(asset_id) as AssetRow);
   }
 
   clearCache(): void {

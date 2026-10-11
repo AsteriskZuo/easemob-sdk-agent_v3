@@ -68,6 +68,10 @@ export function toApiError(err: unknown): ApiError {
   if (message.startsWith("asset_not_found")) {
     return new ApiError("not_found", message);
   }
+  // 共享资产禁止版本更新（T26）：调用方可决策（下架重建或新建资产），归 409
+  if (message.startsWith("shared_immutable")) {
+    return new ApiError("conflict", message);
+  }
   if (message.includes("业务不存在")) {
     return new ApiError("not_found", message);
   }

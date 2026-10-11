@@ -193,7 +193,7 @@ describe("幂等与唯一性", () => {
     expect(registry.list({})).toHaveLength(2);
   });
 
-  it("不同 commit → 不同 asset_id", () => {
+  it("不同 ref 重复 register → 幂等返回既有资产（版本不切换；升级走 updateRef）", () => {
     const repo = makeRepo(PKG_FILES);
     const first = repo.commit;
     writeFileSync(join(repo.dir, "second.txt"), "more");
@@ -202,7 +202,13 @@ describe("幂等与唯一性", () => {
     const second = git(["rev-parse", "HEAD"], repo.dir);
     const m1 = registry.register(pkgInput(repo.dir, { ref: first }));
     const m2 = registry.register(pkgInput(repo.dir, { ref: second }));
-    expect(m1.asset_id).not.toBe(m2.asset_id);
+    expect(m2.asset_id).toBe(m1.asset_id);
+    expect(registry.list({})).toHaveLength(1);
+    const row = db.get<{ commit: string }>(
+      'SELECT "commit" FROM assets WHERE asset_id = ?',
+      [m1.asset_id],
+    );
+    expect(row?.commit).toBe(first);
   });
 
   it("不同 subpath → 不同 asset_id", () => {
@@ -333,6 +339,109 @@ describe("登记即校验（fail fast）", () => {
     expect(existsSync(join(cacheRoot, meta.asset_id, ".materialized-ok"))).toBe(
       true,
     );
+  });
+});
+
+describe("updateRef", () => {
+  /** 在既有仓库上再提交一次，返回新 commit */
+  function commitMore(dir: string, files: Record<string, string>): string {
+    for (const [rel, content] of Object.entries(files)) {
+      const p = join(dir, rel);
+      mkdirSync(dirname(p), { recursive: true });
+      writeFileSync(p, content);
+    }
+    git(["add", "-A"], dir);
+    git(["commit", "-m", "more"], dir);
+    return git(["rev-parse", "HEAD"], dir);
+  }
+
+  it("package 更新到新 commit → asset_id 不变、库行 commit 更新、modified_at 刷新、缓存重建为新内容", () => {
+    const repo = makeRepo(PKG_FILES);
+    const meta = registry.register(pkgInput(repo.dir));
+    const second = commitMore(repo.dir, { "src/extra.js": "// v2" });
+
+    const updated = registry.updateRef(meta.asset_id, second);
+
+    expect(updated.asset_id).toBe(meta.asset_id);
+    expect(updated.modified_at > meta.created_at).toBe(true);
+    const row = db.get<{ commit: string }>(
+      'SELECT "commit" FROM assets WHERE asset_id = ?',
+      [meta.asset_id],
+    );
+    expect(row?.commit).toBe(second);
+    expect(existsSync(join(cacheRoot, meta.asset_id, ".materialized-ok"))).toBe(
+      true,
+    );
+    expect(existsSync(join(cacheRoot, meta.asset_id, "src/extra.js"))).toBe(
+      true,
+    );
+  });
+
+  it("同 commit 更新 → 幂等返回，modified_at 不变", () => {
+    const repo = makeRepo(PKG_FILES);
+    const meta = registry.register(pkgInput(repo.dir));
+
+    const updated = registry.updateRef(meta.asset_id, "HEAD");
+
+    expect(updated.modified_at).toBe(meta.created_at);
+  });
+
+  it("共享 tool 更新 → shared_immutable，库行不动", () => {
+    const repo = makeRepo({
+      "agent-package.json": JSON.stringify({ name: "tool-a" }),
+      "agent.materialize.mjs": NOOP_MATERIALIZE_SCRIPT,
+    });
+    const meta = registry.register(
+      pkgInput(repo.dir, { kind: "tool", shared: true }),
+    );
+    const second = commitMore(repo.dir, { "v2.txt": "x" });
+
+    expect(() => registry.updateRef(meta.asset_id, second)).toThrow(
+      /^shared_immutable:/,
+    );
+    const row = db.get<{ commit: string }>(
+      'SELECT "commit" FROM assets WHERE asset_id = ?',
+      [meta.asset_id],
+    );
+    expect(row?.commit).toBe(repo.commit);
+  });
+
+  it("共享 skill 更新 → shared_immutable", () => {
+    const repo = makeRepo({ "s1/SKILL.md": "# s1" });
+    const meta = registry.register(
+      pkgInput(repo.dir, { kind: "skill", shared: true }),
+    );
+    expect(() => registry.updateRef(meta.asset_id, "HEAD")).toThrow(
+      /^shared_immutable:/,
+    );
+  });
+
+  it("未登记 asset_id → asset_not_found；空 ref → invalid_input", () => {
+    expect(() => registry.updateRef("ast_0000000000000000", "HEAD")).toThrow(
+      /^asset_not_found:/,
+    );
+    const repo = makeRepo(PKG_FILES);
+    const meta = registry.register(pkgInput(repo.dir));
+    expect(() => registry.updateRef(meta.asset_id, "")).toThrow(
+      /invalid_input/,
+    );
+  });
+
+  it("新版本物化失败 → 抛错且 commit 回滚旧值", () => {
+    const repo = makeRepo(PKG_FILES);
+    const meta = registry.register(pkgInput(repo.dir));
+    // 新 commit 删掉物化脚本 → 物化流程必失败
+    git(["rm", "-q", "agent.materialize.mjs"], repo.dir);
+    git(["commit", "-m", "break"], repo.dir);
+    const broken = git(["rev-parse", "HEAD"], repo.dir);
+
+    expect(() => registry.updateRef(meta.asset_id, broken)).toThrow();
+
+    const row = db.get<{ commit: string }>(
+      'SELECT "commit" FROM assets WHERE asset_id = ?',
+      [meta.asset_id],
+    );
+    expect(row?.commit).toBe(repo.commit);
   });
 });
 

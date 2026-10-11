@@ -1,9 +1,12 @@
 import { jest } from "@jest/globals";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { AssetManifest, AssetMeta, AssetObject } from "../src/index.js";
 import {
   PKG_FILES,
   api,
   createMemberAndLogin,
+  git,
   loginToken,
   makeRepo,
   resetTestLogger,
@@ -264,5 +267,91 @@ describe("DELETE /api/assets/:id 下架", () => {
     await api(server, "DELETE", `/api/assets/${meta.asset_id}`, {
       token: alice.token,
     });
+  });
+});
+
+describe("PUT /api/assets/:id 版本更新", () => {
+  it("属主更新到新 commit → 200，asset_id 不变、modified_at 刷新；同 ref 再更新幂等", async () => {
+    const dir = makeRepo(server.tmpDir, PKG_FILES);
+    const reg = await api(server, "POST", "/api/assets", {
+      token: alice.token,
+      body: { kind: "package", url: dir, ref: "HEAD" },
+    });
+    expect(reg.status).toBe(201);
+    const meta = reg.body as AssetMeta;
+
+    writeFileSync(join(dir, "v2.txt"), "x");
+    git(["add", "-A"], dir);
+    git(["commit", "-m", "v2"], dir);
+    const second = git(["rev-parse", "HEAD"], dir);
+
+    const res = await api(server, "PUT", `/api/assets/${meta.asset_id}`, {
+      token: alice.token,
+      body: { ref: second },
+    });
+    expect(res.status).toBe(200);
+    const updated = res.body as AssetMeta;
+    expect(updated.asset_id).toBe(meta.asset_id);
+    expect(updated.modified_at > meta.created_at).toBe(true);
+
+    const again = await api(server, "PUT", `/api/assets/${meta.asset_id}`, {
+      token: alice.token,
+      body: { ref: second },
+    });
+    expect(again.status).toBe(200);
+    expect((again.body as AssetMeta).modified_at).toBe(updated.modified_at);
+  });
+
+  it("共享 tool 更新 → 409 shared_immutable", async () => {
+    const dir = makeRepo(server.tmpDir, {
+      "agent-package.json": JSON.stringify({ name: "tool-shared" }),
+      "agent.materialize.mjs": "// 测试 fixture：无需构建\n",
+    });
+    const reg = await api(server, "POST", "/api/assets", {
+      token: alice.token,
+      body: { kind: "tool", url: dir, ref: "HEAD", shared: true },
+    });
+    const meta = reg.body as AssetMeta;
+
+    const res = await api(server, "PUT", `/api/assets/${meta.asset_id}`, {
+      token: alice.token,
+      body: { ref: "HEAD" },
+    });
+    expect(res.status).toBe(409);
+    expect(
+      (res.body as { error: { message: string } }).error.message,
+    ).toContain("共享资产不可更新");
+  });
+
+  it("非属主更新 → 403；admin 更新 → 403；不存在 → 404；缺 ref → 400", async () => {
+    const { meta } = await registerAsset(alice.token);
+
+    const byBob = await api(server, "PUT", `/api/assets/${meta.asset_id}`, {
+      token: bob.token,
+      body: { ref: "HEAD" },
+    });
+    expect(byBob.status).toBe(403);
+    const byAdmin = await api(server, "PUT", `/api/assets/${meta.asset_id}`, {
+      token: adminToken,
+      body: { ref: "HEAD" },
+    });
+    expect(byAdmin.status).toBe(403);
+
+    const missing = await api(
+      server,
+      "PUT",
+      "/api/assets/ast_0000000000000000",
+      {
+        token: alice.token,
+        body: { ref: "HEAD" },
+      },
+    );
+    expect(missing.status).toBe(404);
+
+    const noRef = await api(server, "PUT", `/api/assets/${meta.asset_id}`, {
+      token: alice.token,
+      body: {},
+    });
+    expect(noRef.status).toBe(400);
   });
 });

@@ -8,7 +8,7 @@ import { logger } from "@asteriskzuo/agent-logger";
 import type { EnvProvider } from "@asteriskzuo/agent-runtime";
 import type { User } from "./accounts.js";
 import { ApiError } from "./errors.js";
-import type { RegisterAssetBody } from "./dto.js";
+import type { RegisterAssetBody, UpdateAssetBody } from "./dto.js";
 import {
   requireNonEmptyString,
   requirePlainObject,
@@ -65,7 +65,8 @@ function optionalField<T>(
   return value as T;
 }
 
-/** 资产路由：读 = 登录用户；写（登记/下架）= 仅 member（admin 不持有资产），下架仅限属主本人 */
+/** 资产路由：读 = 登录用户；写（登记/更新/下架）= 仅 member（admin 不持有资产），更新/下架仅限属主本人；
+ *  共享资产（tool/skill shared=true）禁止版本更新（asset-registry shared_immutable → 409） */
 export function assetRoutes(deps: {
   assets: AssetRegistry;
   env: EnvProvider;
@@ -185,6 +186,43 @@ export function assetRoutes(deps: {
           kind: meta.kind,
         });
         sendJson(res, 201, meta);
+      },
+    },
+    {
+      method: "PUT",
+      pattern: "/api/assets/:id",
+      handler: (req, res) => {
+        const actor = req.actor as User;
+        if (actor.role !== "member") {
+          throw new ApiError(
+            "forbidden",
+            "admin 不持有资产，登记/更新/下架仅 member",
+          );
+        }
+        const assetId = req.params.id;
+        const meta = findMeta(assets, assetId);
+        if (meta === undefined) {
+          throw new ApiError("not_found", `资产不存在: ${assetId}`);
+        }
+        if (meta.owner_id !== actor.user_id) {
+          throw new ApiError("forbidden", "仅属主本人可更新");
+        }
+        const body = requirePlainObject(
+          req.body,
+          "body",
+        ) as unknown as UpdateAssetBody;
+        const ref = requireNonEmptyString(body.ref, "ref");
+        let credential: string | undefined;
+        if (meta.is_private && meta.credential_key !== undefined) {
+          credential = resolveCredential(env, meta.credential_key);
+        }
+        // 物化/校验失败时 asset-registry 已回滚 commit；错误经 toApiError 透出原因
+        const updated = assets.updateRef(assetId, ref, { credential });
+        log.info("API 更新资产版本", {
+          operator_id: actor.user_id,
+          asset_id: assetId,
+        });
+        sendJson(res, 200, updated);
       },
     },
     {

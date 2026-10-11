@@ -47,6 +47,9 @@ export default function AssetsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [detail, setDetail] = useState<AssetObject | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [updateTarget, setUpdateTarget] = useState<AssetMeta | null>(null);
+  const [updateRefValue, setUpdateRefValue] = useState("");
+  const [updating, setUpdating] = useState(false);
   const [form] = Form.useForm<RegisterAssetBody>();
   const isPrivate = Form.useWatch("is_private", form) === true;
 
@@ -119,6 +122,29 @@ export default function AssetsPage() {
       await reload();
     } catch (err) {
       message.error(err instanceof ApiError ? err.message : "下架失败");
+    }
+  };
+
+  const submitUpdate = async () => {
+    if (updateTarget === null) return;
+    const ref = updateRefValue.trim();
+    if (ref.length === 0) {
+      message.warning("请输入分支 / tag / commit");
+      return;
+    }
+    setUpdating(true);
+    try {
+      await apiFetch<AssetMeta>(`/api/assets/${updateTarget.asset_id}`, {
+        method: "PUT",
+        body: { ref },
+      });
+      message.success("版本已更新并重新物化");
+      setUpdateTarget(null);
+      await reload();
+    } catch (err) {
+      message.error(err instanceof ApiError ? err.message : "更新失败");
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -199,18 +225,38 @@ export default function AssetsPage() {
                 >
                   详情
                 </Button>
-                {/* 下架仅属主本人可见（API 侧也强制） */}
+                {/* 更新/下架仅属主本人可见（API 侧也强制）；共享资产禁止更新版本 */}
                 {user !== null && row.owner_id === user.user_id && (
-                  <Popconfirm
-                    title="确认下架？下架不校验在役引用，绑定该资产的业务运行时将报错。"
-                    okText="下架"
-                    cancelText="取消"
-                    onConfirm={() => void remove(row.asset_id)}
-                  >
-                    <Button size="small" type="link" danger>
-                      下架
-                    </Button>
-                  </Popconfirm>
+                  <>
+                    {row.shared ? (
+                      <Tooltip title="共享资产不可更新版本：可能被他人业务引用，静默换版本会让别人莫名出问题。如需新版本请下架后重新登记。">
+                        <Button size="small" type="link" disabled>
+                          更新
+                        </Button>
+                      </Tooltip>
+                    ) : (
+                      <Button
+                        size="small"
+                        type="link"
+                        onClick={() => {
+                          setUpdateTarget(row);
+                          setUpdateRefValue("");
+                        }}
+                      >
+                        更新
+                      </Button>
+                    )}
+                    <Popconfirm
+                      title="确认下架？下架不校验在役引用，绑定该资产的业务运行时将报错。"
+                      okText="下架"
+                      cancelText="取消"
+                      onConfirm={() => void remove(row.asset_id)}
+                    >
+                      <Button size="small" type="link" danger>
+                        下架
+                      </Button>
+                    </Popconfirm>
+                  </>
                 )}
               </>
             ),
@@ -297,6 +343,29 @@ export default function AssetsPage() {
           </Button>
         </Form>
       </Drawer>
+
+      <Modal
+        title="更新资产版本"
+        open={updateTarget !== null}
+        onCancel={() => setUpdateTarget(null)}
+        onOk={() => void submitUpdate()}
+        okText="更新"
+        cancelText="取消"
+        confirmLoading={updating}
+        destroyOnHidden
+      >
+        <p style={{ color: "#666" }}>
+          输入新的分支 / tag / commit，平台解析成 commit 后重新物化（git
+          克隆+构建，可能较慢）。资产 ID 不变，绑定它的业务无需改动。
+        </p>
+        <Input
+          aria-label="新版本 ref"
+          placeholder="如 main 或完整 commit id"
+          value={updateRefValue}
+          onChange={(e) => setUpdateRefValue(e.target.value)}
+          onPressEnter={() => void submitUpdate()}
+        />
+      </Modal>
 
       <Modal
         title="资产详情"

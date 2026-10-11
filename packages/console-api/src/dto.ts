@@ -157,6 +157,13 @@ export interface RegisterAssetBody {
   credential_key?: string;
 }
 
+/** PUT /api/assets/:id 请求体（仅属主 member；共享资产不可更新 → 409）。
+ *  版本升级：ref 解析成 commit 换版本并重新物化，asset_id 不变（业务绑定不断） */
+export interface UpdateAssetBody {
+  /** 分支/tag/commit */
+  ref: string;
+}
+
 /** PUT /api/env/global 与 PUT /api/env/businesses/:id 请求体 */
 export interface EnvSetBody {
   /** 桶：vars = 普通桶（明文回显）；secrets = 安全桶（只写，list 只见键名） */

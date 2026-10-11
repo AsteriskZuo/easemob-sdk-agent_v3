@@ -25,7 +25,14 @@ const OTHER_PACKAGE: AssetMeta = {
   owner_id: "usr_someone_else",
 };
 
-/** 资产页 mock：mine 只回自己的；all 回两条（自己的 + 他人的） */
+const OWN_SHARED_TOOL: AssetMeta = {
+  ...OWN_PACKAGE,
+  asset_id: "tool-shared-1",
+  kind: "tool",
+  shared: true,
+};
+
+/** 资产页 mock：mine 只回自己的；all 回两条（自己的 + 他人的）；tool 页签回一条共享工具 */
 function installAssetMocks(me: User) {
   return installFetchMock((path, { method }) => {
     if (path === "/api/auth/me") return { status: 200, body: me };
@@ -35,9 +42,15 @@ function installAssetMocks(me: User) {
     if (path === "/api/assets?kind=package&scope=all") {
       return { status: 200, body: [OWN_PACKAGE, OTHER_PACKAGE] };
     }
+    if (path === "/api/assets?kind=tool&scope=mine") {
+      return { status: 200, body: [OWN_SHARED_TOOL] };
+    }
     if (path.startsWith("/api/assets?")) return { status: 200, body: [] };
     if (path === "/api/assets" && method === "POST") {
       return { status: 201, body: OWN_PACKAGE };
+    }
+    if (path === "/api/assets/pkg-own-1" && method === "PUT") {
+      return { status: 200, body: OWN_PACKAGE };
     }
     return undefined;
   });
@@ -140,5 +153,41 @@ describe("资产管理", () => {
       await screen.findByText("pkg-own-1…", { exact: false }),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "登记资产" })).toBeNull();
+  });
+
+  it("非共享资产可更新：弹窗提交 PUT 带 ref；共享资产更新按钮禁用", async () => {
+    const calls = installAssetMocks(MEMBER_USER);
+    renderApp("/assets");
+    const user = setupUser();
+
+    expect(
+      await screen.findByText("pkg-own-1…", { exact: false }),
+    ).toBeTruthy();
+
+    // 自己的非共享 package：「更新」可点，弹窗填 ref 提交
+    await user.click(screen.getByRole("button", { name: /^更\s?新$/ }));
+    await user.type(await screen.findByLabelText("新版本 ref"), "main");
+    // 弹窗打开后页面上有两个「更新」：行按钮 + 弹窗确认，取最后一个（弹窗后渲染）
+    const updateButtons = screen.getAllByRole("button", { name: /^更\s?新$/ });
+    await user.click(updateButtons[updateButtons.length - 1]);
+    await waitFor(() => {
+      expect(
+        calls.some(
+          (c) => c.method === "PUT" && c.path === "/api/assets/pkg-own-1",
+        ),
+      ).toBe(true);
+    });
+    const put = calls.find(
+      (c) => c.method === "PUT" && c.path === "/api/assets/pkg-own-1",
+    );
+    expect(put?.body).toEqual({ ref: "main" });
+
+    // 共享工具：「更新」禁用
+    await user.click(screen.getByRole("tab", { name: "工具" }));
+    expect(
+      await screen.findByText("tool-shared-…", { exact: false }),
+    ).toBeTruthy();
+    const sharedUpdate = screen.getByRole("button", { name: /^更\s?新$/ });
+    expect((sharedUpdate as HTMLButtonElement).disabled).toBe(true);
   });
 });
