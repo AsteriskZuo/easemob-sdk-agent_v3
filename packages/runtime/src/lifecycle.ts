@@ -140,11 +140,15 @@ export function createLifecycle(deps: LifecycleDeps): EntryDriver {
       // runner 返回 failed/timeout 不抛错（EntryDriver 契约：业务失败返回而非抛）
       store.markTerminal(run_id, outcome.status);
       if (outcome.status === "success") {
-        log.info("run 终态", { status: outcome.status });
+        log.info("run 终态", {
+          status: outcome.status,
+          event_id: task.event.event_id,
+        });
       } else {
         log.warn("run 终态", {
           status: outcome.status,
           reason: outcome.reason,
+          event_id: task.event.event_id,
         });
       }
       return { status: outcome.status, output: outcome.output }; // usage 暂不填

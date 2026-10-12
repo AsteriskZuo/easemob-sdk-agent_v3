@@ -23,6 +23,17 @@ function errMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+/** 任务级追踪字段：出口日志必带 correlation_id/session_id——
+ *  出口事件的 event_id 是新生成的，不带这两个键就得回 db 才能跳回入口主线 */
+function traceOf(task: Task): Record<string, string> {
+  return {
+    event_id: task.event.event_id,
+    task_id: task.task_id,
+    correlation_id: task.event.correlation_id,
+    session_id: task.event.session_id,
+  };
+}
+
 /** 任务级结算状态（内存）：剩余绑定数 + 失败累计 */
 interface ExitPending {
   remaining: number; // 未结算的绑定数（归零时做终态判定）
@@ -72,16 +83,12 @@ export function createExitLoop(deps: {
     if (state.failed > 0) {
       queue.deadLetter(task.task_id, "deliver_failed");
       log.error("出口投递失败，任务死信", {
-        event_id: task.event.event_id,
-        task_id: task.task_id,
+        ...traceOf(task),
         failed: state.failed,
       });
     } else {
       queue.complete(task.task_id);
-      log.info("出口任务完结", {
-        event_id: task.event.event_id,
-        task_id: task.task_id,
-      });
+      log.info("出口任务完结", traceOf(task));
     }
   }
 
@@ -92,10 +99,7 @@ export function createExitLoop(deps: {
       if (producer === undefined || producer === "") {
         // 防御：出口队列只装派生事件
         queue.deadLetter(task.task_id, "missing_producer");
-        log.error("出口任务缺 producer_business_id，死信", {
-          event_id: task.event.event_id,
-          task_id: task.task_id,
-        });
+        log.error("出口任务缺 producer_business_id，死信", traceOf(task));
         return;
       }
       // 空结果跳过投递（sdk.return(null) = 业务明确无产出）：不查绑定、不挂通道，
@@ -103,8 +107,7 @@ export function createExitLoop(deps: {
       if (task.event.payload === null) {
         queue.complete(task.task_id);
         log.info("空结果跳过投递", {
-          event_id: task.event.event_id,
-          task_id: task.task_id,
+          ...traceOf(task),
           producer_business_id: producer,
         });
         return;
@@ -113,8 +116,7 @@ export function createExitLoop(deps: {
       if (bindings.length === 0) {
         queue.complete(task.task_id);
         log.info("无出口绑定，事件丢弃", {
-          event_id: task.event.event_id,
-          task_id: task.task_id,
+          ...traceOf(task),
           producer_business_id: producer,
         });
         return;
@@ -127,8 +129,7 @@ export function createExitLoop(deps: {
         } catch (err) {
           // 未知工具/非法配置：该绑定直接判失败（此时尚未挂通道，直接结算）
           log.error("出口目标解析失败", {
-            event_id: task.event.event_id,
-            task_id: task.task_id,
+            ...traceOf(task),
             tool: b.tool,
             error: errMessage(err),
           });
@@ -141,8 +142,7 @@ export function createExitLoop(deps: {
       pending.delete(task.task_id);
       queue.deadLetter(task.task_id, "dispatch_error");
       log.error("出口摄取派发异常，任务死信", {
-        event_id: task.event.event_id,
-        task_id: task.task_id,
+        ...traceOf(task),
         error: errMessage(err),
       });
     }
@@ -155,21 +155,30 @@ export function createExitLoop(deps: {
       const binding = item.watcher as ExitBinding;
       await semaphore.acquire(); // 出口闸门 = config.result_concurrency
       let failed = false;
+      const startedAt = Date.now();
       try {
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
             await driver.deliver(binding, task.event.payload); // 出口不做内容加工
             failed = false;
+            // 逐目标投递明细：回答「发送到了哪里」（tool + 目标通道 + 第几次成功 + 耗时）
+            log.info("出口投递成功", {
+              ...traceOf(task),
+              tool: binding.tool,
+              channel_id: channel.key,
+              attempts: attempt,
+              duration_ms: Date.now() - startedAt,
+            });
             break;
           } catch (err) {
             if (attempt === maxAttempts) {
               failed = true;
               log.error("出口投递重试耗尽", {
-                event_id: task.event.event_id,
-                task_id: task.task_id,
+                ...traceOf(task),
                 tool: binding.tool,
                 channel_id: channel.key,
                 attempts: maxAttempts,
+                duration_ms: Date.now() - startedAt,
                 error: errMessage(err),
               });
             } else {
