@@ -32,7 +32,7 @@ export const logger: {
 };
 ```
 
-本包埋点用 `logger.for({ module: 'entry-loop', run_id, channel_id })`——agent 调用发生在入口循环消化期间，执行过程归入口循环日志（logging.md 的职责划分；module 值即路由键）。
+本包埋点用 `logger.for({ module: 'agent-service', run_id, channel_id })`——模块内部细节（请求校验、配额、session 操作）归 system.log；entry-loop.log 只留循环流转骨架（取出→挂通道→run 开始/终态→完结），run 开始/终态由 runtime 以 `module: 'entry-loop'` 打入（2026-10-12 真机验证后调整：原归入口循环日志，混入后流转叙事被模块细节淹没）。
 
 ## 3. 范围与不做清单
 
@@ -174,7 +174,7 @@ type ServiceResponse =
 1. **串行化**：serve 内维护 promise 链，请求处理逐个挂链尾；
 2. **子进程跟踪**：spawn 的 pi 进程登记到活跃集合，退出移除；close 时遍历 SIGTERM→2s→SIGKILL（仿 T10 runner 的杀法）；
 3. **RPC compact**：读 stdout 按行解析，匹配 `type==='response' && command==='compact'`；30 秒无响应 → 杀进程回 `agent_failed: compact timeout`；
-4. **日志**：每次调用的埋点（run_id/op/skills/耗时/usage?/结果前缀）经 `logger.for({module:'entry-loop', ...})` 记录；
+4. **日志**：每次调用的埋点（run_id/op/skills/耗时/usage?/结果前缀）经 `logger.for({module:'agent-service', ...})` 记录（归 system.log）；
 5. **审计文件父目录**：serve 时 mkdir -p 一次。
 
 ## 6. 测试清单
