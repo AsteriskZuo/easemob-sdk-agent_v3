@@ -40,7 +40,7 @@ export interface WorkflowRunner {
 }
 
 export interface WorkflowRunnerOptions {
-  workspaceRoot: string; // 平台工作目录（{workspace}，其下建 runs/ 与 logs/，布局见 console-design §6）
+  workspaceRoot: string; // 平台工作目录（{workspace}，业务三类建在 businesses/{business_id}/ 下，布局见 console-design §6）
   maxOutputBytes?: number; // stdout 上限，默认 1_048_576（1MB），超限 = failed('output too large')
   killGraceMs?: number; // SIGTERM 后 SIGKILL 的宽限，默认 5000
   nodePath?: string; // 缺省 process.execPath
@@ -101,24 +101,21 @@ export function createWorkflowRunner(
     if (!RUN_ID_PATTERN.test(runId)) {
       throw new Error(`invalid run_id: ${req.run_id}`);
     }
-    // 数据分类布局（console-design §6）：run 工作区 = 业务执行产生的临时数据（runs/ 根，TTL 清理）；
-    // 业务日志 = 日志类（logs/businesses/...，轮转可删）。三维键与 channel_id 对齐
-    const channelKey = [
-      req.event.source,
-      req.event.session_id,
-      req.business_id,
-    ];
-    const workspace = join(opts.workspaceRoot, "runs", ...channelKey, runId);
-    const logPath = join(
+    // 数据分类布局（console-design §6，五类×两归属）：业务归属的三类（runs 临时 / logs 日志 /
+    // data 持久状态）统一收拢在 businesses/{business_id}/ 下——删业务 = db 删行 + 删该目录；
+    // 业务根内保留 {source, session_id} 两级键，同通道串行 ⇒ 同目录无并发写
+    const businessRoot = join(
       opts.workspaceRoot,
-      "logs",
       "businesses",
-      ...channelKey,
-      `${runId}.log`,
+      req.business_id,
     );
-    // 业务级持久目录（区别于 runs/ 临时、logs/ 可删）：同 dataDir 的 run 被通道键
-    // {source, session_id, business_id} 串行化，业务读写状态文件无需自锁；平台不做 TTL
-    const dataDir = join(opts.workspaceRoot, "data", ...channelKey);
+    const channelKey = [req.event.source, req.event.session_id];
+    // run 工作区 = 业务执行产生的临时数据（runs/，TTL 清理）
+    const workspace = join(businessRoot, "runs", ...channelKey, runId);
+    // 业务日志 = 日志类（轮转可删）
+    const logPath = join(businessRoot, "logs", ...channelKey, `${runId}.log`);
+    // 业务级持久目录（区别于 runs/ 临时、logs/ 可删）：业务读写状态文件无需自锁；平台不做 TTL
+    const dataDir = join(businessRoot, "data", ...channelKey);
     mkdirSync(workspace, { recursive: true });
     mkdirSync(join(logPath, ".."), { recursive: true });
     mkdirSync(dataDir, { recursive: true });

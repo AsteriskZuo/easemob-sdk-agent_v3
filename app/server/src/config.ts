@@ -81,9 +81,9 @@ function parseViaEnvPackage<T>(name: string, value: string, fn: () => T): T {
   }
 }
 
-/** 读取 {workspace}/config.json：不存在 = 空；不可读/非法 JSON/非扁平 object → 记问题返回空 */
+/** 读取 {workspace}/platform/config.json：不存在 = 空；不可读/非法 JSON/非扁平 object → 记问题返回空 */
 function readFileConfig(workspace: string, problems: string[]): FileConfig {
-  const path = join(workspace, "config.json");
+  const path = join(workspace, "platform", "config.json");
   if (!existsSync(path)) {
     return {};
   }

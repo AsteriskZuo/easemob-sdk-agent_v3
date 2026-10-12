@@ -384,7 +384,7 @@ class AssetRegistryImpl implements AssetRegistry {
   }
 }
 
-/** 工厂：db 为全平台唯一数据访问口；cache_root 为物化根（由装配方给，如 {workspace}/cache/assets）；
+/** 工厂：db 为全平台唯一数据访问口；cache_root 为物化根（由装配方给，如 {workspace}/platform/cache/assets）；
  *  npm_registry 可选（物化 npm ci / 初始化脚本子进程的 NPM_CONFIG_REGISTRY，装配方从 AGENT_NPM_REGISTRY 注入） */
 export function createAssetRegistry(
   db: Database,

@@ -61,7 +61,7 @@ function makeAssetRepo(): string {
   writeFileSync(
     join(repoDir, "programs", "main.js"),
     `let buf = "";
-// stderr 业务日志行：runner 采集后落盘 logs/businesses/.../{run_id}.log（文件懒建，首行才产生）
+// stderr 业务日志行：runner 采集后落盘 businesses/{bid}/logs/.../{run_id}.log（文件懒建，首行才产生）
 process.stderr.write("integration fixture 执行中\\n");
 process.stdin.on("data", (chunk) => { buf += chunk; });
 process.stdin.on("end", () => {
@@ -237,14 +237,14 @@ describe("端到端：直接落队 → 业务执行 → 出口投递", () => {
           [testBusinessId],
         ) !== undefined,
     );
-    // ③ logs/businesses/manual/S-1/{bid}/ 下有 run 日志文件
+    // ③ businesses/{bid}/logs/manual/S-1/ 下有 run 日志文件
     const bizLogDir = join(
       workspace,
-      "logs",
       "businesses",
+      testBusinessId,
+      "logs",
       "manual",
       "S-1",
-      testBusinessId,
     );
     await waitFor("业务 run 日志文件", () => {
       try {
@@ -253,8 +253,15 @@ describe("端到端：直接落队 → 业务执行 → 出口投递", () => {
         return false;
       }
     });
-    // ④ runs/manual/S-1/{bid}/ 下有 run 工作区
-    const runsDir = join(workspace, "runs", "manual", "S-1", testBusinessId);
+    // ④ businesses/{bid}/runs/manual/S-1/ 下有 run 工作区
+    const runsDir = join(
+      workspace,
+      "businesses",
+      testBusinessId,
+      "runs",
+      "manual",
+      "S-1",
+    );
     await waitFor("run 工作区", () => {
       try {
         return readdirSync(runsDir).some((f) => f.startsWith("run_"));

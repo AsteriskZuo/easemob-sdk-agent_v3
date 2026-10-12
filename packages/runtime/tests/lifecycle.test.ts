@@ -163,10 +163,11 @@ describe("四步时序", () => {
     expect(serveArg.workspace).toBe(
       join(
         workspaceRoot,
+        "businesses",
+        BUSINESS_ID,
         "runs",
         "manual",
         "sess-1",
-        BUSINESS_ID,
         serveArg.run_id,
       ),
     );
@@ -177,11 +178,12 @@ describe("四步时序", () => {
     expect(serveArg.session_dir).toBe(
       join(
         workspaceRoot,
+        "businesses",
+        BUSINESS_ID,
         "cache",
         "agent-sessions",
         "manual",
         "sess-1",
-        BUSINESS_ID,
       ),
     );
     expect(serveArg.audit_log_path).toBe(
@@ -294,14 +296,15 @@ describe("真实 runner 集成", () => {
     const output = result.output as Record<string, any>;
     expect(output.input).toEqual(task.event);
     expect(output.config).toEqual({ region: "cn" });
-    // workspace = {workspaceRoot}/runs/{source}/{session_id}/{business_id}/{run_id}（run_id 由 Lifecycle 生成并传入）
+    // workspace = {workspaceRoot}/businesses/{business_id}/runs/{source}/{session_id}/{run_id}（run_id 由 Lifecycle 生成并传入）
     const runId = recorder.serveArg!.run_id;
     const expectedWorkspace = join(
       workspaceRoot,
+      "businesses",
+      BUSINESS_ID,
       "runs",
       "manual",
       "sess-1",
-      BUSINESS_ID,
       runId,
     );
     expect(output.workspace).toBe(expectedWorkspace);

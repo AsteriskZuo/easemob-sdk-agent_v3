@@ -19,7 +19,7 @@ export interface LifecycleDeps {
   loader: ContextLoader; // 第①步：组装 RunContext
   runner: WorkflowRunner; // 第③步：spawn 业务流程程序
   agentService: AgentService; // 第②/④步：per-run socket 服务（serve / close）
-  workspaceRoot: string; // 平台工作目录 {workspace}（其下 runs/ cache/ logs/ 布局与 runner 对齐）
+  workspaceRoot: string; // 平台工作目录 {workspace}（业务三类在 businesses/{business_id}/ 下，布局与 runner 对齐）
   db: Database; // 打标表（lifecycles，迁移 module 'runtime'）
 }
 
@@ -62,23 +62,17 @@ export function createLifecycle(deps: LifecycleDeps): EntryDriver {
       });
       log.info("run 开始", { event_id: task.event.event_id });
 
-      // 路径组齐（与 runner 的三维布局对齐）；步骤 1–4 失败 = 配置/基础设施问题：
+      // 路径组齐（与 runner 的业务根布局对齐：businesses/{business_id}/ 下分 runs/cache/data/logs）；
+      // 步骤 1–4 失败 = 配置/基础设施问题：
       // 打标 failed 后原样抛错（归 scheduler 兜底合成 failed + error 日志）
-      const workspace = join(
-        deps.workspaceRoot,
-        "runs",
-        source,
-        session_id,
-        business_id,
-        run_id,
-      );
+      const businessRoot = join(deps.workspaceRoot, "businesses", business_id);
+      const workspace = join(businessRoot, "runs", source, session_id, run_id);
       const session_dir = join(
-        deps.workspaceRoot,
+        businessRoot,
         "cache",
         "agent-sessions",
         source,
         session_id,
-        business_id,
       );
       const audit_log_path = join(workspace, "audit", "llm-requests.jsonl");
       let ctx: RunContext;

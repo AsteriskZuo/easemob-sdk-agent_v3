@@ -82,12 +82,12 @@ export async function bootstrap(overrides?: {
   /** 额外入口适配器实例（测试注入用；内置清单 ENTRY_ADAPTERS 按 §7.4 开关过滤后始终先行创建） */
   adapters?: EntryAdapter[];
 }): Promise<ServerHandle> {
-  // 1. 配置解析（env > {workspace}/config.json > 默认）
+  // 1. 配置解析（env > {workspace}/platform/config.json > 默认）
   const config = resolveServerConfig(overrides?.env);
 
   // 2. 日志全局外观（initLogger 自带 logsDir 可建/可写 fail-fast）
   initLogger({
-    logsDir: join(config.workspace, "logs"),
+    logsDir: join(config.workspace, "platform", "logs"),
     level: config.log_level,
     enabled: config.log_enabled,
   });
@@ -120,7 +120,7 @@ export async function bootstrap(overrides?: {
     });
 
     // 5. 接线（依赖方向即创建顺序）
-    db = openDatabase(join(config.workspace, "data", "platform.db"));
+    db = openDatabase(join(config.workspace, "platform", "data", "platform.db"));
     const entryQueue = createTaskQueue(db, "entry_tasks");
     const exitQueue = createTaskQueue(db, "exit_tasks");
     const registry = createBusinessRegistry(db);
@@ -129,7 +129,7 @@ export async function bootstrap(overrides?: {
     const exitChannels = createChannelPool(db);
     const channelStore = createChannelStore(db);
     const assets = createAssetRegistry(db, {
-      cache_root: join(config.workspace, "cache", "assets"),
+      cache_root: join(config.workspace, "platform", "cache", "assets"),
       npm_registry: config.npm_registry,
     });
     const envProvider = createEnvProvider(db);

@@ -55,14 +55,14 @@ function setup(over: Record<string, unknown> = {}) {
   return { root, runner };
 }
 
-/** run 工作区根：{root}/runs/{source}/{session_id}/{business_id}（console-design §6 布局） */
+/** run 工作区根：{root}/businesses/{business_id}/runs/{source}/{session_id}（console-design §6 布局） */
 function runsRootOf(root: string, sessionId = "sess-1"): string {
-  return join(root, "runs", "manual", sessionId, "biz-1");
+  return join(root, "businesses", "biz-1", "runs", "manual", sessionId);
 }
 
-/** 业务日志目录：{root}/logs/businesses/{source}/{session_id}/{business_id} */
+/** 业务日志目录：{root}/businesses/{business_id}/logs/{source}/{session_id} */
 function logsRootOf(root: string, sessionId = "sess-1"): string {
-  return join(root, "logs", "businesses", "manual", sessionId, "biz-1");
+  return join(root, "businesses", "biz-1", "logs", "manual", sessionId);
 }
 
 describe("WorkflowRunner", () => {
@@ -73,7 +73,7 @@ describe("WorkflowRunner", () => {
     expect(outcome.status).toBe("success");
     const output = outcome.output as Record<string, any>;
     expect(output.event).toEqual(req.event);
-    // cwd = 注入的 workspace = {root}/runs/manual/sess-1/biz-1/{run_id}
+    // cwd = 注入的 workspace = {root}/businesses/biz-1/runs/manual/sess-1/{run_id}
     // （macOS /var→/private/var 符号链接：cwd 是真实路径，比较前 realpath）
     expect(output.cwd).toBe(realpathSync(output.workspace));
     const runsDir = runsRootOf(root);
@@ -98,18 +98,18 @@ describe("WorkflowRunner", () => {
 
   it("2b. 信封携带 programs 映射原样到达业务进程", async () => {
     const { runner } = setup();
-    const programs = { "jira-fetch": "/cache/assets/ast_x/programs/fetch.js" };
+    const programs = { "jira-fetch": "/platform/cache/assets/ast_x/programs/fetch.js" };
     const outcome = await runner.run(makeReq("echo-programs.js", { programs }));
     expect(outcome.status).toBe("success");
     expect((outcome.output as Record<string, any>).programs).toEqual(programs);
   });
 
-  it("2c. 信封含 dataDir 且目录已建：{root}/data/{source}/{session_id}/{business_id}", async () => {
+  it("2c. 信封含 dataDir 且目录已建：{root}/businesses/{business_id}/data/{source}/{session_id}", async () => {
     const { root, runner } = setup();
     const outcome = await runner.run(makeReq("echo-datadir.js"));
     expect(outcome.status).toBe("success");
     const output = outcome.output as Record<string, any>;
-    const expected = join(root, "data", "manual", "sess-1", "biz-1");
+    const expected = join(root, "businesses", "biz-1", "data", "manual", "sess-1");
     expect(output.dataDir).toBe(expected);
     expect(output.exists).toBe(true);
     expect(existsSync(expected)).toBe(true);

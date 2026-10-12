@@ -17,7 +17,7 @@ function errorMessage(err: unknown): string {
 
 /** 启动自检（fail-fast）：任一前提不满足抛出 Error，message 列出全部失败项。
  *  检查项全量收集后一次性报出，不遇一错即停：
- *  ① {workspace} 可建可写；② 数据分类子目录骨架（data/ cache/ runs/ logs/）可建；
+ *  ① {workspace} 可建可写；② 数据分类子目录骨架（platform/{data,cache,logs} + businesses/）可建；
  *  ③ pi_cli_path 存在且可执行；④ pi_agent_dir 存在且含可解析、非空的 models.json
  *  （可选模型列表的部署侧来源，loadModelList 验证）；⑤ git 可用；
  *  ⑥ npm 可用；⑦ npm registry 可达（HEAD，3s 超时）。
@@ -38,8 +38,13 @@ export async function runSelfCheck(config: ServerConfig): Promise<void> {
     );
   }
 
-  // ② 数据分类子目录骨架
-  for (const dir of ["data", "cache", "runs", "logs"]) {
+  // ② 数据分类子目录骨架（平台三类 + 业务根；业务内的 runs/data/cache/logs 由 runner/lifecycle 按需建）
+  for (const dir of [
+    join("platform", "data"),
+    join("platform", "cache"),
+    join("platform", "logs"),
+    "businesses",
+  ]) {
     try {
       mkdirSync(join(config.workspace, dir), { recursive: true });
     } catch (err) {

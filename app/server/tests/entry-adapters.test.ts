@@ -103,7 +103,7 @@ async function makeEnv(
 
 /** 读 system.log 全文（断言启动日志用） */
 function readSystemLog(workspace: string): string {
-  return readFileSync(join(workspace, "logs", "system.log"), "utf8");
+  return readFileSync(join(workspace, "platform", "logs", "system.log"), "utf8");
 }
 
 /** 轮询直到 webhook 端口有响应（bootstrap 返回时 listen 可能尚未完成） */

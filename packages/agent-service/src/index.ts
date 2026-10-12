@@ -32,9 +32,9 @@ export interface AgentServeContext {
   skills: SkillRef[];
   /** --model 值（provider/id 或 models.json 中的模型名） */
   model: string;
-  /** pi 会话存储目录 cache/agent-sessions/{三维}/（装配根保证存在） */
+  /** pi 会话存储目录 businesses/{business_id}/cache/agent-sessions/{source}/{session_id}/（装配根保证存在） */
   session_dir: string;
-  /** 请求体审计落盘路径 runs/{三维}/{run_id}/audit/llm-requests.jsonl */
+  /** 请求体审计落盘路径 businesses/{business_id}/runs/{source}/{session_id}/{run_id}/audit/llm-requests.jsonl */
   audit_log_path: string;
   /** 按 run 计的 agent 调用上限 */
   quota: { max_agent_calls: number };

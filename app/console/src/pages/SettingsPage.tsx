@@ -55,7 +55,7 @@ export default function SettingsPage() {
     modal.confirm({
       title: "清理资产缓存",
       content:
-        "将清空资产缓存目录（{workspace}/cache/assets/）下全部物化产物。资产登记记录保留；已创建业务下次 run 时会触发重新物化构建（clone + 依赖安装 + 初始化脚本），可能耗时数分钟。",
+        "将清空资产缓存目录（{workspace}/platform/cache/assets/）下全部物化产物。资产登记记录保留；已创建业务下次 run 时会触发重新物化构建（clone + 依赖安装 + 初始化脚本），可能耗时数分钟。",
       okText: "清理",
       okButtonProps: { danger: true },
       cancelText: "取消",
@@ -83,7 +83,7 @@ export default function SettingsPage() {
         title={
           <span>
             生效配置（只读）
-            <Tooltip title="此处展示平台当前生效的运行参数。改配置 = 改环境变量或 {workspace}/config.json 后重启平台，此处不可改。">
+            <Tooltip title="此处展示平台当前生效的运行参数。改配置 = 改环境变量或 {workspace}/platform/config.json 后重启平台，此处不可改。">
               <QuestionCircleOutlined
                 style={{ marginLeft: 8, color: "#999" }}
               />

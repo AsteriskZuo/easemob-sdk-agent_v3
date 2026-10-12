@@ -31,6 +31,13 @@ function requiredEnv(
   };
 }
 
+/** config.json 路径（{workspace}/platform/config.json），保证父目录已建 */
+function configPath(): string {
+  const dir = join(workspace, "platform");
+  mkdirSync(dir, { recursive: true });
+  return join(dir, "config.json");
+}
+
 describe("resolveServerConfig", () => {
   it("必填缺失 → EnvError 且 message 含全部缺失变量名", () => {
     let caught: unknown;
@@ -79,7 +86,7 @@ describe("resolveServerConfig", () => {
     ).toBe("https://npm.mirror.internal/");
 
     writeFileSync(
-      join(workspace, "config.json"),
+      configPath(),
       JSON.stringify({ AGENT_NPM_REGISTRY: "https://npm.from-file/" }),
       { flag: "wx" },
     );
@@ -91,7 +98,7 @@ describe("resolveServerConfig", () => {
   it("config.json 兜底：文件值生效；同名环境变量优先；非法 JSON / 类型不符 → EnvError", () => {
     // 文件值兜底
     writeFileSync(
-      join(workspace, "config.json"),
+      configPath(),
       JSON.stringify({ AGENT_TASK_CONCURRENCY: 9 }),
       { flag: "wx" },
     );
@@ -104,12 +111,12 @@ describe("resolveServerConfig", () => {
     ).toBe(7);
 
     // 非法 JSON → EnvError
-    writeFileSync(join(workspace, "config.json"), "{ not json");
+    writeFileSync(configPath(), "{ not json");
     expect(() => resolveServerConfig(requiredEnv())).toThrow(EnvError);
 
     // 值类型不符（期望 number 给了 string）→ EnvError
     writeFileSync(
-      join(workspace, "config.json"),
+      configPath(),
       JSON.stringify({ AGENT_TASK_CONCURRENCY: "nine" }),
     );
     let caught: unknown;
@@ -154,7 +161,7 @@ describe("resolveServerConfig", () => {
     ).toBe(0);
 
     writeFileSync(
-      join(workspace, "config.json"),
+      configPath(),
       JSON.stringify({ AGENT_CONSOLE_PORT: 6300 }),
       { flag: "wx" },
     );
@@ -186,7 +193,7 @@ describe("resolveServerConfig", () => {
     ).toBeUndefined();
 
     writeFileSync(
-      join(workspace, "config.json"),
+      configPath(),
       JSON.stringify({ AGENT_CONSOLE_STATIC_DIR: "/srv/console" }),
       { flag: "wx" },
     );
@@ -196,7 +203,7 @@ describe("resolveServerConfig", () => {
 
     // config.json 类型不符 → EnvError
     writeFileSync(
-      join(workspace, "config.json"),
+      configPath(),
       JSON.stringify({ AGENT_CONSOLE_STATIC_DIR: 42 }),
     );
     expect(() => resolveServerConfig(requiredEnv())).toThrow(EnvError);
@@ -221,7 +228,7 @@ describe("resolveServerConfig", () => {
 
     // config.json 兜底（env 未设置时）
     writeFileSync(
-      join(workspace, "config.json"),
+      configPath(),
       JSON.stringify({
         AGENT_WEBHOOK_PORT: 6300,
         AGENT_ENTRY_JIRA_POLLING_ENABLED: true,
