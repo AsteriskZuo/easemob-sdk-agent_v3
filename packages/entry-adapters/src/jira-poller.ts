@@ -229,6 +229,7 @@ export function createJiraPoller(options: JiraPollerOptions): JiraPoller {
             ? { assignees: config.assignees }
             : {}),
           daysBack: config.days_back,
+          maxResults: 10,
         });
         if (result.status === "error") {
           log.error("jira 轮询失败", {
