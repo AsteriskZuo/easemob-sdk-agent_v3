@@ -78,7 +78,7 @@ jira-polling 适配器（平台，已内置）
 入口队列 → 通道（{jira, issueKey, business_id} 串行）→ runner 拉起 main.ts
   ▼
 main.ts 胶水（本任务核心，§5）：
-  去重判断 → sdk.run('jira-fetch') → 终态短路 → 人员标签
+  去重判断 → sdk.run('jira-fetch') → 终态短路 → Bug 类型过滤 → 人员标签
   → sdk.agent({skills:['jira-ticket-review']}) → 解析输出 → 写审查记录
   → 组装企微消息 → sdk.return({content, mentions}) 或 sdk.return(null) 或 sdk.fail(...)
   ▼
@@ -98,12 +98,15 @@ wecom-webhook 出口工具（平台，已内置）→ 企业微信群
 1. **去重判断**：`checkSkip(issueKey, payload.updated)`（§5.1）→ 有跳过原因 → `sdk.log('info', ...)` + `sdk.return(null)`（不写新记录）。
 2. **拉取工单**：`sdk.run('jira-fetch', { input: { issue_key }, config: { jira_url: sdk.config().jira_url, username: sdk.secret('jira_username'), password: sdk.secret('jira_password'), redirect_username: sdk.secret('jira_redirect_username'), redirect_password: sdk.secret('jira_redirect_password') } })`。返回 `status:'error'` → `sdk.fail(\`获取工单 ${issueKey} 失败：${code} ${message}\`)`（含 ticket_not_found——失败语义进控制台 run 记录，不静默）。**redirect 凭据不可省**：easemob jira 前置网关要求每个请求带 Basic 头，漏传会被网关 401 拦截（表象为 authentication_failed，根本没到 jira）。
 3. **终态短路**：`ticket.statusCategory === 'Complete'` → `markReviewed(issueKey, 'skip', payload.updated)` + `sdk.return(null)`（不调大模型，v2 语义）。
-4. **人员标签**：`lookupPersonTags({ emailAddress: identity?.assigneeEmail, name: identity?.assigneeName })`（§8），注入 prompt。
-5. **大模型审查**：`sdk.agent({ skills: ['jira-ticket-review'], input, mode: 'fresh' })`，input 拼装（§5.2）。**`mode: 'fresh'` 必带**：单轮审查是无状态一次性任务（v2 `resetSession: true` 语义）——同工单 updated 变化后复审时，缺省 `channel` 模式会沿用该通道的历史会话，token 膨胀且陈旧上下文干扰审查判断。
-6. **解析输出**：`parseReviewOutput(agentOutput)` → undefined → `sdk.fail('审查输出解析失败')`（不写记录；agent 返回非字符串时先 `typeof === 'string' ? : JSON.stringify(...)`）。
-7. **写审查记录**：`markReviewed(issueKey, review.decision, payload.updated)`。
-8. **skip 不通知**：`review.decision === 'skip'` → `sdk.return(null)`（v2 语义：非 Bug 只记录不通知）。
-9. **pass/fail 通知**：组装 `{ content, mentions }`（§5.3）→ `sdk.return(...)`。
+4. **Bug 类型过滤**（2026-10-12 真机验证后新增）：`ticket.issueType !== 'Bug'` → `markReviewed(issueKey, 'skip', payload.updated)` + `sdk.return(null)`（不调大模型、不通知）。规则前置到代码，不依赖模型自觉遵守 skill 的 skip 规则——实测模型会对非 Bug 工单产出 fail 通知造成群噪音（HIM-23787 QUIC 调研工单实例）。`issueType` 字段缺失属数据异常：fail-open 继续审查（漏审比误审代价高）+ warn 日志留痕。skill 内的 skip 规则保留为兜底。
+5. **人员标签**：`lookupPersonTags({ emailAddress: identity?.assigneeEmail, name: identity?.assigneeName })`（§8），注入 prompt。
+6. **大模型审查**：`sdk.agent({ skills: ['jira-ticket-review'], input, mode: 'fresh' })`，input 拼装（§5.2）。**`mode: 'fresh'` 必带**：单轮审查是无状态一次性任务（v2 `resetSession: true` 语义）——同工单 updated 变化后复审时，缺省 `channel` 模式会沿用该通道的历史会话，token 膨胀且陈旧上下文干扰审查判断。
+7. **解析输出**：`parseReviewOutput(agentOutput)` → undefined → `sdk.fail('审查输出解析失败')`（不写记录；agent 返回非字符串时先 `typeof === 'string' ? : JSON.stringify(...)`）。
+8. **写审查记录**：`markReviewed(issueKey, review.decision, payload.updated)`。
+9. **skip 不通知**：`review.decision === 'skip'` → `sdk.return(null)`（模型判定的 skip 兜底——类型过滤已在步骤 4 前置，这里兜的是模型依 skill 规则判出的其他 skip 情形）。
+10. **pass/fail 通知**：组装 `{ content, mentions }`（§5.3）→ `sdk.return(...)`。
+
+**日志纪律**（2026-10-12 真机验证后新增）：每个关键节点一条 `sdk.log`——工单拉取成功（issueType/status/statusCategory）、拉取失败（code/message）、类型过滤跳过、人员标签结果、**大模型原始输出（完整 output 文本，出问题时的第一现场）**、审查结果（decision/classification/scenarios/skillVersion）、解析失败、通知组装结果（decision/mentions）。日志经 sdk.log → stderr → runner 采集进该 run 的业务日志文件 `logs/businesses/{source}/{session_id}/{business_id}/{run_id}/run_*.log`。注意 sdk.run 子程序（jira-fetch）的 stderr 目前被 SDK 丢弃（`@asteriskzuo/agent-sdk` run.ts），工具内部日志暂不可达，关键结果由主流程代记（后续 SDK 透传改造另议）。
 
 ### 5.1 去重语义（review-records.ts，搬 v2 ReviewRecordStore 原语义）
 
@@ -210,7 +213,7 @@ v2 的 system.md（企微多轮交互语境）与 jira-ticket-review.md（用户
 - review-scenarios：code 白名单与 SKILL.md 场景表一致性（v2 有一致性测试，搬）
 - person-mapping：email/username/企微姓名三级查找 + 拼音兜底 guessed + tags 查询
 - notify-message：pass @ 负责人 / fail @ 创建者 / guessed 提示行 / 未找到账号提示行 / content 形状快照
-- review-flow（新增，mock sdk 边界）：去重命中 return(null) → 不 fetch；fetch error → fail；终态短路写 skip 记录 + return(null) 不调 agent；agent 输出非法 → fail 不写记录；pass/fail 写记录 + return 带 mentions
+- review-flow（新增，mock sdk 边界）：去重命中 return(null) → 不 fetch；fetch error → fail；终态短路写 skip 记录 + return(null) 不调 agent；非 Bug 工单短路写 skip 记录 + 不调 agent；issueType 缺失 warn + fail-open；agent 输出非法 → fail 不写记录；大模型原始输出与审查结果落日志；pass/fail 写记录 + return 带 mentions
 - jira-fetch：本地 mock HTTP（表单登录 → getIssue 两段 + 401 重登一次）+ 脱敏生效（data 无原始邮箱）+ identity 旁路存在 + input/config 非法 fail
 
 **v3 根六连**：仅 `.gitignore` 加 `business/` 一行，跑根六连确认无污染。
