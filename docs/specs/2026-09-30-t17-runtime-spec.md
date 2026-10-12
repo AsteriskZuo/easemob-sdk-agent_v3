@@ -411,7 +411,7 @@ export interface LifecycleRecord {
 ### 5.6 日志纪律
 
 - module 固定 `'entry-loop'`；固定字段带 `business_id`、`channel_id`（serve 内 agent-service 自带 run_id 关联，本包日志也补 `run_id`）；
-- 必打点：run 开始（info，event_id/run_id）、run 终态（info；failed/timeout 用 warn，reason 带上）、loader/serve 失败（error）；
+- 必打点：run 开始（info，event_id/run_id）、run 终态（info；failed/timeout 用 warn，reason 带上；**event_id 必带**——终态行不带就得靠同 run_id 反查，2026-10-12 真机验证后补齐）、loader/serve 失败（error）；
 - **secrets 值不进任何日志**（runner 已做 addSecrets 登记，本包不重复、不打印）。
 
 ## 6. 测试清单

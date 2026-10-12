@@ -315,11 +315,13 @@ for await ({task, watcher: binding} of channel):
     for (attempt = 1; attempt <= maxAttempts; attempt++):
       try:
         await driver.deliver(binding, task.event.payload) // 出口不做内容加工
-        failed = false; break
+        failed = false
+        log.info('出口投递成功', {event_id, task_id, correlation_id, session_id, tool, channel_id, attempts: attempt, duration_ms})
+        break
       catch (err):
         if (attempt === maxAttempts):
           failed = true
-          log.error('出口投递重试耗尽', {event_id, task_id, tool, channel_id, attempts, error})
+          log.error('出口投递重试耗尽', {event_id, task_id, correlation_id, session_id, tool, channel_id, attempts, duration_ms, error})
         else:
           await sleep(min(baseDelayMs * 2^(attempt-1), maxDelayMs))
   finally:
@@ -329,7 +331,7 @@ for await ({task, watcher: binding} of channel):
                            //   否则     → queue.complete(task_id)
 ```
 
-**纪律**：日志器 `logger.for({ module: 'exit-loop' })`；出口循环**不派生**新事件、**不参与** hop_count；投递 at-least-once（接收方凭 event_id 幂等）。
+**纪律**：日志器 `logger.for({ module: 'exit-loop' })`；**任务级日志一律带追踪字段 `correlation_id`/`session_id`**（出口事件的 event_id 是派生新生成的，不带这两个键就无法从出口行直接跳回入口主线——2026-10-12 真机验证后补齐）；出口循环**不派生**新事件、**不参与** hop_count；投递 at-least-once（接收方凭 event_id 幂等）。
 
 ### 5.5 Semaphore（semaphore.ts）
 
