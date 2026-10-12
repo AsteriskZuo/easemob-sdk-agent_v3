@@ -167,9 +167,9 @@ function SectionTitle({ title, tip }: { title: string; tip: string }) {
 }
 
 /** 业务创建/编辑同体页（/businesses/new 与 /businesses/:id 共用）。
- *  主保存按钮只管 registry 侧字段 + 匹配行 diff + 出口绑定整体覆盖
- *  （出口配置全字段原样进 ExitBinding.config，含 {{key}} 占位文本，不再拆写安全桶）；
- *  业务 key-value 由 EnvEditor 独立保存（避免混合提交的部分失败语义）。
+ *  主保存按钮（页面最底部）统一完成：registry 字段 PATCH + 匹配行 diff + 出口绑定整体覆盖
+ *  （出口配置全字段原样进 ExitBinding.config，含 {{key}} 占位文本，不再拆写安全桶）
+ *  + 编辑模式的业务 key-value 草稿（EnvEditor ref.save()，独立请求序列不并入 PATCH body）。
  *  仅创建模式：表单全量状态防抖 500ms 落 localStorage 草稿（CREATE_DRAFT_KEY），
  *  重进恢复 + 可手动清除，提交成功自动清除；编辑模式不做草稿（已有服务端数据） */
 export default function BusinessEditPage() {
@@ -1009,10 +1009,11 @@ export default function BusinessEditPage() {
           </Form.Item>
         </Card>
 
-        {/* 随建环境配置（仅创建模式）：两组皆空时提交不携带 env；编辑模式走下方 EnvEditor 独立保存 */}
+        {/* 随建环境配置（仅创建模式，默认展开）：两组皆空时提交不携带 env；编辑模式走下方 EnvEditor 由主保存统一落库 */}
         {!isEdit && (
           <Collapse
             style={{ marginBottom: 16 }}
+            defaultActiveKey={["env"]}
             items={[
               {
                 key: "env",
@@ -1036,14 +1037,6 @@ export default function BusinessEditPage() {
           />
         )}
 
-        <Button
-          type="primary"
-          size="large"
-          loading={submitting}
-          onClick={() => void submit()}
-        >
-          {isEdit ? "保存" : "创建业务"}
-        </Button>
       </Form>
 
       {isEdit && (
@@ -1065,6 +1058,17 @@ export default function BusinessEditPage() {
           />
         </Card>
       )}
+
+      {/* 唯一保存按钮固定页面最底部（编辑模式在 key-value 卡片之下） */}
+      <Button
+        type="primary"
+        size="large"
+        style={{ marginTop: 16 }}
+        loading={submitting}
+        onClick={() => void submit()}
+      >
+        {isEdit ? "保存" : "创建业务"}
+      </Button>
     </div>
   );
 }

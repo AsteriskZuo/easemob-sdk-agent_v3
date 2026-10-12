@@ -311,13 +311,10 @@ describe("T25：event_type 通配 + 创建草稿 + 随建环境配置", () => {
 
     await fillRequiredFields(user, "随建环境业务");
 
-    // 展开折叠区
-    await user.click(
-      await screen.findByText("环境配置（可选，随业务一并创建）"),
-    );
+    // 折叠区默认展开（无需点击）
     // 普通变量一行（antd 对两字中文按钮自动插空格：「添 加」；
     // 精确锚定 ^…$，避免误命中 MatchEditor 的「添加匹配行」）
-    // 折叠区展开是异步挂载：全部用 findBy 等待式查询（重负载下同步查询会抢在挂载前）
+    // 全部用 findBy 等待式查询（重负载下同步查询会抢在挂载前）
     const addButtons = await screen.findAllByRole("button", {
       name: /^添\s?加$/,
     });
@@ -384,9 +381,7 @@ describe("T25：event_type 通配 + 创建草稿 + 随建环境配置", () => {
     const first = renderApp("/businesses/new");
     const user = setupUser();
 
-    await user.click(
-      await screen.findByText("环境配置（可选，随业务一并创建）"),
-    );
+    // 折叠区默认展开，直接点「添加」
     await user.click(
       (await screen.findAllByRole("button", { name: /^添\s?加$/ }))[0],
     );
@@ -404,11 +399,8 @@ describe("T25：event_type 通配 + 创建草稿 + 随建环境配置", () => {
     first.unmount();
     renderApp("/businesses/new");
 
-    // 恢复后展开折叠区（折叠区默认收起，行 DOM 未挂载）
+    // 恢复后折叠区仍是默认展开（行 DOM 已挂载）
     await screen.findByText("已恢复上次未完成的草稿");
-    await setupUser().click(
-      screen.getByText("环境配置（可选，随业务一并创建）"),
-    );
     await waitFor(() => {
       expect(screen.getByLabelText("普通变量 1 键")).toHaveProperty(
         "value",
