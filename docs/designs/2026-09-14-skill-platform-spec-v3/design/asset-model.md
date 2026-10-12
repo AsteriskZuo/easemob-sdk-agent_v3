@@ -57,7 +57,7 @@
 - **资产身份 = (url, commit, 子路径) 三元组**：一个仓库根、或仓库内一个子路径（monorepo 里每个工具/skill 集合一个资产行）；
 - **登记时钉版本**：可给分支/tag/commit，平台登记时用 `git ls-remote` 把分支/tag **解析成 commit 存定**——分支会移动，存 commit 才是钉版本。**更新 = 登记新 commit = 新资产行**，更新不打断使用旧版本的业务；
 - **asset_id** = (属主 + 三元组) 的紧凑编码（短 hash），仅作 db 主键与目录名；唯一性按属主维度——同一三元组不同属主 = 不同资产行，各自管理；同（属主+三元组）重复登记 = 幂等返回已有；
-- **平台元数据**（登记时附加，不改写仓库内容）：asset_id、kind（`'package' | 'tool' | 'skill'`）、owner_id、shared、创建时间。登记记录入库（状态），内容物化在 `cache/assets/{asset_id}/`（缓存，可清可重拉）。
+- **平台元数据**（登记时附加，不改写仓库内容）：asset_id、kind（`'package' | 'tool' | 'skill'`）、owner_id、shared、创建时间。登记记录入库（数据），内容物化在 `platform/cache/assets/{asset_id}/`（缓存，可清可重拉）。
 
 ### 3.1 托管平台与私有仓库凭据
 
@@ -118,7 +118,7 @@ description: 审查 jira 工单并给出通过/驳回结论与理由
 - `sdk.agent({ skills: ['ticket-review', 'output-format'] })` → 白名单 = 绑定 skill 集合的技能并集，逐个校验、逐个注入（可一次多个、可跨集合）；
 - **名唯一性由配置期保证**：绑定时机械查重（同业务的绑定集合里程序名不重复、技能名不重复），**重复即拒绝**（控制台校验 + 管理 API 兜底，不做隐式首命中）——运行时解析因此无需优先级、无需限定写法，按名唯一命中；找不到 = 运行时报错（绑定在运行后被改或物化异常）。
 
-**程序名解析机制**：平台物化闭包后产出 **程序名 → 物化绝对路径** 的全量映射（本包 programs ∪ 绑定工具 programs），spawn 流程程序时经 stdin 信封注入（§7.1 `programs` 字段），`sdk.run('名')` 按名查表得绝对路径后 spawn 子进程。**业务按名使用、从不配置路径**——资产的物理位置是平台内部计算结果（`cache/assets/{asset_id}/`，业务无从预知），对外暴露的只有 git 引用（url + commit + 子路径）与程序名。平台给业务的是绝对路径的**使用权**，不是**管理权**。
+**程序名解析机制**：平台物化闭包后产出 **程序名 → 物化绝对路径** 的全量映射（本包 programs ∪ 绑定工具 programs），spawn 流程程序时经 stdin 信封注入（§7.1 `programs` 字段），`sdk.run('名')` 按名查表得绝对路径后 spawn 子进程。**业务按名使用、从不配置路径**——资产的物理位置是平台内部计算结果（`platform/cache/assets/{asset_id}/`，业务无从预知），对外暴露的只有 git 引用（url + commit + 子路径）与程序名。平台给业务的是绝对路径的**使用权**，不是**管理权**。
 
 **包内程序与共享工具的分工**：
 
@@ -147,7 +147,7 @@ description: 审查 jira 工单并给出通过/驳回结论与理由
   "endpoint": { "socket_path": "...", "token": "..." }, // agent 服务端点；sdk.agent()/session.* 使用
   "programs": { "jira-fetch": "/abs/.../jira-fetch.js" }, // 程序名→物化绝对路径映射（本包 ∪ 绑定工具，§6）；
                                                           // 仅平台→流程程序注入，sdk.run 不向子程序传
-  "dataDir": "/abs/.../data/{source}/{session_id}/{business_id}/" // 业务级持久目录（跨 run 状态落点，run 启动时已建）；
+  "dataDir": "/abs/.../businesses/{business_id}/data/{source}/{session_id}/" // 业务级持久目录（跨 run 状态落点，run 启动时已建）；
                                                           // 仅平台→流程程序注入，sdk.run 不向子程序传
 }
 ```
@@ -179,13 +179,13 @@ description: 审查 jira 工单并给出通过/驳回结论与理由
 | 超时 | wall-clock 默认 60 分钟（业务可配），到点 SIGTERM → SIGKILL |
 | 输出上限 | stdout 累计 1MB，超限即杀即判 |
 | 环境变量 | **清空注入**（`env: {}`）——平台环境不泄漏；凭据只走 stdin 的 secrets |
-| 工作目录 | cwd = run 工作区（`runs/{source}/{session_id}/{business_id}/{run_id}/`，run 结束按 TTL 清理） |
-| 持久目录 | `dataDir`（`data/{source}/{session_id}/{business_id}/`，业务级持久，平台不做 TTL；同通道 run 串行 ⇒ 读写状态文件无需自锁） |
+| 工作目录 | cwd = run 工作区（`businesses/{business_id}/runs/{source}/{session_id}/{run_id}/`，run 结束按 TTL 清理） |
+| 持久目录 | `dataDir`（`businesses/{business_id}/data/{source}/{session_id}/`，业务级持久，平台不做 TTL；同通道 run 串行 ⇒ 读写状态文件无需自锁） |
 | 日志 | stderr（用 `sdk.log`，见 §7.4）；stdout 只承载结果 |
 
 ### 7.4 日志与审计
 
-- `sdk.log(level, message, fields?)`：写 stderr 结构化行，平台采集进该 run 的业务日志（`logs/businesses/{三维键}/{run_id}.log`）；**这是平台管控通道**——统一格式、secrets 源头脱敏、将来注入 run 级关联字段都在这一处生效，业务不要绕过它直接写 stderr（写了也会被原样采集，但不受管控）；
+- `sdk.log(level, message, fields?)`：写 stderr 结构化行，平台采集进该 run 的业务日志（`businesses/{business_id}/logs/{source}/{session_id}/{run_id}.log`）；**这是平台管控通道**——统一格式、secrets 源头脱敏、将来注入 run 级关联字段都在这一处生效，业务不要绕过它直接写 stderr（写了也会被原样采集，但不受管控）；
 - agent 调用的真实 LLM 请求体由平台侧落盘审计（`before_provider_request`），业务无需也无法干预。
 
 ### 7.5 平台提供什么（依赖清单）
@@ -262,7 +262,7 @@ sdk.return({ summary: "…" });
 
 ## 9. 物化与业务初始化
 
-**业务初始化**（创建/变更业务时执行）：物化该业务绑定的全部资产（包 + 工具 + skill 集合）到 `cache/assets/{asset_id}/`。初始化物化失败（拉取失败/清单校验不过/构建失败）→ **业务创建/变更失败**（fail-fast，控制台可见）。运行时兜底：执行前发现物化缓存缺失（被清理）→ 先补物化再执行；补拉失败 → 本次 run failed，不影响平台与其他业务。
+**业务初始化**（创建/变更业务时执行）：物化该业务绑定的全部资产（包 + 工具 + skill 集合）到 `platform/cache/assets/{asset_id}/`。初始化物化失败（拉取失败/清单校验不过/构建失败）→ **业务创建/变更失败**（fail-fast，控制台可见）。运行时兜底：执行前发现物化缓存缺失（被清理）→ 先补物化再执行；补拉失败 → 本次 run failed，不影响平台与其他业务。
 
 ### 9.1 两个脚本
 
@@ -299,8 +299,8 @@ clone → validateAssetShape（清单形状校验，§5.1）
 
 ### 9.5 缓存与治理
 
-- 构建产物进缓存：产物目录与 node_modules 随资产缓存目录（`cache/assets/{asset_id}/`）同生共死，资产下架（`remove()`）连带清理；
-- **缓存清理入口**：控制台设置页「清理资产缓存」按钮（admin；管理 API `POST /api/cache/clear`）清空 `cache/assets/`——登记行不动，清理后已创建业务下次 run 时触发重新物化 + 构建（懒重建，可能耗时分钟级）；
+- 构建产物进缓存：产物目录与 node_modules 随资产缓存目录（`platform/cache/assets/{asset_id}/`）同生共死，资产下架（`remove()`）连带清理；
+- **缓存清理入口**：控制台设置页「清理资产缓存」按钮（admin；管理 API `POST /api/cache/clear`）清空 `platform/cache/assets/`——登记行不动，清理后已创建业务下次 run 时触发重新物化 + 构建（懒重建，可能耗时分钟级）；
 - 已知脆弱性：缓存清理后重建依赖 npm registry 状态（依赖 unpublish 则老版本重建失败）；缓解 = 锁文件钉死 + 保守清理；
 - v1 不加并发锁：并发物化同一资产接受竞态（临时目录 + 原子 rename 兜底，最坏情况是重复构建）。
 

@@ -1,7 +1,7 @@
 # 控制台设计
 
 > 版本：v0.7
-> 日期：2026-09-14（2026-09-26 修订：出口 = 出口工具绑定。2026-09-27 修订：业务 = 流程程序 + 资料，门禁标准不再是独立资料项。2026-09-30 修订：业务 = 包 + 配置——资产三族（包/工具/skill）绑定；key-value 并为普通/安全两桶；content/ 母本树消解，资产唯一来源为 git。2026-10-07 修订：模型/内核可选项由 server 解析 models.json 经管理 API 提供，平台代码不内置模型名；资产绑定空集合引导与出口配置去向标注。2026-10-08 修订：出入口自描述展示——入口适配器 eventDoc/configSchema 表单、出口工具 resultDoc；internal 内部入口引导；设置页资产缓存清理按钮）
+> 日期：2026-09-14（2026-09-26 修订：出口 = 出口工具绑定。2026-09-27 修订：业务 = 流程程序 + 资料，门禁标准不再是独立资料项。2026-09-30 修订：业务 = 包 + 配置——资产三族（包/工具/skill）绑定；key-value 并为普通/安全两桶；content/ 母本树消解，资产唯一来源为 git。2026-10-07 修订：模型/内核可选项由 server 解析 models.json 经管理 API 提供，平台代码不内置模型名；资产绑定空集合引导与出口配置去向标注。2026-10-08 修订：出入口自描述展示——入口适配器 eventDoc/configSchema 表单、出口工具 resultDoc；internal 内部入口引导；设置页资产缓存清理按钮。2026-10-12 修订：§6 工作区目录重构——五类生命周期 × 两种归属（platform/ 与 businesses/{business_id}/ 分根，决策见 docs/decisions/2026-10-12-workspace-layout-platform-business-split.md）
 > 状态：待评审
 > 定位：骨架文档，定义控制台模块的设计要点。骨架只保留链接，细节以本文为准。
 
@@ -79,36 +79,34 @@
 
 ## 6. 工作目录与数据分类
 
-平台级工作目录（控制台可配置）。**数据按生命周期分类，不按归属混放**——分类的第一轴是「删了会怎样」：
+平台级工作目录（控制台可配置）。**数据按两个轴组织：第一轴 = 生命周期（「删了会怎样」，五类互不重叠），第二轴 = 归属（平台一套、每个业务一套）**——空格子允许（平台没有 runs，业务没有 config——业务配置由平台管理存 platform.db）。决策与新旧路径映射见 `docs/decisions/2026-10-12-workspace-layout-platform-business-split.md`：
 
-| 类 | 一句话解释 | 位置 | 可删除性 |
-|----|-----------|------|---------|
-| **配置** | 人写给平台的输入：环境变量 + 可选配置文件兜底（优先级：env > 文件 > 代码默认值；格式 JSON） | `{workspace}/config.json`（可选） | 人工维护，进 git |
-| **状态** | 平台运行中自己写的结构化数据：注册表/队列/通道/设置/账号/资产登记记录/身份目录 | `data/platform.db`（SQLite） | 平台自管（部分表 TTL 如队列 purge），备份即文件拷贝 |
-| **缓存** | 可随时重建的物：资产物化（git clone）、仓库克隆、agent 会话（会话清了丢多轮上下文，不丢正确性） | `cache/` | 随时可清 |
-| **业务执行产生的临时数据** | 每次 run 的隔离工作区与产物 | `runs/` | TTL 清理（不早于任务记录保留期） |
-| **日志** | 排查追踪：平台三日志 + 业务日志（见 `design/logging.md`） | `logs/` | 轮转可删（logrotate），不备份 |
+| 类 | 一句话解释 | 平台位置 | 业务位置（`businesses/{business_id}/` 下） | 可删除性 |
+|----|-----------|---------|--------------------------|---------|
+| **配置** | 人写给平台的输入：环境变量 + 可选配置文件兜底（优先级：env > 文件 > 代码默认值；格式 JSON） | `platform/config.json`（可选） | —（业务配置存 platform.db） | 人工维护，进 git |
+| **数据** | 持久状态，删了影响正确性或用户可感知：平台侧 = 注册表/队列/通道/设置/账号/资产登记记录/身份目录（SQLite）；业务侧 = 业务级持久状态（`sdk.dataDir()`，如去重记录） | `platform/data/platform.db` | `data/{source}/{session_id}/` | 平台自管（部分表 TTL 如队列 purge），备份即文件拷贝 |
+| **缓存** | 可随时重建的物：资产物化（git clone）、agent 会话（会话清了丢多轮上下文，不丢正确性） | `platform/cache/` | `cache/` | 随时可清 |
+| **临时** | 每次 run 的隔离工作区与产物 | —（平台无 runs） | `runs/` | TTL 清理（不早于任务记录保留期） |
+| **日志** | 排查追踪：平台三日志 + 业务日志（见 `design/logging.md`） | `platform/logs/` | `logs/` | 轮转可删（logrotate），不备份 |
 
-**身份目录（共享参考数据）**：jira↔github↔邮箱↔企微账号映射——投递时「找到这个人的所有通道」。存 sqlite（随 platform.db），全局一份、admin 维护。本版只定归属，实现归后续任务。
+**身份目录（共享参考数据）**：jira↔github↔邮箱↔企微账号映射——投递时「找到这个人的所有通道」。存 sqlite（随 platform.db，即 `platform/data/platform.db`），全局一份、admin 维护。本版只定归属，实现归后续任务。
 
 ```
-{workspace}/                        # 平台级工作目录（控制台配置）
-├── config.json                     # 可选默认配置（环境变量优先）
-├── data/
-│   └── platform.db                 # 状态（全部 sqlite 表，含资产登记记录）
-├── cache/                          # 可清（删除不丢正确性）
-│   ├── assets/{asset_id}/          # 资产物化（git clone，可重拉）
-│   ├── repos/{host}/{source}/{session_id}/{business_id}/   # 工作仓库克隆（可变工作区）：host = github.com/gitee.com 等，
-│   │                                                       # 同一仓库在不同托管的克隆各自独立（从属关系使用者自负，平台不管）；
-│   │                                                       # 同通道串行 ⇒ 无并发写
-│   └── agent-sessions/{source}/{session_id}/{business_id}/ # pi 会话存储（--session-dir 指向）
-├── runs/{source}/{session_id}/{business_id}/{run_id}/      # 业务执行产生的临时数据
-└── logs/                           # 日志
-    ├── system.log / entry-loop.log / exit-loop.log
-    └── businesses/{source}/{session_id}/{business_id}/{run_id}.log
+{workspace}/                                          # 平台级工作目录（控制台配置）
+├── platform/                                         # ══ 平台 ══
+│   ├── config.json                                   # 配置：可选默认配置（环境变量优先）
+│   ├── data/
+│   │   └── platform.db                               # 数据：全部 sqlite 表（含资产登记记录）
+│   ├── cache/assets/{asset_id}/                      # 缓存：资产物化（git clone，可重拉）
+│   └── logs/{system,entry-loop,exit-loop}.log        # 日志：平台三日志
+└── businesses/{business_id}/                         # ══ 每个业务 ══
+    ├── data/{source}/{session_id}/                   # 数据：业务持久状态（sdk.dataDir()，如去重记录）
+    ├── cache/agent-sessions/{source}/{session_id}/   # 缓存：pi 会话存储（--session-dir 指向）
+    ├── runs/{source}/{session_id}/{run_id}/          # 临时：run 隔离工作区
+    └── logs/{source}/{session_id}/{run_id}.log       # 日志：业务 run 日志
 ```
 
-规则：五类分根、互不混放；运行可变区的三维键（source/session_id/business_id）与 channel_id 一致——**串行不变量靠键不靠父目录**，分类拆分不影响「同通道串行 ⇒ 同目录无并发写」；内部引用一律用业务 id；`runs/` 与 `cache/` 的清理策略属实现期细节。
+规则：五类分根、互不混放，再按归属分到 `platform/` 与 `businesses/{business_id}/` 两棵树下——**删除一个业务 = db 删行 + `rm -rf businesses/{business_id}`，新增业务 = 多一个目录**，五类运维操作（清缓存/日志轮转/runs TTL）按类统一；运行可变区的三维键（source/session_id/business_id）与 channel_id 一致——**串行不变量靠键不靠父目录**，路径重排不影响「同通道串行 ⇒ 同目录无并发写」；内部引用一律用业务 id；`runs/` 与 `cache/` 的清理策略属实现期细节。数据重置：**除 `platform/config.json` 外，工作区其余内容可整体删除**。
 
 ---
 
@@ -139,7 +137,7 @@
 
 1. **配置与密钥**——按业务注入，业务之间不可见（普通/安全两桶同规则；出口绑定同理，A 业务的结果永远触发不了 B 业务的出口）；
 2. **会话与生命周期数据**——按业务命名空间隔离；
-3. **执行 workspace**——按运行实例隔离（`runs/{run_id}/`）；
+3. **执行 workspace**——按运行实例隔离（`businesses/{business_id}/runs/{source}/{session_id}/{run_id}/`，§6）；
 4. **仓库绑定**——仓库地址与凭证按业务绑定，平台内部对仓库可管理、可隔离；
 5. **结果数据**——按业务归属，互不串扰。
 

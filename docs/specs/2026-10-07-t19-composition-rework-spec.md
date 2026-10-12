@@ -13,7 +13,7 @@
 
 真机验证（server + console 实跑）暴露三类问题，本批一次性修复：
 
-1. **工具组合链路断**：`sdk.run('jira-fetch')` 中的程序名没有任何解析机制——stdin 信封从未注入程序名→路径映射，跨仓库工具物化在 `cache/assets/{asset_id}/`（hash 目录），业务代码无从得知路径，跨资产 `sdk.run` 必然失败。
+1. **工具组合链路断**：`sdk.run('jira-fetch')` 中的程序名没有任何解析机制——stdin 信封从未注入程序名→路径映射，跨仓库工具物化在 `platform/cache/assets/{asset_id}/`（hash 目录），业务代码无从得知路径，跨资产 `sdk.run` 必然失败。
 2. **模型名硬编码**：`'qwen3.8max'` 散落在 registry 默认值、console 下拉、设计文档中；且该值缺 provider 前缀，对 pi 而言本就不是合法模型名（models.json 里的合法选择是 `provider/id` 形式，如 `qwen/qwen3.8-max`）。**目标态：平台代码不出现任何具体模型名**，可选集合由部署侧 models.json 驱动。
 3. **业务编辑页不可用**：agent/model 下拉硬编码；绑定下拉为空时无任何引导；出口机密项不知道去哪配；叹号提示单薄。
 

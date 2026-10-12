@@ -384,3 +384,7 @@
 - 测试迁移：asset-registry 12 条旧用例从「register 成功 + materialize 时失败」改写为「register 即失败」（含消息内容断言）；新增「登记即校验」用例（坏 subpath 回滚 + 缓存清理、register 成功缓存即热）；console-api 新增坏 subpath → 400 透出真实原因用例；私有凭据流程用 `clearCache()` 模拟缓存缺失保持原断言语义
 - 顺带实证用户问题：下架后可重登记同仓库（remove 删行+清缓存，asset_id 由 属主+url+commit+subpath 哈希重算，无唯一约束阻碍；既有用例「再登记同三元组 → 同 asset_id」覆盖）
 - 业务仓新增 `平台配置指南.md`（资产登记/业务创建/入口匹配行/出口 key-value/验证观察点 + 提示词总纲全文），commit `21a5fd5`
+
+---
+
+> **备注（2026-10-12）**：工作区目录结构重构——五类生命周期 × 两种归属（platform/ 与 businesses/{business_id}/ 分根），本文内旧路径记录为历史原貌、不回写；新布局与路径映射见 `docs/decisions/2026-10-12-workspace-layout-platform-business-split.md`。

@@ -45,7 +45,7 @@ export async function bootstrap(overrides?: {
 }): Promise<ServerHandle>;
 ```
 
-`app/server/src/config.ts` 的 `ServerConfig` 现有字段：workspace / log_level / log_enabled / hop_limit / task_concurrency / result_concurrency / task_timeout_minutes / max_agent_calls / pi_cli_path / pi_agent_dir / pi_env。解析规则：环境变量 > `{workspace}/config.json` 同名键 > 代码默认；逐键解析器 `KeyResolver` 已有 `string/number/boolean` 三方法。**本任务在其中追加 `console_port`（见 §5.8），沿用同一 KeyResolver 模式，不改既有字段。**
+`app/server/src/config.ts` 的 `ServerConfig` 现有字段：workspace / log_level / log_enabled / hop_limit / task_concurrency / result_concurrency / task_timeout_minutes / max_agent_calls / pi_cli_path / pi_agent_dir / pi_env。解析规则：环境变量 > `{workspace}/platform/config.json` 同名键 > 代码默认；逐键解析器 `KeyResolver` 已有 `string/number/boolean` 三方法。**本任务在其中追加 `console_port`（见 §5.8），沿用同一 KeyResolver 模式，不改既有字段。**
 
 bootstrap 内部还创建了但未放进 AssembledContext 的实例，本任务需要其中两个（见 §5.8）：
 - `createExitRegistry()`（exit-tools，出口工具菜单）；

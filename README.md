@@ -55,27 +55,27 @@ yarn workspace @asteriskzuo/agent-console dev
 
 ## 数据重置（调试手段）
 
-先停 server，再删数据。workspace 内数据按生命周期五类分根（细则见 `docs/designs/2026-09-14-skill-platform-spec-v3/design/console-design.md` §6）：
+先停 server，再删数据。workspace 内数据按「五类生命周期 × 两种归属」分根（平台在 `platform/` 下，每个业务在 `businesses/{business_id}/` 下；细则见 `docs/designs/2026-09-14-skill-platform-spec-v3/design/console-design.md` §6）：
 
 | 路径 | 内容 | 删除影响 |
 |------|------|---------|
-| `data/platform.db` | 全部状态：账号/业务/资产登记/队列/通道/环境配置 | 全量重置（含控制台账号；下次启动需重新注入首启 admin） |
-| `cache/` | 资产物化、仓库克隆、agent 会话 | 安全，自动重建 |
-| `runs/` | 业务执行临时数据 | 安全 |
-| `logs/` | 日志 | 安全 |
-| `config.json` | 人工维护的配置兜底 | 别删（除非连配置一起重置） |
+| `platform/data/platform.db` | 全部状态：账号/业务/资产登记/队列/通道/环境配置 | 全量重置（含控制台账号；下次启动需重新注入首启 admin） |
+| `platform/cache/` | 资产物化 | 安全，自动重建 |
+| `platform/logs/` | 平台三日志 | 安全 |
+| `businesses/` | 各业务的数据/缓存/runs/日志 | 安全（业务级持久状态随之丢失，如去重记录） |
+| `platform/config.json` | 人工维护的配置兜底 | 别删（除非连配置一起重置） |
 
-完整重置：
+完整重置：**除 `platform/config.json` 外，工作区其余内容可整体删除**——
 
 ```bash
-rm -rf "$AGENT_WORKSPACE/data" "$AGENT_WORKSPACE/cache" "$AGENT_WORKSPACE/runs" "$AGENT_WORKSPACE/logs"
+rm -rf "$AGENT_WORKSPACE/platform/data" "$AGENT_WORKSPACE/platform/cache" "$AGENT_WORKSPACE/platform/logs" "$AGENT_WORKSPACE/businesses"
 ```
 
 ## 配置项
 
 **所有配置项都归 server；console 不需要任何环境变量**（浏览器 SPA 运行时不读 env；开发模式的 API 代理目标写在 `app/console/vite.config.ts`，生产模式由 server 托管静态文件）。
 
-来源优先级：**环境变量 > `{workspace}/config.json` 同名键 > 代码默认值**（config.json 与环境变量同名、含 `AGENT_` 前缀）。
+来源优先级：**环境变量 > `{workspace}/platform/config.json` 同名键 > 代码默认值**（config.json 与环境变量同名、含 `AGENT_` 前缀）。
 
 ### 启动必需
 

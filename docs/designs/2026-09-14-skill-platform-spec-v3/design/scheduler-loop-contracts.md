@@ -150,7 +150,7 @@ interface BusinessContext {
   model: ModelObject;         // 大模型选择
   env: EnvConfig;             // 普通/安全两桶 key-value，按业务隔离注入业务进程
   channel: ChannelRef;        // 通道映射引用：agent 服务据此恢复/绑定会话
-  workspace: string;          // run 隔离目录 runs/{source}/{session_id}/{business_id}/{run_id}/
+  workspace: string;          // run 隔离目录 businesses/{business_id}/runs/{source}/{session_id}/{run_id}/
   endpoint: ServiceEndpoint;  // agent 调用服务端点：unix socket + 一次性 token
   quota: RunQuota;            // 按 run 计：agent 调用次数上限 + wall-clock 超时
 }

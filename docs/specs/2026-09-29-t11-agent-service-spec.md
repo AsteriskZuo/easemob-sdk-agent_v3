@@ -105,8 +105,8 @@ export interface AgentServeContext {
   prompt: string;                  // 提示词总纲 → --system-prompt
   skills: SkillRef[];              // 本业务 skill 白名单（全集；请求选子集注入）
   model: string;                   // --model 值（provider/id 或 models.json 中的模型名）
-  session_dir: string;             // pi 会话存储目录 cache/agent-sessions/{三维}/（装配根保证存在）
-  audit_log_path: string;          // 请求体审计落盘路径 runs/{三维}/{run_id}/audit/llm-requests.jsonl
+  session_dir: string;             // pi 会话存储目录 businesses/{business_id}/cache/agent-sessions/{source}/{session_id}/（装配根保证存在）
+  audit_log_path: string;          // 请求体审计落盘路径 businesses/{business_id}/runs/{source}/{session_id}/{run_id}/audit/llm-requests.jsonl
   quota: { max_agent_calls: number }; // 按 run 计的 agent 调用上限
 }
 

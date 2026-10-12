@@ -156,7 +156,7 @@ interface WorkflowRunner {
     program: string;           // 业务流程程序入口（业务工作区内）
     event: Event;              // 触发信封
     env: EnvConfig;            // 按业务隔离注入（secrets 不落盘不进日志）
-    workspace: string;         // run 隔离目录 runs/{run_id}/，作为 cwd
+    workspace: string;         // run 隔离目录 businesses/{business_id}/runs/{source}/{session_id}/{run_id}/，作为 cwd
     endpoint: ServiceEndpoint; // 注入环境变量，SDK 据此连 agent 服务
     timeout_minutes: number;   // 业务配置优先，缺省取全局 task_timeout_minutes（60）
   }): Promise<ExecutionResult>;
@@ -373,7 +373,7 @@ easemob-sdk-agent_v3/
 | 通道（channels） | ChannelPool | 两个循环共用一张表，channel_id 前缀区分域（业务通道三维 / 出口通道 `exit__`）；创建即落库，完成只做状态变更 |
 | 业务配置（businesses） | BusinessRegistry | 含 business_id（不可改）、business_name（可改）、creator_id、匹配字段、依赖、on_failure、**出口绑定**（business_id + 工具 kind + 配置） |
 | 通道映射（channels_sessions） | ChannelStore | 业务通道 channel_id ↔ agent 会话 id 一张表（出口通道不在此表） |
-| 资产元数据 | AssetRegistry | 登记记录（kind/属主/共享标记/git 三元组）在库中；内容物化在 `cache/assets/`，可清可重拉 |
+| 资产元数据 | AssetRegistry | 登记记录（kind/属主/共享标记/git 三元组）在库中；内容物化在 `platform/cache/assets/`，可清可重拉 |
 | 身份目录（identity_links） | 后续模块（本版只定归属） | jira↔github↔邮箱↔企微账号映射；全局一份，admin 维护 |
 | 环境配置（含 secrets） | EnvProvider | 按业务隔离 |
 | 设置（config） | ConfigStore | 只存覆盖值，默认值在键注册表 |

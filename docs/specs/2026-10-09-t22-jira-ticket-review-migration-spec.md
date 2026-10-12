@@ -106,7 +106,7 @@ wecom-webhook 出口工具（平台，已内置）→ 企业微信群
 9. **skip 不通知**：`review.decision === 'skip'` → `sdk.return(null)`（模型判定的 skip 兜底——类型过滤已在步骤 4 前置，这里兜的是模型依 skill 规则判出的其他 skip 情形）。
 10. **pass/fail 通知**：组装 `{ content, mentions }`（§5.3）→ `sdk.return(...)`。
 
-**日志纪律**（2026-10-12 真机验证后新增）：每个关键节点一条 `sdk.log`——工单拉取成功（issueType/status/statusCategory）、拉取失败（code/message）、类型过滤跳过、人员标签结果、**大模型原始输出（完整 output 文本，出问题时的第一现场）**、审查结果（decision/classification/scenarios/skillVersion）、解析失败、通知组装结果（decision/mentions）。日志经 sdk.log → stderr → runner 采集进该 run 的业务日志文件 `logs/businesses/{source}/{session_id}/{business_id}/{run_id}/run_*.log`。注意 sdk.run 子程序（jira-fetch）的 stderr 目前被 SDK 丢弃（`@asteriskzuo/agent-sdk` run.ts），工具内部日志暂不可达，关键结果由主流程代记（后续 SDK 透传改造另议）。
+**日志纪律**（2026-10-12 真机验证后新增）：每个关键节点一条 `sdk.log`——工单拉取成功（issueType/status/statusCategory）、拉取失败（code/message）、类型过滤跳过、人员标签结果、**大模型原始输出（完整 output 文本，出问题时的第一现场）**、审查结果（decision/classification/scenarios/skillVersion）、解析失败、通知组装结果（decision/mentions）。日志经 sdk.log → stderr → runner 采集进该 run 的业务日志文件 `businesses/{business_id}/logs/{source}/{session_id}/{run_id}.log`。注意 sdk.run 子程序（jira-fetch）的 stderr 目前被 SDK 丢弃（`@asteriskzuo/agent-sdk` run.ts），工具内部日志暂不可达，关键结果由主流程代记（后续 SDK 透传改造另议）。
 
 ### 5.1 去重语义（review-records.ts，搬 v2 ReviewRecordStore 原语义）
 

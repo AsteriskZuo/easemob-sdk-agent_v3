@@ -115,7 +115,7 @@ clone → validateAsset（清单形状校验）
 问题：业务跨 run 状态（如审查去重记录 review-records.json）无落点；per-run workspace 是隔离临时目录。
 
 - **StdinEnvelope 加字段** `dataDir?: string`——业务级持久目录绝对路径，**仅平台→流程程序注入**；`sdk.run` 不向子程序传（叶子无状态语义，与 programs/secrets 同规则；子程序确需持久由流程程序自己把路径经 input 传入）。
-- **路径派生**（runner 内部，与 workspace/logPath 同方式，RunRequest 不加字段）：`{workspace}/data/{source}/{session_id}/{business_id}/`，run 启动时 `mkdirSync(recursive)`；三段都过 `assertSafeSegment`。
+- **路径派生**（runner 内部，与 workspace/logPath 同方式，RunRequest 不加字段）：`{workspace}/businesses/{business_id}/data/{source}/{session_id}/`，run 启动时 `mkdirSync(recursive)`；三段都过 `assertSafeSegment`。
 - **并发保证**：入口通道键 = `{source, session_id, business_id}` 三元组，同 dataDir 的 run 天然被通道串行化——业务在 dataDir 读写状态文件（如 review-records.json）无需自锁。
 - **sdk 加 API**：`sdk.dataDir(): string`——信封缺失抛错（与 input() 的 workspace 校验同风格）。
 - 数据分类归属：`data/` = 业务级持久数据（区别于 runs/ 临时、logs/ 可删、cache/ 可重建）。业务自行管理该目录内容的容量与清理，平台不做 TTL。
@@ -207,7 +207,7 @@ export interface EntryAdapterFactory {
 
 1. **GET /api/config 扩展**：新增 `entry_adapters: EntryAdapterSpec[]`（含 configSchema/eventDoc/defaultEnabled/当前开关状态）；exit_tools 各项追加 `resultDoc`（见 §8.1.2）。
 2. **ExitTool.resultDoc**：`packages/exit-tools/src/types.ts` 的 ExitTool 加 `resultDoc: string`（markdown：`sdk.return` 该返回什么形状 + 示例 JSON）。七个内置工具全部补齐（wecom-webhook：字符串或 `{ content: string|object, mentions?: string[] }` 等）。console-api 原样透传。
-3. **缓存清理**：`POST /api/cache/clear`（仅 admin）→ 清空 `{workspace}/cache/assets/`（asset-registry 加 `clearCache()`：删 cacheRoot 下全部内容）。响应 `{ cleared: true }`。行为写入文档：清理后已创建业务下次 run 时触发重新物化+构建（懒重建），可能耗时分钟级。
+3. **缓存清理**：`POST /api/cache/clear`（仅 admin）→ 清空 `{workspace}/platform/cache/assets/`（asset-registry 加 `clearCache()`：删 cacheRoot 下全部内容）。响应 `{ cleared: true }`。行为写入文档：清理后已创建业务下次 run 时触发重新物化+构建（懒重建），可能耗时分钟级。
 4. **webhook path 查重**：业务写校验追加——`source='webhook'` 行的 `entry_config.path` 全平台唯一（跨业务）。实现用 `registry.list()`（BusinessProfile 含 matches 含 entry_config，已存在）全量扫描比对，**不需要 registry 加新方法**。
 
 ### 8.2 console

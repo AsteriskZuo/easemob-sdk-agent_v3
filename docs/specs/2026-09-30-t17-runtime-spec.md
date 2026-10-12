@@ -66,7 +66,7 @@ export interface WorkflowRunner {
 }
 ```
 
-runner 内部路径规则（本包必须与之对齐）：`workspace = {workspaceRoot}/runs/{source}/{session_id}/{business_id}/{run_id}/`；业务日志 = `{workspaceRoot}/logs/businesses/{同三维}/{run_id}.log`。
+runner 内部路径规则（本包必须与之对齐）：`workspace = {workspaceRoot}/businesses/{business_id}/runs/{source}/{session_id}/{run_id}/`；业务日志 = `{workspaceRoot}/businesses/{business_id}/logs/{source}/{session_id}/{run_id}.log`。
 
 `@asteriskzuo/agent-service`（0.1.0）：
 
@@ -359,7 +359,7 @@ export interface LifecycleDeps {
   loader: ContextLoader;       // 第①步：组装 RunContext
   runner: WorkflowRunner;      // 第③步：spawn 业务流程程序
   agentService: AgentService;  // 第②/④步：per-run socket 服务（serve / close）
-  workspaceRoot: string;   // 平台工作目录 {workspace}（其下 runs/ cache/ logs/ 布局与 runner 对齐）
+  workspaceRoot: string;   // 平台工作目录 {workspace}（其下 platform/ 与 businesses/ 布局与 runner 对齐）
   db: Database;            // 打标表（lifecycles，§5.2 迁移）
 }
 
@@ -386,7 +386,7 @@ export interface LifecycleRecord {
 `execute(task, watcher)` 步骤（顺序固定，即四步时序的落地）：
 
 1. `channel_id = buildBusinessChannelId(task.event.source, task.event.session_id, watcher.business_id)`；`run_id = \`run_\${newUlid()}\``；**打标 created → running**（一行插入即 running：created 是瞬时态，不落中间行，注释说明）；
-2. 路径组齐（mkdirSync recursive）：`workspace = {workspaceRoot}/runs/{source}/{session_id}/{business_id}/{run_id}`、`session_dir = {workspaceRoot}/cache/agent-sessions/{source}/{session_id}/{business_id}`、`audit_log_path = {workspace}/audit/llm-requests.jsonl`（父目录建好后 serve 内还会兜底）；
+2. 路径组齐（mkdirSync recursive）：`workspace = {workspaceRoot}/businesses/{business_id}/runs/{source}/{session_id}/{run_id}`、`session_dir = {workspaceRoot}/businesses/{business_id}/cache/agent-sessions/{source}/{session_id}`、`audit_log_path = {workspace}/audit/llm-requests.jsonl`（父目录建好后 serve 内还会兜底）；
 3. ① `ctx = loader.load(business_id, channel_id)`；
 4. ② `handle = await agentService.serve({ run_id, channel_id, workspace, prompt: ctx.prompt, skills: ctx.skills, model: ctx.model, session_dir, audit_log_path, quota: { max_agent_calls: ctx.quota.max_agent_calls } })`；
 5. ③ `try { outcome = await runner.run({ program: ctx.program, event: task.event, business_id, config: ctx.vars, secrets: ctx.secrets, endpoint: handle.endpoint, quota: { timeout_minutes: ctx.quota.timeout_minutes }, run_id }) } finally { await handle.close() }`——**close 必须无条件执行**（含 runner 抛错路径）；

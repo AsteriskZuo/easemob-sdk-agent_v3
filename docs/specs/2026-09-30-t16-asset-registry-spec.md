@@ -22,7 +22,7 @@
   - `requires` 是 **package 专属**字段（名字级依赖声明）：package 清单里可选、形状合法即可；**tool 清单出现 `requires` 字段即校验失败**（工具是叶子组件，组合归包的胶水代码；防误配——静默忽略会让作者误以为声明生效）；
   - skill：资产根下至少一个直接子目录含 `SKILL.md` 文件。
 - **名解析**：消费方是 T17 ContextLoader（组白名单）与 T11 AgentService（skill 注入）。`sdk.run` 的作用域 = 本包 programs ∪ 绑定工具；`sdk.agent` 的白名单 = 绑定 skill 集合的技能并集。**名唯一性由控制台在绑定配置期查重保证**，运行时解析按名唯一命中，无优先级、无限定写法。本包提供解析纯函数，绑定关系的存取不在本包（归 registry 包，T17 扩列）。
-- **工作目录布局**：物化 `{workspace}/cache/assets/{asset_id}/`。本包通过工厂参数拿物化根，不读环境变量。
+- **工作目录布局**：物化 `{workspace}/platform/cache/assets/{asset_id}/`。本包通过工厂参数拿物化根，不读环境变量。
 - 数据访问只能经 `@asteriskzuo/agent-database`，禁止直接 import `node:sqlite`。
 
 ### 2.1 消费的上游包真实签名
@@ -157,7 +157,7 @@ export interface AssetRegistry {
   updateRef(asset_id: string, ref: string, opts?: { credential?: string }): AssetMeta;
 }
 
-/** 工厂：db 为全平台唯一数据访问口；cache_root 为物化根（由装配方给，如 {workspace}/cache/assets） */
+/** 工厂：db 为全平台唯一数据访问口；cache_root 为物化根（由装配方给，如 {workspace}/platform/cache/assets） */
 export function createAssetRegistry(
   db: Database,
   paths: { cache_root: string },

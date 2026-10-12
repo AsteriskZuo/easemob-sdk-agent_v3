@@ -36,7 +36,7 @@
 
 **管理与归属**：每个资产有且只有一个**属主**（创建者账号，管登记/更新/下架）；能绑定 = 自己的全部资产 + 他人标记共享的资产；**admin 管通用配置与人员、对全部资产只读、不持有资产**。资产身份 = **git url + commit + 子路径** 三元组（登记时分支/tag 解析成 commit 存定；asset_id 是其紧凑编码）——git 是资产的唯一来源，平台不做上传存储。
 
-**运行时组合**：业务创建时绑定 1 个包 + N 个工具 + N 个 skill 集合；平台初始化物化闭包（`cache/assets/{asset_id}/`），名字解析范围 = 本包 programs ∪ 绑定工具（`sdk.run`）、绑定 skill 集合的技能并集（`sdk.agent`）；名唯一性由控制台在绑定配置期机械查重保证。**工具 / skill / 总纲用不用、用多少，全是包的自由**（它为完成一个任务而存在；典型业务都会挂 skill，否则写个脚本即可、不必上平台）。
+**运行时组合**：业务创建时绑定 1 个包 + N 个工具 + N 个 skill 集合；平台初始化物化闭包（`platform/cache/assets/{asset_id}/`），名字解析范围 = 本包 programs ∪ 绑定工具（`sdk.run`）、绑定 skill 集合的技能并集（`sdk.agent`）；名唯一性由控制台在绑定配置期机械查重保证。**工具 / skill / 总纲用不用、用多少，全是包的自由**（它为完成一个任务而存在；典型业务都会挂 skill，否则写个脚本即可、不必上平台）。
 
 ---
 
@@ -168,7 +168,7 @@
 
 一句话：平台管理的全部资产就三族——**包、工具、skill**，git 是它们的唯一来源。
 
-精确义：资产身份 = **(git url, commit, 子路径) 三元组**（登记时分支/tag 解析成 commit 存定；`asset_id` = 属主 + 三元组的紧凑编码）。每个资产有且只有一个**属主**（owner，创建者账号）；工具与 skill 有**共享标记**（`shared`，登记时定、不可改），包没有。登记记录入库，内容物化在 `cache/assets/{asset_id}/`（可清可重拉）。
+精确义：资产身份 = **(git url, commit, 子路径) 三元组**（登记时分支/tag 解析成 commit 存定；`asset_id` = 属主 + 三元组的紧凑编码）。每个资产有且只有一个**属主**（owner，创建者账号）；工具与 skill 有**共享标记**（`shared`，登记时定、不可改），包没有。登记记录入库，内容物化在 `platform/cache/assets/{asset_id}/`（可清可重拉）。
 
 要点：**模型与作者指南的唯一定义处：`design/asset-model.md`**。资产单元从「程序包」演进为三族——包是业务单位（复用走 git 本身），工具与 skill 是可复用组件（平台内共享）；没有上传模式、没有可见性三级（属主 + 共享标记已表达全部）。托管平台无关（GitHub / Gitee / 内网 git 均走 git 协议）；私有仓库登记时声明 `is_private` + `credential_key`（key 的名字，值在安全桶），物化时按**操作者维度**解析注入，使用者之间互不相干（详见 `design/asset-model.md` §3.1）。
 
@@ -176,7 +176,7 @@
 
 一句话：把资产从 git 引用变成本地可执行内容的过程。
 
-精确义：平台按资产登记行（git url + commit + 子路径）把资产落到 `cache/assets/{asset_id}/` 的固定流程——package/tool：`clone → 清单形状校验 → npm ci（有 package.json 时，必须同时含 package-lock.json）→ 执行业务初始化脚本 agent.materialize.mjs → 产物校验（清单 programs 每条路径必须真实存在）→ 去 .git → 写 .materialized-ok → 原子 rename`；skill（纯文档）不构建。触发时机：业务创建/变更绑定（初始化物化，失败即创建失败）与运行时缓存缺失补拉。
+精确义：平台按资产登记行（git url + commit + 子路径）把资产落到 `platform/cache/assets/{asset_id}/` 的固定流程——package/tool：`clone → 清单形状校验 → npm ci（有 package.json 时，必须同时含 package-lock.json）→ 执行业务初始化脚本 agent.materialize.mjs → 产物校验（清单 programs 每条路径必须真实存在）→ 去 .git → 写 .materialized-ok → 原子 rename`；skill（纯文档）不构建。触发时机：业务创建/变更绑定（初始化物化，失败即创建失败）与运行时缓存缺失补拉。
 
 要点：**唯一定义处 `design/asset-model.md` §9**。构建产物与 node_modules 随缓存目录同生共死（缓存类，可清可重建——清理入口 = 控制台设置页「清理资产缓存」按钮 / `POST /api/cache/clear`，admin）；已知脆弱性：清理后重建依赖 npm registry 状态，缓解 = 锁文件钉死 + 保守清理。平台物化脚本可脱离平台独立 CLI 执行（`materialize-cli.js`），管理员手动复现物化失败。
 
@@ -192,7 +192,7 @@
 
 一句话：业务跨 run 状态的落点（区别于 per-run 的 workspace）。
 
-精确义：平台为每条业务通道维护的持久目录 `{workspace}/data/{source}/{session_id}/{business_id}/`，run 启动时创建，经 stdin 信封 `dataDir` 字段注入（仅平台→流程程序；sdk.run 子程序拿不到——叶子无状态语义），业务经 `sdk.dataDir()` 读取。典型内容：审查去重记录、增量游标、处理进度等业务自管状态。
+精确义：平台为每条业务通道维护的持久目录 `{workspace}/businesses/{business_id}/data/{source}/{session_id}/`，run 启动时创建，经 stdin 信封 `dataDir` 字段注入（仅平台→流程程序；sdk.run 子程序拿不到——叶子无状态语义），业务经 `sdk.dataDir()` 读取。典型内容：审查去重记录、增量游标、处理进度等业务自管状态。
 
 要点：同通道（`{source, session_id, business_id}`）的 run 被通道串行化，读写 dataDir 状态文件**无需自锁**；**平台不做 TTL**，业务自管容量与清理；数据分类归属 `data/` = 业务级持久数据（区别于 runs/ 临时、logs/ 可删、cache/ 可重建）。
 

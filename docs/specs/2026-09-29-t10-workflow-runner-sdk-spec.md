@@ -17,7 +17,7 @@
 - **业务上下文业务自己管理**：流程中间数据（如脱敏 kv）是程序内变量，平台不持有、不传递。
 - **四道机械防线**（本任务落实其中三道半）：子进程隔离、超时强杀（wall-clock）、输出大小上限 + 结果 schema 校验；agent 调用配额由 AgentService（T11）在 socket 服务端强制，不在本任务。
 - **agent 调用只能经 AgentService**：模型凭据平台持有，不进入业务进程。SDK 的 `agent()`/`session.*` 经 per-run unix socket + token 调用；socket 服务端由 T11 实现，**wire 协议由本 spec §5.4 唯一定义**，T11 照此实现。
-- **业务日志**：SDK 的 `log()` 写 stderr 结构化行；runner 捕获 stderr 追加到该 run 的业务日志文件（路径三维与 channel_id 对齐：`logs/businesses/{source}/{session_id}/{business_id}/{run_id}.log`）。结构化行解析、非结构化行原样透传、**日志管道自身永不失败**。
+- **业务日志**：SDK 的 `log()` 写 stderr 结构化行；runner 捕获 stderr 追加到该 run 的业务日志文件（路径三维键与 channel_id 对齐：`businesses/{business_id}/logs/{source}/{session_id}/{run_id}.log`）。结构化行解析、非结构化行原样透传、**日志管道自身永不失败**。
 - 运行时形态：业务上传 TS 源码包，平台上传时已转译 JS（转译归 T13 管理 API，不在本任务）；runner 拿到的 `program` 就是可执行 JS 入口文件的绝对路径。
 - 依赖规则：runner 是上下文注入类（第 3 类），不读 `process.env`、不用全局单例（logger 外观除外）；SDK 面向业务进程，单例形态是刻意的（一个业务进程 = 一次 run）。
 
@@ -132,7 +132,7 @@ export interface WorkflowRunner {
 }
 
 export interface WorkflowRunnerOptions {
-  workspaceRoot: string;                 // 平台工作目录（{workspace}，其下建 runs/ 与 logs/）
+  workspaceRoot: string;                 // 平台工作目录（{workspace}，其下 businesses/{business_id}/ 内建 runs/ 与 logs/）
   maxOutputBytes?: number;               // stdout 上限，默认 1_048_576（1MB），超限 = failed('output too large')
   killGraceMs?: number;                  // SIGTERM 后 SIGKILL 的宽限，默认 5000
   nodePath?: string;                     // 缺省 process.execPath
@@ -142,7 +142,7 @@ export function createWorkflowRunner(opts: WorkflowRunnerOptions): WorkflowRunne
 
 实现要点（逐条可测）：
 
-1. **run_id**：`'run_' + newUlid()`；**目录**（数据分类布局，背景出处 console-design §6）：source/session_id/business_id 三段先过 `assertSafeSegment`（防路径穿越），三维键 = `[source, session_id, business_id]`；工作区 = `{workspaceRoot}/runs/{三维键}/{run_id}/`（业务执行产生的临时数据，TTL 清理），业务日志 = `{workspaceRoot}/logs/businesses/{三维键}/{run_id}.log`（日志类，轮转可删），均 `mkdirSync recursive`；
+1. **run_id**：`'run_' + newUlid()`；**目录**（数据分类布局，背景出处 console-design §6）：source/session_id/business_id 三段先过 `assertSafeSegment`（防路径穿越），三维键 = `[source, session_id, business_id]`；工作区 = `{workspaceRoot}/businesses/{business_id}/runs/{source}/{session_id}/{run_id}/`（业务执行产生的临时数据，TTL 清理），业务日志 = `{workspaceRoot}/businesses/{business_id}/logs/{source}/{session_id}/{run_id}.log`（日志类，轮转可删），均 `mkdirSync recursive`；
 2. **spawn**：`nodePath`（缺省 `process.execPath`）+ `[program]`，`cwd` = 工作区，**`env: {}`（环境变量清空——平台环境不泄漏给业务进程，secrets 只走 stdin）**；
 3. **stdin**：按 §5.1 写入（含 endpoint、secrets）后立即 end；
 4. **stdout**：累积计数字节，超 maxOutputBytes 即杀进程判 failed（不等结果）；按行/按流扫描第一个合法 StdoutResult——**只认一次**；

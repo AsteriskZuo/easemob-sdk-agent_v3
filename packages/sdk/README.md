@@ -400,7 +400,7 @@ skill = 给大模型的能力单元（可复用提示词组件）。
 
 | | workspace | dataDir |
 | ---- | ---- | ---- |
-| 路径 | `{workspace}/runs/{source}/{session_id}/{business_id}/{run_id}/` | `{workspace}/data/{source}/{session_id}/{business_id}/` |
+| 路径 | `{workspace}/businesses/{business_id}/runs/{source}/{session_id}/{run_id}/` | `{workspace}/businesses/{business_id}/data/{source}/{session_id}/` |
 | 生命周期 | per-run 隔离临时目录，TTL 清理 | 业务级持久，平台不做 TTL（业务自管容量与清理） |
 | 用途 | 本次执行的临时产物（= 进程 cwd） | 跨 run 状态（去重记录、游标、进度…） |
 | 读口 | `sdk.input().workspace` | `sdk.dataDir()` |
@@ -474,7 +474,7 @@ echo '{
 
 ### 8.4 平台物化流程（登记后平台替你做的构建）
 
-业务创建/变更绑定时，平台把资产 clone 到 `cache/assets/{asset_id}/` 并执行固定流程（package/tool；skill 纯文档不构建）：
+业务创建/变更绑定时，平台把资产 clone 到 `platform/cache/assets/{asset_id}/` 并执行固定流程（package/tool；skill 纯文档不构建）：
 
 ```text
 git clone → 清单形状校验 → npm ci（有 package.json 时，必须同时含 package-lock.json）

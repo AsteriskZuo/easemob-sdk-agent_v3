@@ -8,7 +8,7 @@
 
 产出 `app/server`（`@asteriskzuo/agent-server`，private 不发布）：**平台的装配根与进程入口**——把全部已完成的 packages 接线成可运行的服务，外加：
 
-1. **配置解析**：环境变量 > `{workspace}/config.json` > 代码默认值（console-design §6「配置」类）；
+1. **配置解析**：环境变量 > `{workspace}/platform/config.json` > 代码默认值（console-design §6「配置」类）；
 2. **启动自检**：fail-fast，任一前提不满足记 error 日志并停止启动（logging.md §5）；
 3. **EntryAdapter 接口**（装配层契约，供 T18 webhook 入口与将来各源入口实现）；
 4. **ExitDriver 实现**：投递前 `resolveConfigPlaceholders` 占位解析（T24 定稿，见 §5.4）；
@@ -221,7 +221,7 @@ export interface ServerConfig {
 export function resolveServerConfig(envMap?: Record<string, string | undefined>): ServerConfig;
 ```
 
-环境变量清单（优先级：**环境变量 > `{workspace}/config.json` 同名键 > 代码默认**）：
+环境变量清单（优先级：**环境变量 > `{workspace}/platform/config.json` 同名键 > 代码默认**）：
 
 | 环境变量 | 必填 | 默认 | 约束 |
 |----------|------|------|------|
@@ -236,7 +236,7 @@ export function resolveServerConfig(envMap?: Record<string, string | undefined>)
 | `AGENT_PI_CLI_PATH` | 是 | — | 自检验存在可执行 |
 | `AGENT_PI_AGENT_DIR` | 是 | — | 自检验含 models.json |
 
-- **config.json**：`{workspace}/config.json`，可选；扁平 JSON object，**键名与环境变量同名**（含 `AGENT_` 前缀），值类型须与目标类型匹配（string/number/boolean）；文件不存在 = 跳过，非法 JSON / 值类型不符 → 抛 EnvError；
+- **config.json**：`{workspace}/platform/config.json`，可选；扁平 JSON object，**键名与环境变量同名**（含 `AGENT_` 前缀），值类型须与目标类型匹配（string/number/boolean）；文件不存在 = 跳过，非法 JSON / 值类型不符 → 抛 EnvError；
 - 解析实现：先取 `AGENT_WORKSPACE`（仅 envMap）→ 读 config.json（有则）→ 逐键 `envMap` 优先、文件次之、默认兜底；字符串/数字/布尔解析委托 env 包的三个函数（对 envMap 来源），文件来源的值直接校验类型；
 - `pi_env` 固定组 `{ PATH, HOME }`（取自 envMap，缺任一 → 抛 EnvError）；模型凭据一律走 `pi_agent_dir/models.json`（决策点 5）。
 
@@ -250,7 +250,7 @@ export function runSelfCheck(config: ServerConfig): void;
 检查项（全量收集后一次性报出，不遇一错即停）：
 
 1. `{workspace}` 可建可写（mkdirSync recursive + 探测文件写删）；
-2. 数据分类子目录骨架可建：`data/` `cache/` `runs/` `logs/`；
+2. 数据分类子目录骨架可建：`platform/`（`data/` `cache/` `logs/`）与 `businesses/`（2026-10-12 工作区目录重构后布局，console-design §6）；
 3. `pi_cli_path` 存在且可执行（`accessSync(path, constants.X_OK)`）；
 4. `pi_agent_dir` 存在且含 `models.json` 文件；
 5. `git` 可用（`execFileSync('git', ['--version'])` 成功）——asset-registry 物化资产经 git 子进程，git 缺失则一切资产拉取必败；
@@ -330,16 +330,16 @@ export function bootstrap(overrides?: {
 **装配顺序**（固定，代码注释标注各步）：
 
 1. `config = resolveServerConfig(overrides?.env)`；
-2. `initLogger({ logsDir: '{workspace}/logs', level: config.log_level, enabled: config.log_enabled })`——自带目录自检；
+2. `initLogger({ logsDir: '{workspace}/platform/logs', level: config.log_level, enabled: config.log_enabled })`——自带目录自检；
 3. `runSelfCheck(config)`；
 4. system 日志「启动中」（回显关键配置：闸门/workspace/pi 路径——**不含任何 secret**）；
 5. 接线（依赖方向即创建顺序）：
-   - `db = openDatabase('{workspace}/data/platform.db')`；
+   - `db = openDatabase('{workspace}/platform/data/platform.db')`；
    - `entryQueue = createTaskQueue(db, 'entry_tasks')`、`exitQueue = createTaskQueue(db, 'exit_tasks')`；
    - `registry = createBusinessRegistry(db)`；
    - `entryChannels = createChannelPool(db)`、`exitChannels = createChannelPool(db)`（两循环各持一池）；
    - `channelStore = createChannelStore(db)`；
-   - `assets = createAssetRegistry(db, { cache_root: '{workspace}/cache/assets' })`；
+   - `assets = createAssetRegistry(db, { cache_root: '{workspace}/platform/cache/assets' })`；
    - `envProvider = createEnvProvider(db)`；
    - `loader = createContextLoader({ registry, assets, env: envProvider, defaults: { task_timeout_minutes: config.task_timeout_minutes, max_agent_calls: config.max_agent_calls } })`；
    - `runner = createWorkflowRunner({ workspaceRoot: config.workspace })`；
@@ -398,7 +398,7 @@ export function bootstrap(overrides?: {
 - 造资产：临时目录 git init + commit 一个**包资产**（含 `agent-package.json` 清单 + 流程程序 fixture：读 stdin 信封，stdout 输出一行 `{contract_version:'v1', ok:true, output:{echo: input.payload, got_config: config['X']}}`）→ `assets.register({ kind:'package', url: 本地路径, ref:'HEAD', owner_id })`；git commit 用 `git -c user.email=test@test -c user.name=test`；
 - `registry.create` 业务（绑定该包 + entry_program + prompt；EnvProvider vars 写 `X`）→ `addMatch(bid, 'manual', 'test.ping')` → 出口绑定 `webhook` 工具（config.url 指向本地接收服务器）；
 - **模拟入口落队**（等价于入口适配器的落队动作）：直接向 `entryQueue.enqueue` 一个 `{ source:'manual', event_type:'test.ping', session_id:'S-1', ... }` 合法信封；
-- 断言（轮询等待，总超时 15s）：① 本地接收服务器收到出口投递，payload = `{ echo: 原 payload, got_config: 'X值' }`；② lifecycles 表有该业务 success 行；③ `logs/businesses/manual/S-1/{bid}/` 下有 run 日志文件；④ `runs/manual/S-1/{bid}/` 下有 run 工作区；
+- 断言（轮询等待，总超时 15s）：① 本地接收服务器收到出口投递，payload = `{ echo: 原 payload, got_config: 'X值' }`；② lifecycles 表有该业务 success 行；③ `businesses/{bid}/logs/manual/S-1/` 下有 run 日志文件；④ `businesses/{bid}/runs/manual/S-1/` 下有 run 工作区；
 - `await handle.stop()` 干净退出（不挂起）。
 
 ## 7. 验收标准
@@ -417,7 +417,7 @@ export function bootstrap(overrides?: {
 4. **出口配置占位解析定稿**：`{{key}}` 统一机制，exitSecretKey 约定废弃（T24）——所有字段原样存 binding.config，投递前 resolveConfigPlaceholders 统一解析；destinationOf 不解析占位（含占位字段 → `tpl_` 哈希身份）。
 5. **pi_env 只组 PATH/HOME**：模型凭据由 `pi_agent_dir/models.json` 承载（平台管理文件），不进环境变量、不进日志；将来确有 env 形式凭据需求再扩配置项。
 6. **入口流量与管理 API 各自独立**（owner 裁决）：各入口适配器自管理监听资源（webhook 将来在 T18 自起 HTTP 服务、独立端口），管理 API（T13）另起独立 HTTP 服务与端口——架构清晰、各自演化，不共享实例。
-7. **config.json 兜底**：env > `{workspace}/config.json`（同名键、扁平 JSON）> 代码默认；`AGENT_WORKSPACE` 仅环境变量（config.json 栖身于 workspace）。
+7. **config.json 兜底**：env > `{workspace}/platform/config.json`（同名键、扁平 JSON）> 代码默认；`AGENT_WORKSPACE` 仅环境变量（config.json 栖身于 workspace）。
 8. **集成验证的入口 = 直接落队**：入口适配器的本质动作就是 `queue.enqueue`（验签/包装归 T18），集成测试直接落队即可走通全链路，不因 webhook 后移而削弱验证强度。
 9. **自检失败退出码 1**：initLogger 之前的失败（配置解析）走 stderr；之后走 system error 日志 + stderr。带病运行比不运行更危险（logging.md §5.1）。
 10. **自检覆盖 git、不覆盖 node**（owner 裁决）：git 是 asset-registry 物化资产的子进程依赖（`execFileSync("git", …)`），缺失则资产拉取必败，必须 fail-fast；node 由 workflow-runner 以 `process.execPath`（server 进程本体）spawn 业务程序，server 能启动即恒真，不做恒真检查。pi 经 `AGENT_PI_CLI_PATH` 检查（存在+可执行）。
