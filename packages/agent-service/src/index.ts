@@ -160,7 +160,9 @@ export function createAgentService(deps: AgentServiceDeps): AgentService {
       const socketPath = join(tmpdir(), `ea-${ctx.run_id}.sock`);
       const procs = new Set<ChildProcess>(); // 在飞 pi 子进程（退出移除，close 强杀）
       const log: CategoryLogger = logger.for({
-        module: "entry-loop",
+        // 模块日志归 system.log：entry-loop.log 只留循环流转骨架（取出→
+        // 挂通道→run 开始/终态→完结），agent 服务调用细节属模块内部
+        module: "agent-service",
         run_id: ctx.run_id,
         channel_id: ctx.channel_id,
       });
