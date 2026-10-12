@@ -3,8 +3,7 @@ import { accessSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { newUlid, assertSafeSegment } from "@asteriskzuo/agent-contracts";
 import type { EventEnvelope } from "@asteriskzuo/agent-contracts";
-import { createFileLogger, logger } from "@asteriskzuo/agent-logger";
-import type { ConsoleLike } from "@asteriskzuo/agent-logger";
+import { createFileSink, logger } from "@asteriskzuo/agent-logger";
 import {
   classifyStderrLine,
   encodeStdinEnvelope,
@@ -51,6 +50,29 @@ const DEFAULT_MAX_OUTPUT_BYTES = 1_048_576;
 const DEFAULT_KILL_GRACE_MS = 5000;
 // 调用方指定 run_id 的合法形：run_ + 26 位 Crockford base32 ulid（与 newUlid 产出同形）
 const RUN_ID_PATTERN = /^run_[0-9A-HJKMNP-TV-Z]{26}$/;
+
+/** 落盘展示层转换：fields 的字符串值能 JSON.parse 成**对象/数组** → 嵌套为 JSON
+ *  （人读日志免转义汤，一层转义封顶）；数字/布尔/null 可 parse 但不转
+ *  （"12345" 这类 id 字符串保真）；parse 失败保持原字符串 */
+function nestJsonStrings(
+  fields: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(fields)) {
+    if (typeof value !== "string") {
+      out[key] = value;
+      continue;
+    }
+    try {
+      const parsed: unknown = JSON.parse(value);
+      out[key] =
+        parsed !== null && typeof parsed === "object" ? parsed : value;
+    } catch {
+      out[key] = value;
+    }
+  }
+  return out;
+}
 
 export function createWorkflowRunner(
   opts: WorkflowRunnerOptions,
@@ -108,9 +130,12 @@ export function createWorkflowRunner(
       // 未 initLogger（如测试/独立使用）：静默跳过，业务日志文件写口仍自带脱敏
     }
 
-    // 业务日志文件写口：自带 secrets 脱敏；level=debug 保证各级别业务日志全采集
-    const bizLog: ConsoleLike = createFileLogger(logPath, {
+    // 业务日志文件写口：结构化 record 直写（fields 独立成字段，不打平进 message——
+    // 打平后人机双输：人看三层转义，机器 jq 取不到）；自带 secrets 脱敏；
+    // level=debug 保证各级别业务日志全采集
+    const bizSink = createFileSink(logPath, {
       level: "debug",
+      enabled: true,
       secrets: Object.values(req.secrets),
     });
 
@@ -146,14 +171,17 @@ export function createWorkflowRunner(
         try {
           const classified = classifyStderrLine(line);
           if (classified.kind === "structured") {
-            // ConsoleLike 只有 (...args) → message 单字段；fields 序列化进 message 尾部
-            const text =
+            bizSink(
+              classified.level,
               classified.fields !== undefined
-                ? `${classified.message} ${JSON.stringify(classified.fields)}`
-                : classified.message;
-            bizLog[classified.level](text);
+                ? {
+                    message: classified.message,
+                    fields: nestJsonStrings(classified.fields),
+                  }
+                : { message: classified.message },
+            );
           } else {
-            bizLog.info(classified.text);
+            bizSink("info", { message: classified.text });
           }
         } catch {
           // 日志管道自身永不失败

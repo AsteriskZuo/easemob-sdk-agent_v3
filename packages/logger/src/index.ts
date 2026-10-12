@@ -1,4 +1,4 @@
-export { createFileLogger } from "./file-logger.js";
+export { createFileLogger, createFileSink } from "./file-logger.js";
 export type {
   ConsoleLike,
   LogLevel,

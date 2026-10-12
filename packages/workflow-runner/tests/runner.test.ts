@@ -168,13 +168,16 @@ describe("WorkflowRunner", () => {
       .trim()
       .split("\n")
       .map((l) => JSON.parse(l));
-    // 结构化行：level/message/fields
+    // 结构化行：level/message + fields 独立字段（不打平进 message）
     const structured = lines.find(
       (l) => typeof l.message === "string" && l.message.includes(" masked "),
     );
     expect(structured).toBeDefined();
     expect(structured?.level).toBe("info");
-    expect(structured?.message).toContain('{"k":1}');
+    expect(structured?.fields).toEqual({ k: 1 });
+    // JSON 字符串字段值嵌套为对象；数字形字符串保真不转
+    const nested = lines.find((l) => l.message === "nested");
+    expect(nested?.fields).toEqual({ payload: { a: 1 }, id: "12345" });
     // 非结构化行：原样透传
     const raw = lines.find(
       (l) =>
