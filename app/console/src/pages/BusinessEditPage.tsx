@@ -32,6 +32,7 @@ import { apiFetch, ApiError } from "../api/client";
 import CreateEnvEditor from "../components/CreateEnvEditor";
 import type { EnvKvRow } from "../components/CreateEnvEditor";
 import EnvEditor from "../components/EnvEditor";
+import type { EnvEditorHandle } from "../components/EnvEditor";
 import MatchEditor, {
   parseEntryConfig,
   toMatchBody,
@@ -212,6 +213,8 @@ export default function BusinessEditPage() {
   const [envSecrets, setEnvSecrets] = useState<EnvKvRow[]>(
     () => initialDraft?.envSecrets ?? [],
   );
+  // 编辑模式的环境配置草稿（EnvEditor 自管加载/diff；主「保存」经 ref 统一触发）
+  const envEditorRef = useRef<EnvEditorHandle>(null);
   const [packages, setPackages] = useState<AssetMeta[]>([]);
   const [tools, setTools] = useState<AssetMeta[]>([]);
   const [skills, setSkills] = useState<AssetMeta[]>([]);
@@ -572,6 +575,10 @@ export default function BusinessEditPage() {
           });
         }
       }
+      // 环境配置草稿随主「保存」统一落库（EnvEditor 逐 key diff，不并入 PATCH body；
+      // 失败时其内部已报错并把展示回滚为服务端状态——业务资料已存成，停留本页供修正重试）
+      const envOk = (await envEditorRef.current?.save()) ?? true;
+      if (!envOk) return;
       message.success("已保存");
       navigate("/businesses");
     } catch (err) {
@@ -1049,8 +1056,13 @@ export default function BusinessEditPage() {
           }
           style={{ marginTop: 16 }}
         >
-          {/* 独立保存：EnvEditor 自管理 PUT/DELETE，不并入主表单提交 */}
-          <EnvEditor scope="business" businessId={id} />
+          {/* 行内草稿由主「保存」统一落库（ref.save()）；仍独立请求序列，不并入 PATCH body */}
+          <EnvEditor
+            ref={envEditorRef}
+            scope="business"
+            businessId={id}
+            hideActions
+          />
         </Card>
       )}
     </div>

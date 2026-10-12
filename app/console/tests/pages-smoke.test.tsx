@@ -77,10 +77,10 @@ describe("页面冒烟", () => {
     const adminView = renderApp("/settings");
     expect(await screen.findByText("工作目录")).toBeTruthy();
     expect(screen.getByText("/data/workspace")).toBeTruthy();
-    expect(screen.getByText("bar")).toBeTruthy(); // vars 明文回显
-    expect(screen.getByText("jira_token")).toBeTruthy(); // secret 只见键名
+    expect(screen.getByDisplayValue("bar")).toBeTruthy(); // vars 明文回显（行内输入框）
+    expect(screen.getByDisplayValue("jira_token")).toBeTruthy(); // secret 只见键名
     expect(
-      screen.getAllByRole("button", { name: /^新\s?增$/ }).length,
+      screen.getAllByRole("button", { name: /添\s?加/ }).length,
     ).toBeGreaterThan(0);
     adminView.unmount();
 
@@ -88,7 +88,7 @@ describe("页面冒烟", () => {
     installSettingsMocks(MEMBER_USER);
     renderApp("/settings");
     expect(await screen.findByText("工作目录")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /^新\s?增$/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /添\s?加/ })).toBeNull();
     // member 不见缓存清理入口（仅 admin）
     expect(screen.queryByRole("button", { name: /清理资产缓存/ })).toBeNull();
   });

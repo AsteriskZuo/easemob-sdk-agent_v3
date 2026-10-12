@@ -16,14 +16,17 @@ export interface CreateEnvEditorProps {
   onSecretsChange(rows: EnvKvRow[]): void;
 }
 
-/** 行编辑组：可增删的 key/value 行（secret=true 时值用 Input.Password） */
-function KvGroup({
+/** 行编辑组：可增删的 key/value 行（secret=true 时值用 Input.Password）。
+ *  EnvEditor（编辑页草稿模式）也复用本组件，保持创建/编辑两处交互一致 */
+export function KvGroup({
   groupLabel,
   title,
   tip,
   rows,
   secret,
   onChange,
+  valuePlaceholder,
+  readOnly,
 }: {
   /** aria-label 前缀（如「普通变量」→「普通变量 1 键」） */
   groupLabel: string;
@@ -32,6 +35,10 @@ function KvGroup({
   rows: EnvKvRow[];
   secret: boolean;
   onChange(rows: EnvKvRow[]): void;
+  /** 值输入框占位文案（缺省按 secret 给创建场景文案；编辑页传入覆盖语义） */
+  valuePlaceholder?: string;
+  /** true = 全部输入与增删禁用（只读查看） */
+  readOnly?: boolean;
 }) {
   const updateRow = (index: number, patch: Partial<EnvKvRow>) => {
     onChange(rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -43,13 +50,15 @@ function KvGroup({
         <Tooltip title={tip}>
           <QuestionCircleOutlined style={{ marginLeft: 6, color: "#999" }} />
         </Tooltip>
-        <Button
-          size="small"
-          style={{ marginLeft: 12 }}
-          onClick={() => onChange([...rows, { key: "", value: "" }])}
-        >
-          添加
-        </Button>
+        {!readOnly && (
+          <Button
+            size="small"
+            style={{ marginLeft: 12 }}
+            onClick={() => onChange([...rows, { key: "", value: "" }])}
+          >
+            添加
+          </Button>
+        )}
       </div>
       {rows.length === 0 && (
         <div style={{ color: "#999", fontSize: 12 }}>暂无，点「添加」新增</div>
@@ -61,31 +70,36 @@ function KvGroup({
             style={{ width: 240 }}
             placeholder="键，如 jira_url"
             value={row.key}
+            disabled={readOnly}
             onChange={(e) => updateRow(index, { key: e.target.value })}
           />
           {secret ? (
             <Input.Password
               aria-label={`${groupLabel} ${index + 1} 值`}
               style={{ flex: 1 }}
-              placeholder="值（创建后不回显）"
+              placeholder={valuePlaceholder ?? "值（创建后不回显）"}
               value={row.value}
+              disabled={readOnly}
               onChange={(e) => updateRow(index, { value: e.target.value })}
             />
           ) : (
             <Input
               aria-label={`${groupLabel} ${index + 1} 值`}
               style={{ flex: 1 }}
-              placeholder="值（明文）"
+              placeholder={valuePlaceholder ?? "值（明文）"}
               value={row.value}
+              disabled={readOnly}
               onChange={(e) => updateRow(index, { value: e.target.value })}
             />
           )}
-          <Button
-            aria-label={`删除${groupLabel} ${index + 1}`}
-            icon={<DeleteOutlined />}
-            danger
-            onClick={() => onChange(rows.filter((_, i) => i !== index))}
-          />
+          {!readOnly && (
+            <Button
+              aria-label={`删除${groupLabel} ${index + 1}`}
+              icon={<DeleteOutlined />}
+              danger
+              onClick={() => onChange(rows.filter((_, i) => i !== index))}
+            />
+          )}
         </div>
       ))}
     </div>
