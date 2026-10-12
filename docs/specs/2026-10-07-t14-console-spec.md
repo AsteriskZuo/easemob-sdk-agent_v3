@@ -80,7 +80,8 @@ app/console/
 │   ├── auth/AuthContext.tsx# me 加载、login/logout/changePassword 动作、角色判定
 │   ├── components/
 │   │   ├── AppLayout.tsx   # 左侧导航六页 + 用户菜单（改密码/登出）
-│   │   ├── EnvEditor.tsx   # 两桶 key-value 编辑器（vars 表格增删改；secrets 只写：键名列表+新增+删除）——global/business 两页面复用
+│   │   ├── EnvEditor.tsx   # 两桶 key-value 编辑器（行内草稿 + 保存 diff，复用 CreateEnvEditor 的 KvGroup 行 UI；secrets 只写：键名回显、值留空=不变/填写=覆盖）——global/business 两页面复用；hideActions 时由编辑页主「保存」经 ref.save() 统一触发
+│   │   ├── CreateEnvEditor.tsx # 创建页随建环境配置（KvGroup 行编辑组，EnvEditor 复用）
 │   │   └── MatchEditor.tsx # 匹配行编辑器（source 下拉 + event_type + entry_config JSON 文本域）
 │   ├── pages/
 │   │   ├── LoginPage.tsx
@@ -167,7 +168,7 @@ app/console/
 - **创建页草稿（T25）**：仅创建模式，表单全量状态防抖 500ms 写 `localStorage["business-create-draft-v1"]`，重进恢复 + 可手动清除，提交成功自动清除；编辑模式不做草稿；
 - **随建环境配置区（T25）**：仅创建模式的折叠区（普通/安全两组 key-value 行），随 POST body 的 `env` 一并提交，解决「业务级 secrets 需要 business_id、而 id 要创建成功才有」的死锁；占位校验失败的错误提示引导用户在该区补键重提；
 - 编辑：进入时 `GET /api/businesses/:id` + `GET /api/env/businesses/:id` 回填；保存 = `PATCH`（资料字段，含出口绑定）+ 匹配行增删 diff + env diff；
-- env/secret 的「diff」v1 从简：**编辑页的环境配置区独立保存按钮**（EnvEditor 自管理 PUT/DELETE，不并入主表单提交），主保存按钮只管 registry 侧字段——避免一次提交混合多资源的部分失败语义。
+- env/secret 的「diff」（2026-10-12 更新）：编辑页环境配置与创建页同一套**行内编辑**（KvGroup 行 UI，草稿语义）；保存由**主「保存」按钮统一触发**（EnvEditor `ref.save()`，内部仍逐 key PUT/DELETE，不并入 PATCH body——部分失败时业务资料已存成、env 报错并把展示回滚为服务端状态，停留本页供修正重试）；设置页通用层保留 EnvEditor 自带保存/重置按钮。
 
 ### 5.4 页面：资产管理
 
@@ -237,5 +238,5 @@ jsdom + @testing-library；API 一律 mock（`apiFetch` 层注入或 globalThis.
 4. **React 18 + Vite 5 + antd 5**：稳定组合，不追 React 19/Vite 新大版本（antd 兼容面最广）。
 5. **测试不用 vitest**：保持全仓单测试框架（jest）；antd 的 CJS 解析问题用 esbuild `--bundle` 内联解决。
 6. **出口配置占位约定定稿**（T24）：全字段原样进 binding.config（含占位文本），secret 仅 UI 提示，保存时 console-api 校验占位 key 存在性；表单/JSON Tabs 双视图，business-form 测试逐条覆盖。
-7. **编辑页 env 独立保存**：主表单只管 registry 字段，避免混合提交的部分失败语义；UI 上分区块表达。
+7. **编辑页 env 随主保存统一触发（2026-10-12 更新，替代原「独立保存按钮」）**：编辑页只有一个保存按钮——主保存依次完成 PATCH（registry 字段）+ 匹配行 diff + env diff（EnvEditor `ref.save()`，仍是独立请求序列，不混入同一 body）；env 失败时业务资料已存成，页面停留供修正重试。创建/编辑两处 key-value 交互统一为行内草稿（KvGroup）。
 8. **入口/关注统一为匹配行编辑**：source=internal 即「关注」，不单独做关注 UI（机制同构，提示文案说清）。
