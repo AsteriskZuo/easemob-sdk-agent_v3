@@ -146,8 +146,8 @@ export function createWorkflowRunner(opts: WorkflowRunnerOptions): WorkflowRunne
 2. **spawn**：`nodePath`（缺省 `process.execPath`）+ `[program]`，`cwd` = 工作区，**`env: {}`（环境变量清空——平台环境不泄漏给业务进程，secrets 只走 stdin）**；
 3. **stdin**：按 §5.1 写入（含 endpoint、secrets）后立即 end；
 4. **stdout**：累积计数字节，超 maxOutputBytes 即杀进程判 failed（不等结果）；按行/按流扫描第一个合法 StdoutResult——**只认一次**；
-5. **stderr**：逐行读：以 `{` 开头且 JSON.parse 成功且含 `__biz_log` → 结构化（level/message/fields），经 `createFileLogger(日志路径, { secrets: Object.values(req.secrets) })` 按级别写入；其余行 → 原样经该 logger 的 info 写入（透传）。**写日志的一切异常吞掉**（管道永不失败）；
-6. **脱敏**：run 开始时 `logger.addSecrets(Object.values(req.secrets))`（try/catch 容错）；业务日志文件写口自带 secrets 脱敏（createFileLogger 内建）；
+5. **stderr**：逐行读：以 `{` 开头且 JSON.parse 成功且含 `__biz_log` → 结构化（level/message/fields），经 `createFileSink(日志路径, { level:'debug', enabled:true, secrets })` 落盘为 `{ts, level, message, fields?}`——**fields 独立成字段，不打平进 message**（打平后人机双输：三层转义、jq 取不到）；fields 的字符串值能 JSON.parse 成**对象/数组** → 嵌套为 JSON（一层转义封顶，2026-10-12 真机验证后按用户裁决调整）；数字/布尔/null 可 parse 但不转（`"12345"` 这类 id 字符串保真）。其余行 → 原样 `{message}` 落 info（透传）。**写日志的一切异常吞掉**（管道永不失败）；
+6. **脱敏**：run 开始时 `logger.addSecrets(Object.values(req.secrets))`（try/catch 容错）；业务日志文件写口自带 secrets 脱敏（createFileSink 内建）；
 7. **超时**：wall-clock = `quota.timeout_minutes` 分钟，到点 SIGTERM，grace 后 SIGKILL，判 timeout；
 8. **进程收尾**：await 进程退出后才返回（不留僵尸）；结果映射见 §5.1 判定优先级；
 9. **埋点**：返回前测 duration_ms，失败原因都进 reason（exit code / 信号 / 超限 / 缺结果）。
