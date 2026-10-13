@@ -172,16 +172,17 @@ export function createAssetRegistry(
 ### 5.3 ref → commit 解析（git.ts resolveRef）
 
 - `ref` 匹配 `/^[0-9a-f]{40}$/` → 直接作为 commit 返回（存在性留给物化时 checkout 检验）；
-- 否则 `git ls-remote <url> <ref>`（env 带 `GIT_TERMINAL_PROMPT=0`，超时 60 秒；调用方给了 credential 时按下方注入规则携带）：
+- 否则 `git ls-remote <url> <ref>`（超时 60 秒；调用方给了 credential 时按下方注入规则携带）：
   - 无输出 → `ref_not_found: <ref>`；
   - 输出取精确匹配行；带注解 tag 优先取 `^{}` 剥离行的 commit；
   - 分支与 tag 同名等多义情况 → `ref_ambiguous: <ref>（建议直接给 commit）`。
 
-**凭据注入与脱敏**（resolveRef 与 clone 共用同一套规则）：
+**子进程环境、凭据注入与脱敏**（resolveRef 与 clone 共用同一套规则）：
 
-- 调用方传入 `credential` 且 url 为 `https://` 形式 → **仅对本次 git 子进程**把 url 临时改写为 `https://oauth2:<encodeURIComponent(credential)>@<host><path>`（不落盘、不入库、不进日志；库里的 url 字段永远存原始形态）；
+- **环境白名单**：git 子进程只透传 `PATH`/`HOME`（git 找子命令、读 gitconfig 所需）+ `GIT_TERMINAL_PROMPT=0`（禁止交互问密码）；平台进程其余环境变量（可能含口令）一律不下传；
+- 调用方传入 `credential` 且 url 为 `https://` 形式 → 经 `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_0`/`GIT_CONFIG_VALUE_0` 环境变量注入 `http.<url>.extraheader` 的 basic 认证头（`oauth2:<credential>` 的 base64）：**仅当次进程生效**——url 保持原文（clone 落盘的 `.git/config` origin url 无凭据，且物化收尾本就删 `.git`）、不出现在命令行参数（ps 不可见）、`http.<url>` 作用域外 host 不携带；库里的 url 字段永远存原始形态；
 - url 为 ssh/scp-like（`git@host:...` 或 `ssh://...`）且需要凭据 → `credential_unsupported: 私有资产请使用 https 形式的 url`；
-- 任何抛错的 message（含 stderr 尾部 1KB）先脱敏：凭据值出现处一律替换为 `***`。
+- 任何抛错的 message（含 stderr 尾部 1KB）先脱敏：凭据值（原文、url 编码、`oauth2:<credential>` base64 三种形态）出现处一律替换为 `***`。
 
 ### 5.4 内容校验（validate.ts）
 
@@ -233,7 +234,7 @@ CREATE TABLE assets (
 - 未登记 → `asset_not_found: <asset_id>`；
 - target = `{cache_root}/{asset_id}/`，完成标记 = `{target}/.materialized-ok`（内容 = 完成时 ISO 时间戳）：
   1. marker 存在 → 返回 `join(target, subpath ?? '')`（命中缓存，**不需要 credential**）；
-  2. 否则：资产 `is_private` 且未传 `opts.credential` → `credential_required: <credential_key>`；`git clone --quiet <url> <临时目录>` → `git -C <临时目录> checkout --quiet <commit>`（系统 git，`node:child_process`，env 带 `GIT_TERMINAL_PROMPT=0`，超时 300 秒；credential 注入与错误脱敏见 §5.3；失败 → `materialize_failed: <stderr 尾部 1KB（已脱敏）>`）→ `validateAsset(join(临时目录, subpath ?? ''), kind)` → 删除临时目录内 `.git`（缓存只是内容快照）→ 写 marker → `fs.renameSync` 到 target（target 已存在先删）→ 返回 `join(target, subpath ?? '')`；
+  2. 否则：资产 `is_private` 且未传 `opts.credential` → `credential_required: <credential_key>`；`git clone --quiet <url> <临时目录>` → `git -C <临时目录> checkout --quiet <commit>`（系统 git，`node:child_process`，子进程环境白名单与 credential 注入、错误脱敏见 §5.3，超时 300 秒；失败 → `materialize_failed: <stderr 尾部 1KB（已脱敏）>`）→ `validateAsset(join(临时目录, subpath ?? ''), kind)` → 删除临时目录内 `.git`（缓存只是内容快照）→ 写 marker → `fs.renameSync` 到 target（target 已存在先删）→ 返回 `join(target, subpath ?? '')`；
   3. 临时目录用 `{cache_root}/.tmp-{asset_id}-{pid}`，任何失败都尽力清理。
 
 ### 5.8 名解析（resolve.ts，纯函数）
@@ -281,7 +282,7 @@ export function resolveResource(
 - `kind='package'` 且 `shared: true` → `invalid_input`；
 - 凭据入参：`is_private: true` 缺 `credential_key` → `invalid_input`；非私有资产传 `credential_key` → 入库行 credential_key 为 NULL；
 - 私有资产凭据流程（url 用本地 git 仓库路径模拟，credential 用可识别哨兵字符串如 `SECRET_TOKEN_xyz`）：`is_private` 登记未传 credential → `credential_required`；传 credential 后 register 成功（本地路径无需认证，注入逻辑不破坏正常 clone）；materialize 缓存缺失时未传 credential → `credential_required`；marker 已存在后 materialize 不传 credential → 幂等返回；
-- 脱敏：带 credential 对不可达 url 物化 → `materialize_failed` 且错误信息不含 `SECRET_TOKEN_xyz`（出现处为 `***`）；
+- 脱敏：带 credential 对不可达 url 物化 → `materialize_failed` 且错误信息不含 `SECRET_TOKEN_xyz` 的原文/url 编码/base64 任一形态（出现处为 `***`）；`ssh://` 形式 url + credential → `credential_unsupported`；登记+物化后递归扫描缓存目录全部文件，不含凭据原文（不落盘不变式）；
 - ssh 形式 url（如 `git@host:org/repo.git`）+ `is_private` + credential → `credential_unsupported`；
 - list：无过滤返回全部；按 kind / owner_id / shared 各自过滤；
 - get package → manifest 解析正确（programs / requires 归一）；get tool → programs 归一、manifest 无 requires；tool 清单含 requires → `validation_failed`；get skill → skills 为集合扫描结果（字典序）；未登记 asset_id → `asset_not_found`；
@@ -313,4 +314,4 @@ export function resolveResource(
 5. **package/tool 共用清单契约，但 requires 是 package 专属**：同一清单文件、同一套字段校验，只差 kind 与消费路径；`requires`（名字级依赖声明）仅 package 可有——工具是叶子组件（机械能力、零 token），需要组合时由包的胶水代码编排；tool 清单出现 requires 即 `validation_failed`（防误配，也好过引入传递依赖解析与循环防判的复杂度）。`shared` 对 package 无意义（传 true 直接报错，防误配）。
 6. **`asset_id` 不含 commit（T26 改）**：原设计 hash 含 commit，版本升级 = 新资产行、asset_id 变化 → 业务绑定全断，升级路径只能「下架重建 + 重绑」，痛苦且易错。改为 (owner+url+kind+subpath) 后 `updateRef` 原地换版本、绑定不断；代价是 register 幂等不再响应新 ref（版本不切换），升级语义集中到 `updateRef` 一处，更直白。`modified_at` 随 updateRef 刷新（不再是恒等 created_at）。
 7. **共享资产禁止版本更新（T26）**：共享 tool/skill 可能被他人业务引用，属主静默换版本会让别人莫名出问题；要发新版本只能下架重建（产生新 asset_id，引用方显式改绑，感知明确）。package 无共享属性（只有属主自己用），恒可更新。
-7. **凭据按操作者维度传入、只存名字不存值**：资产行的 `credential_key` 只是 key 名，值由调用方从**操作者**安全桶解析后作可选参数传入（谁触发物化用谁的凭据，使用者之间互不相干）——本包因此不依赖配置模块、不接触安全桶（deps 仍只有 database）。注入采用进程内临时改写 https url + 错误脱敏：凭据不落盘、不入库、不进日志。ssh 形式 url 不支持注入（统一走 https，减少机制分叉）。
+7. **凭据按操作者维度传入、只存名字不存值**：资产行的 `credential_key` 只是 key 名，值由调用方从**操作者**安全桶解析后作可选参数传入（谁触发物化用谁的凭据，使用者之间互不相干）——本包因此不依赖配置模块、不接触安全桶（deps 仍只有 database）。注入采用 `GIT_CONFIG_*` 环境变量传 `http.<url>.extraheader` 认证头 + 子进程环境白名单 + 错误脱敏：凭据不落盘（clone 落盘的 origin url 是无凭据原文）、不入库、不进日志、不出现在命令行参数。ssh 形式 url 不支持注入（统一走 https，减少机制分叉）。

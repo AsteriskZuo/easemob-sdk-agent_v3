@@ -122,20 +122,21 @@ export function createExitRegistry(): ExitRegistry;
 ### 5.2 共用助手（http.ts）
 
 ```ts
-/** POST JSON。非 2xx 抛错（含状态码与响应片段）；默认 10s 超时（AbortSignal.timeout）。
- *  fetchImpl 可注入（测试用），缺省全局 fetch */
+/** POST JSON，返回响应 JSON body（空响应或非 JSON 响应返回 undefined）。
+ *  非 2xx 抛错（含状态码与响应片段；不含 url——url 可能携带密钥参数）；
+ *  默认 10s 超时（AbortSignal.timeout）。fetchImpl 可注入（测试用），缺省全局 fetch */
 export function postJson(
   url: string,
   body: unknown,
   options?: { headers?: Record<string, string>; timeoutMs?: number; fetchImpl?: typeof fetch },
-): Promise<void>;
+): Promise<unknown>;
 ```
 
 ### 5.3 企微群 webhook（wecom-webhook.ts，kind = `'wecom-webhook'`，name = `企业微信群机器人`）
 
 - configSchema：`url`（required，群机器人 Webhook 地址，形如 `https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=<key>`）。
 - `destinationOf`：从 url 的 query 提取 `key` 段（key 天然唯一标识一个群；它本就出现在 channel_id/日志中，属非机密）。url 非法或无 key → 抛错。
-- `deliver`：POST 企微消息体 `{"msgtype":"markdown","markdown":{"content": <文本>}}`。文本生成：`result` 为字符串直接用，否则 `` ```json `` 围栏包裹的 `JSON.stringify(result, null, 2)`；**超长截断**：企微 markdown 上限 4096 字节，按 UTF-8 字节截到 4000 并追加 `\n…(已截断)`。响应 JSON 的 `errcode !== 0` → 抛错（含 errmsg）。
+- `deliver`：经 `postJson`（§5.2）POST 企微消息体 `{"msgtype":"markdown","markdown":{"content": <文本>}}`。文本生成：`result` 为字符串直接用，否则 `` ```json `` 围栏包裹的 `JSON.stringify(result, null, 2)`；**超长截断**：企微 markdown 上限 4096 字节，按 UTF-8 字节截到 4000 并追加 `\n…(已截断)`。响应 JSON 的 `errcode !== 0` → 抛错（含 errmsg）；**响应体缺失/非 JSON 同样判失败**（企微正常必回 JSON）。
 - **@人**（2026-10-03 增补）：payload 为 `{ content: string | object, mentions?: string[] }` 时走结构化投递——content 按上述规则渲染后，末尾追加 `\n` + 企微 markdown 的 @ 语法 `<@userid>`（多人空格分隔，非字符串/空串忽略）；无 `content` 字段的对象维持原样（整体 json 围栏，不解析 mentions）。
 
 ### 5.4 邮件（mail.ts，kind = `'mail'`，name = `邮件通知`）
