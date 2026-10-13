@@ -1036,7 +1036,6 @@ export default function BusinessEditPage() {
             ]}
           />
         )}
-
       </Form>
 
       {isEdit && (

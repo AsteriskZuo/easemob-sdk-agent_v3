@@ -65,8 +65,7 @@ function nestJsonStrings(
     }
     try {
       const parsed: unknown = JSON.parse(value);
-      out[key] =
-        parsed !== null && typeof parsed === "object" ? parsed : value;
+      out[key] = parsed !== null && typeof parsed === "object" ? parsed : value;
     } catch {
       out[key] = value;
     }

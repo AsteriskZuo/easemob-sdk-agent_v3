@@ -98,7 +98,9 @@ describe("WorkflowRunner", () => {
 
   it("2b. 信封携带 programs 映射原样到达业务进程", async () => {
     const { runner } = setup();
-    const programs = { "jira-fetch": "/platform/cache/assets/ast_x/programs/fetch.js" };
+    const programs = {
+      "jira-fetch": "/platform/cache/assets/ast_x/programs/fetch.js",
+    };
     const outcome = await runner.run(makeReq("echo-programs.js", { programs }));
     expect(outcome.status).toBe("success");
     expect((outcome.output as Record<string, any>).programs).toEqual(programs);
@@ -109,7 +111,14 @@ describe("WorkflowRunner", () => {
     const outcome = await runner.run(makeReq("echo-datadir.js"));
     expect(outcome.status).toBe("success");
     const output = outcome.output as Record<string, any>;
-    const expected = join(root, "businesses", "biz-1", "data", "manual", "sess-1");
+    const expected = join(
+      root,
+      "businesses",
+      "biz-1",
+      "data",
+      "manual",
+      "sess-1",
+    );
     expect(output.dataDir).toBe(expected);
     expect(output.exists).toBe(true);
     expect(existsSync(expected)).toBe(true);

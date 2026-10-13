@@ -120,7 +120,9 @@ export async function bootstrap(overrides?: {
     });
 
     // 5. 接线（依赖方向即创建顺序）
-    db = openDatabase(join(config.workspace, "platform", "data", "platform.db"));
+    db = openDatabase(
+      join(config.workspace, "platform", "data", "platform.db"),
+    );
     const entryQueue = createTaskQueue(db, "entry_tasks");
     const exitQueue = createTaskQueue(db, "exit_tasks");
     const registry = createBusinessRegistry(db);

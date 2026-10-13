@@ -97,11 +97,9 @@ describe("resolveServerConfig", () => {
 
   it("config.json 兜底：文件值生效；同名环境变量优先；非法 JSON / 类型不符 → EnvError", () => {
     // 文件值兜底
-    writeFileSync(
-      configPath(),
-      JSON.stringify({ AGENT_TASK_CONCURRENCY: 9 }),
-      { flag: "wx" },
-    );
+    writeFileSync(configPath(), JSON.stringify({ AGENT_TASK_CONCURRENCY: 9 }), {
+      flag: "wx",
+    });
     expect(resolveServerConfig(requiredEnv()).task_concurrency).toBe(9);
 
     // 同名环境变量优先
@@ -160,11 +158,9 @@ describe("resolveServerConfig", () => {
         .console_port,
     ).toBe(0);
 
-    writeFileSync(
-      configPath(),
-      JSON.stringify({ AGENT_CONSOLE_PORT: 6300 }),
-      { flag: "wx" },
-    );
+    writeFileSync(configPath(), JSON.stringify({ AGENT_CONSOLE_PORT: 6300 }), {
+      flag: "wx",
+    });
     expect(resolveServerConfig(requiredEnv()).console_port).toBe(6300);
 
     expect(() =>
