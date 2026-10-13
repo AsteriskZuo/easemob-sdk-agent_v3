@@ -59,8 +59,8 @@ export function createWebhookExitTool(): ExitTool {
       const url = requireUrl(config);
       const token = config.token?.trim();
       return {
-        deliver(result) {
-          return postJson(
+        async deliver(result) {
+          await postJson(
             url,
             result,
             token

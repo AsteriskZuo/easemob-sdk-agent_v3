@@ -236,7 +236,7 @@ class KeyResolver {
   }
 }
 
-/** 解析配置。优先级：环境变量 > {workspace}/config.json 同名键 > 代码默认；
+/** 解析配置。优先级：环境变量 > {workspace}/platform/config.json 同名键 > 代码默认；
  *  AGENT_WORKSPACE 只能来自环境变量（config.json 栖身于 workspace，鸡生蛋）；
  *  pi_env 固定组 { PATH, HOME }，仅取自 envMap。
  *  envMap 可注入（测试用），缺省 process.env；

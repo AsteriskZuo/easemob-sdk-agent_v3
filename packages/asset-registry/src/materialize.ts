@@ -27,7 +27,7 @@ export interface MaterializeGitOptions {
   subpath?: string;
   /** 物化产物最终就位目录（原子 rename 目标；已存在则先删） */
   target: string;
-  /** 私有仓库凭据值（仅 https url 注入本次 clone，见 git.ts） */
+  /** 私有仓库凭据值（仅 https url 当次 clone 经 extraheader 注入，不落盘，见 git.ts） */
   credential?: string;
   /** 资产三族；缺省时按资产根是否含 agent-package.json 探测（有 = package 形态参与构建，无 = skill 不构建）。
    *  平台路径（AssetRegistry）必传登记行的真实 kind；CLI 独立执行不传 */

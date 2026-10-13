@@ -5,6 +5,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -303,7 +304,7 @@ describe("私有资产凭据流程", () => {
     ).toThrow(/^credential_unsupported/);
   });
 
-  it("脱敏：带 credential 对不可达 url 登记 → materialize_failed 且不含凭据原文", () => {
+  it("脱敏：带 credential 对不可达 url 登记 → materialize_failed 且不含凭据原文/url编码/base64 形态", () => {
     // 40 位 commit 跳过 ls-remote；登记即物化 → clone 不可达地址在登记时失败
     let message = "";
     try {
@@ -320,6 +321,44 @@ describe("私有资产凭据流程", () => {
     }
     expect(message).toMatch(/^materialize_failed/);
     expect(message).not.toContain(SECRET);
+    expect(message).not.toContain(encodeURIComponent(SECRET));
+    expect(message).not.toContain(
+      Buffer.from(`oauth2:${SECRET}`).toString("base64"),
+    );
+  });
+
+  it("ssh:// 形式 url + credential → credential_unsupported", () => {
+    expect(() =>
+      registry.register(
+        pkgInput("ssh://git@host/org/repo.git", {
+          is_private: true,
+          credential_key: "my-key",
+        }),
+        { credential: SECRET },
+      ),
+    ).toThrow(/^credential_unsupported/);
+  });
+
+  it("凭据不落盘：登记+物化后缓存目录任何文件不含凭据原文", () => {
+    const repo = makeRepo(PKG_FILES);
+    registry.register(
+      pkgInput(repo.dir, { is_private: true, credential_key: "my-key" }),
+      { credential: SECRET },
+    );
+    // 递归扫描缓存目录全部文件（含隐藏文件），断言凭据零残留
+    const files: string[] = [];
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, entry.name);
+        if (entry.isDirectory()) walk(p);
+        else files.push(p);
+      }
+    };
+    walk(cacheRoot);
+    expect(files.length).toBeGreaterThan(0);
+    for (const f of files) {
+      expect(readFileSync(f, "utf8")).not.toContain(SECRET);
+    }
   });
 });
 

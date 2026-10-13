@@ -162,6 +162,19 @@ describe("wecom-webhook deliver", () => {
     }
   });
 
+  it("200 但响应体缺失/非 JSON → 判失败抛错", async () => {
+    const srv = await startServer((_body, res) => {
+      res.writeHead(200);
+      res.end("");
+    });
+    try {
+      const exit = tool.bind({ url: srv.url });
+      await expect(exit.deliver("x")).rejects.toThrow("投递失败");
+    } finally {
+      await srv.close();
+    }
+  });
+
   it("网络层非 2xx → 抛错", async () => {
     const srv = await startServer((_body, res) => {
       res.writeHead(500);

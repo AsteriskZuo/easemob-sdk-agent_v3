@@ -1,22 +1,35 @@
 import { execFileSync } from "node:child_process";
 
-/** 凭据注入（spec §5.3）：仅对本次 git 子进程把 https url 临时改写为带凭据形态；
- *  不落盘、不入库、不进日志。ssh/scp-like url 不支持注入，直接抛 credential_unsupported；
- *  其余形态（本地路径等）原样使用（本地 clone 无需认证，注入不适用） */
-function injectCredential(url: string, credential?: string): string {
-  if (!credential) {
-    return url;
-  }
-  if (url.startsWith("https://")) {
-    return `https://oauth2:${encodeURIComponent(credential)}@${url.slice("https://".length)}`;
+/** 凭据形态校验（spec §5.3）：credential 仅支持 https url（经 extraheader 注入，见 buildEnv）；
+ *  ssh/scp-like url 直接抛 credential_unsupported；
+ *  其余形态（本地路径等）无需认证，凭据忽略 */
+function assertCredentialSupported(url: string, credential?: string): void {
+  if (!credential || url.startsWith("https://")) {
+    return;
   }
   if (url.startsWith("ssh://") || /^[^/@]+@[^/:]+:/.test(url)) {
     throw new Error("credential_unsupported: 私有资产请使用 https 形式的 url");
   }
-  return url;
 }
 
-/** 错误脱敏：凭据值（原文与 url 编码形态）出现处一律替换为 *** */
+/** git 子进程环境白名单（spec §5.3）：只透传 PATH/HOME（git 找子命令、读 gitconfig 所需），
+ *  平台进程其余环境变量（可能含口令）一律不下传；GIT_TERMINAL_PROMPT=0 禁止交互问密码。
+ *  https url + credential 时经 GIT_CONFIG_* 注入 http.<url> 作用域的 basic 认证头：
+ *  仅当次进程生效——不写 .git/config（clone 落盘的 origin url 是无凭据原文）、
+ *  不出现在命令行参数（ps 不可见）、作用域外 host 不携带 */
+function buildEnv(url: string, credential?: string): Record<string, string> {
+  const env: Record<string, string> = { GIT_TERMINAL_PROMPT: "0" };
+  if (process.env.PATH !== undefined) env.PATH = process.env.PATH;
+  if (process.env.HOME !== undefined) env.HOME = process.env.HOME;
+  if (credential && url.startsWith("https://")) {
+    env.GIT_CONFIG_COUNT = "1";
+    env.GIT_CONFIG_KEY_0 = `http.${url}.extraheader`;
+    env.GIT_CONFIG_VALUE_0 = `AUTHORIZATION: basic ${Buffer.from(`oauth2:${credential}`).toString("base64")}`;
+  }
+  return env;
+}
+
+/** 错误脱敏：凭据值（原文、url 编码、base64 形态）出现处一律替换为 *** */
 function sanitize(message: string, credential?: string): string {
   if (!credential) {
     return message;
@@ -25,13 +38,17 @@ function sanitize(message: string, credential?: string): string {
     .split(credential)
     .join("***")
     .split(encodeURIComponent(credential))
+    .join("***")
+    .split(Buffer.from(`oauth2:${credential}`).toString("base64"))
     .join("***");
 }
 
-/** 执行 git 子进程：GIT_TERMINAL_PROMPT=0 禁止交互；失败抛 stderr 尾部 1KB（已脱敏） */
+/** 执行 git 子进程：环境白名单 + 凭据走 extraheader（见 buildEnv）；
+ *  失败抛 stderr 尾部 1KB（已脱敏） */
 function runGit(
   args: string[],
   timeoutSec: number,
+  url: string,
   credential?: string,
 ): string {
   try {
@@ -39,7 +56,7 @@ function runGit(
       encoding: "utf8",
       timeout: timeoutSec * 1000,
       maxBuffer: 16 * 1024 * 1024,
-      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+      env: buildEnv(url, credential),
       stdio: ["ignore", "pipe", "pipe"],
     });
   } catch (err) {
@@ -61,13 +78,9 @@ export function resolveRef(
   if (/^[0-9a-f]{40}$/.test(ref)) {
     return ref;
   }
-  const effectiveUrl = injectCredential(url, credential);
+  assertCredentialSupported(url, credential);
   // 同时给 <ref> 与 <ref>^{} 两个 pattern：注解 tag 的剥离行不匹配 <ref> 本身，须显式带出
-  const out = runGit(
-    ["ls-remote", effectiveUrl, ref, `${ref}^{}`],
-    60,
-    credential,
-  );
+  const out = runGit(["ls-remote", url, ref, `${ref}^{}`], 60, url, credential);
   const entries = out
     .split("\n")
     .map((line) => line.trim())
@@ -90,6 +103,7 @@ export function resolveRef(
 }
 
 /** clone 仓库并 checkout 到指定 commit（物化用，spec §5.7）；
+ *  认证经 extraheader 注入，clone 落盘的 origin url 为无凭据原文；
  *  失败抛 materialize_failed: <stderr 尾部 1KB（已脱敏）> */
 export function cloneAtCommit(
   url: string,
@@ -97,10 +111,11 @@ export function cloneAtCommit(
   destDir: string,
   credential?: string,
 ): void {
-  const effectiveUrl = injectCredential(url, credential);
+  assertCredentialSupported(url, credential);
   try {
-    runGit(["clone", "--quiet", effectiveUrl, destDir], 300, credential);
-    runGit(["-C", destDir, "checkout", "--quiet", commit], 300, credential);
+    runGit(["clone", "--quiet", url, destDir], 300, url, credential);
+    // checkout 是纯本地操作，无需凭据
+    runGit(["-C", destDir, "checkout", "--quiet", commit], 300, url);
   } catch (err) {
     throw new Error(`materialize_failed: ${(err as Error).message}`);
   }

@@ -1,4 +1,5 @@
 import { hasPlaceholder, templateDestination } from "./destination.js";
+import { postJson } from "./http.js";
 import type { ConfigField, ExitTool } from "./types.js";
 
 const KIND = "wecom-webhook";
@@ -116,28 +117,14 @@ export function createWecomWebhookExitTool(): ExitTool {
       const url = requireUrl(config);
       return {
         async deliver(result) {
-          const res = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              msgtype: "markdown",
-              markdown: { content: buildContent(result) },
-            }),
-            signal: AbortSignal.timeout(10_000),
-          });
-          if (!res.ok) {
-            const snippet = await res.text().catch(() => "");
+          const data = (await postJson(url, {
+            msgtype: "markdown",
+            markdown: { content: buildContent(result) },
+          })) as { errcode?: number; errmsg?: string } | undefined;
+          // 企微 200 也可能失败（errcode !== 0）；响应体缺失/非 JSON 同样判失败
+          if (data === undefined || data.errcode !== 0) {
             throw new Error(
-              `${KIND} 投递失败：HTTP ${res.status} ${snippet.slice(0, 200)}`,
-            );
-          }
-          const data = (await res.json()) as {
-            errcode?: number;
-            errmsg?: string;
-          };
-          if (data.errcode !== 0) {
-            throw new Error(
-              `${KIND} 投递失败：errcode=${data.errcode} errmsg=${data.errmsg ?? ""}`,
+              `${KIND} 投递失败：errcode=${data?.errcode ?? "无响应体"} errmsg=${data?.errmsg ?? ""}`,
             );
           }
         },
