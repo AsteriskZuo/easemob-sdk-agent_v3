@@ -50,7 +50,6 @@ describe("resolveServerConfig", () => {
     const message = (caught as Error).message;
     for (const name of [
       "AGENT_WORKSPACE",
-      "AGENT_PI_CLI_PATH",
       "AGENT_PI_AGENT_DIR",
       "PATH",
       "HOME",
@@ -76,6 +75,15 @@ describe("resolveServerConfig", () => {
       HOME: "/home/tester",
     });
     expect(config.npm_registry).toBe("https://registry.npmjs.org/");
+  });
+
+  it("AGENT_PI_CLI_PATH 缺省 → 从 npm 依赖 @earendil-works/pi-coding-agent 解析 bin", () => {
+    const config = resolveServerConfig(
+      requiredEnv({ AGENT_PI_CLI_PATH: undefined }),
+    );
+    // 本仓库已安装该依赖（yarn.lock 锁定），解析必命中包内 bin
+    expect(config.pi_cli_path).toContain("@earendil-works/pi-coding-agent");
+    expect(config.pi_cli_path.endsWith("cli.js")).toBe(true);
   });
 
   it("npm_registry：默认官方；env 覆盖；config.json 兜底", () => {

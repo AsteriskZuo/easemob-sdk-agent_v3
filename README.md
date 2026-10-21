@@ -24,13 +24,14 @@ yarn build        # 构建全部 packages 与 app（含 console 产物 app/conso
 
 # 配置（必填项见下表）
 export AGENT_WORKSPACE=/path/to/workspace
-export AGENT_PI_CLI_PATH=/path/to/pi
 export AGENT_PI_AGENT_DIR=/path/to/pi-agent-dir   # 内含 models.json（模型凭据，模板见 templates/models.json.example）
 
 # 首启注入控制台 admin（仅首个用户创建时需要，成对出现）
 export AGENT_ADMIN_USERNAME=admin
 export AGENT_ADMIN_PASSWORD=your-initial-password
 ```
+
+> pi 内核（`@earendil-works/pi-coding-agent`）是 app/server 的 npm 依赖，版本由 yarn.lock 锁定，`yarn install` 即得，无需单独安装；如需用系统级安装的 pi 或其他位置的二进制，用 `AGENT_PI_CLI_PATH` 覆盖。
 
 ### 生产模式（部署运行）
 
@@ -82,7 +83,7 @@ rm -rf "$AGENT_WORKSPACE/platform/data" "$AGENT_WORKSPACE/platform/cache" "$AGEN
 | 变量 | 来源 | 说明 |
 |------|------|------|
 | `AGENT_WORKSPACE` | **只能环境变量** | 平台工作目录（数据五类分根的根）；config.json 栖身于 workspace，故不能来自文件 |
-| `AGENT_PI_CLI_PATH` | env 或 config.json | pi 可执行文件绝对路径 |
+| `AGENT_PI_CLI_PATH` | env 或 config.json | 可选；pi 可执行文件绝对路径。缺省 = npm 依赖 `@earendil-works/pi-coding-agent`（yarn.lock 锁定）的 bin，自检验存在可执行 |
 | `AGENT_PI_AGENT_DIR` | env 或 config.json | pi 的 agent 目录（models.json 所在；模板见 `templates/models.json.example`。**apiKey 须写字面量**——pi 子进程环境只有 PATH/HOME，`$ENV_VAR` 插值解析不到） |
 | `PATH` / `HOME` | 只能环境变量 | pi 子进程基础环境（pi_env 固定组）；正常 shell 天然存在，一般无需显式设置 |
 

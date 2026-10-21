@@ -8,7 +8,7 @@
 
 1. **构建时机 = 业务创建/更新时的绑定校验**（同步执行）。clone + install + 构建需要时间网络，失败即创建/更新失败，错误（clone/auth/install/构建/产物缺失）透传到控制台。更新同样先验后写：全部通过才落库，任何一步失败旧配置原样保留。同步阻塞是接受的取舍（构建分钟级，控制台 loading 即可）。
 2. **物化 = 平台侧规范脚本，且独立可执行**（`packages/asset-registry/bin/materialize-asset.mjs`）：固定流程 clone → npm ci → 业务初始化脚本 → 产物校验。AssetRegistry 物化调用它；也可脱离平台以 CLI 独立执行——绑定失败时管理员手动跑同一条命令即可复现完整输出，不用翻日志猜。
-3. **业务初始化脚本必带**：`agent.materialize.mjs`（资产根，subpath 之后），package/tool 资产缺失即物化失败（skill 纯文档不需要）。脚本职责 = 本仓库的一切初始化（TS 转译、其他语言产物的构建/安装、codegen、资源下载、git 操作等），平台不传参、不理解过程，只验收产物（清单 programs 声明的文件必须真实存在）。**语言边界**：仓库内容不限语言，但所有 program 入口必须是 node 可执行的 JS（runner 与 sdk.run 均以 `node <program>` 拉起）；其他语言 = 薄 JS wrapper + child_process 调用，其产物/环境由初始化脚本准备。**环境边界**：平台宿主只保证 node 24 + npm + git + pi（自检），python/rust/go 等谁用谁装，缺失在 bind 期被初始化脚本明确暴露。模板自带默认实现（esbuild 转译 src→dist），新仓库拷贝模板零负担。信任级别与运行业务代码相同（v1 无沙箱，显式认账）。
+3. **业务初始化脚本必带**：`agent.materialize.mjs`（资产根，subpath 之后），package/tool 资产缺失即物化失败（skill 纯文档不需要）。脚本职责 = 本仓库的一切初始化（TS 转译、其他语言产物的构建/安装、codegen、资源下载、git 操作等），平台不传参、不理解过程，只验收产物（清单 programs 声明的文件必须真实存在）。**语言边界**：仓库内容不限语言，但所有 program 入口必须是 node 可执行的 JS（runner 与 sdk.run 均以 `node <program>` 拉起）；其他语言 = 薄 JS wrapper + child_process 调用，其产物/环境由初始化脚本准备。**环境边界**：平台宿主只保证 node 24 + npm + git（自检）；pi 内核是 app/server 的 npm 依赖（yarn.lock 锁定），不属宿主前提。python/rust/go 等谁用谁装，缺失在 bind 期被初始化脚本明确暴露。模板自带默认实现（esbuild 转译 src→dist），新仓库拷贝模板零负担。信任级别与运行业务代码相同（v1 无沙箱，显式认账）。
 4. **不做默认转译兜底、不做全量 bundle**：单路径无魔法（脚本即项目自文档）；模板默认脚本用 esbuild 转译（保持模块结构、依赖外部化、node_modules 保留在缓存中），native 模块/动态 require/`__dirname` 资源因此全部正常。
 5. **清单 programs 维持产物路径**（如 `dist/programs/main.js`，与模板现状一致零改动）：物化时先校验形状（相对路径、不含 `..`、`.js`），初始化脚本执行后再校验产物存在性，缺一即失败并列出缺失清单。
 6. **v1 只认 npm**：资产根含 `package.json` 时必须同时提交 `package-lock.json`，缺失 = 创建/更新失败并明确提示。

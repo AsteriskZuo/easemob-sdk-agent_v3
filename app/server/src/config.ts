@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   EnvError,
   getBoolean,
@@ -25,7 +26,8 @@ export interface ServerConfig {
   task_timeout_minutes: number;
   /** agent 调用配额全局默认（同上） */
   max_agent_calls: number;
-  /** pi 可执行文件绝对路径 */
+  /** pi 可执行文件绝对路径（AGENT_PI_CLI_PATH 显式指定；
+   *  缺省 = 本包 npm 依赖 @earendil-works/pi-coding-agent 的 bin，版本由 yarn.lock 锁定） */
   pi_cli_path: string;
   /** PI_CODING_AGENT_DIR（models.json 所在，模型凭据由该文件承载） */
   pi_agent_dir: string;
@@ -50,6 +52,37 @@ export interface ServerConfig {
 
 const LOG_LEVELS = ["error", "warn", "info", "debug"] as const;
 type LogLevel = (typeof LOG_LEVELS)[number];
+
+/** pi 内核包名（app/server 的 npm 依赖；CLI flag 与 JSONL 事件格式以该锁定版本为准） */
+const PI_PACKAGE = "@earendil-works/pi-coding-agent";
+
+/** 从本包 node_modules 依赖解析 pi 可执行文件绝对路径（读包 manifest 的 bin 字段）。
+ *  手动逐层上溯 node_modules：该包 exports map 不含 require/default 条件（createRequire 解析不到），
+ *  且 import.meta.resolve 在 jest vm 环境不可用。
+ *  包未安装 / 结构不符 / bin 缺失 → undefined（调用方决定是否记为配置问题） */
+function resolvePiCliPathFromDeps(): string | undefined {
+  let dir = dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 10; i += 1) {
+    const root = join(dir, "node_modules", PI_PACKAGE);
+    const manifest = join(root, "package.json");
+    if (existsSync(manifest)) {
+      let pkg: { name?: string; bin?: string | Record<string, string> };
+      try {
+        pkg = JSON.parse(readFileSync(manifest, "utf8")) as typeof pkg;
+      } catch {
+        return undefined;
+      }
+      if (pkg.name !== PI_PACKAGE) return undefined;
+      const bin = typeof pkg.bin === "string" ? pkg.bin : pkg.bin?.pi;
+      const abs = bin === undefined ? undefined : join(root, bin);
+      return abs !== undefined && existsSync(abs) ? abs : undefined;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return undefined;
+}
 
 /** config.json 的扁平形态：键名与环境变量同名（含 AGENT_ 前缀），值为 string/number/boolean */
 type FileConfig = Record<string, unknown>;
@@ -238,7 +271,8 @@ class KeyResolver {
 
 /** 解析配置。优先级：环境变量 > {workspace}/platform/config.json 同名键 > 代码默认；
  *  AGENT_WORKSPACE 只能来自环境变量（config.json 栖身于 workspace，鸡生蛋）；
- *  pi_env 固定组 { PATH, HOME }，仅取自 envMap。
+ *  pi_env 固定组 { PATH, HOME }，仅取自 envMap；
+ *  pi_cli_path 例外：AGENT_PI_CLI_PATH 缺省时从 npm 依赖 @earendil-works/pi-coding-agent 解析。
  *  envMap 可注入（测试用），缺省 process.env；
  *  缺失必填项 / 非法值 → 抛 EnvError（message 列出全部问题） */
 export function resolveServerConfig(
@@ -286,7 +320,13 @@ export function resolveServerConfig(
     default: 20,
     min: 1,
   });
-  const piCliPath = resolver.string("AGENT_PI_CLI_PATH", { required: true });
+  const piCliPath =
+    resolver.string("AGENT_PI_CLI_PATH") ?? resolvePiCliPathFromDeps();
+  if (piCliPath === undefined) {
+    problems.push(
+      "pi 可执行文件不可用：未设置 AGENT_PI_CLI_PATH，且 npm 依赖 @earendil-works/pi-coding-agent 未安装或 bin 缺失（先 yarn install）",
+    );
+  }
   const piAgentDir = resolver.string("AGENT_PI_AGENT_DIR", { required: true });
   const consolePort = resolver.number("AGENT_CONSOLE_PORT", {
     default: 6100,

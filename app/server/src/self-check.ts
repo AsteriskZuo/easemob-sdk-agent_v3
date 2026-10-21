@@ -54,12 +54,12 @@ export async function runSelfCheck(config: ServerConfig): Promise<void> {
     }
   }
 
-  // ③ pi_cli_path 存在且可执行
+  // ③ pi_cli_path 存在且可执行（缺省值来自 npm 依赖 @earendil-works/pi-coding-agent 的解析）
   try {
     accessSync(config.pi_cli_path, constants.X_OK);
   } catch (err) {
     failures.push(
-      `pi_cli_path 不存在或不可执行: ${config.pi_cli_path}: ${errorMessage(err)}`,
+      `pi_cli_path 不存在或不可执行: ${config.pi_cli_path}（缺省应随 npm 依赖安装；显式路径检查 AGENT_PI_CLI_PATH）: ${errorMessage(err)}`,
     );
   }
 

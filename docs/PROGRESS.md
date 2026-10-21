@@ -12,3 +12,4 @@
 - [x] T24：入口/出口配置统一占位符（{{key}}）机制——runtime 解析层 + EnvProvider.lookup 四级顺序、jira/webhook 入口字段重构、出口 exitSecretKey 约定废弃、console-api 保存校验、console Tabs 双视图（2026-10-10）
 - [x] T25：event_type 留空通配（接收该来源全部事件）+ 创建页 localStorage 草稿 + 创建接口随建 env（解创建死锁）；适配器默认事件标签（2026-10-10）
 - [x] T26：资产版本更新——asset_id 哈希去 commit（升级不换 id、绑定不断）、asset-registry updateRef（重新物化+失败回滚）、共享资产禁止更新（409）、console-api PUT /api/assets/:id、console 资产页更新入口（2026-10-11）
+- [x] pi 内核落地为 npm 依赖（回归 2026-09-27 选型决策原意）：app/server 依赖 @earendil-works/pi-coding-agent@0.87.1 精确锁定（yarn.lock），AGENT_PI_CLI_PATH 降为可选覆盖（缺省从 node_modules 解析 bin），子进程执行模式不变；宿主前提去掉 pi（2026-10-21）
