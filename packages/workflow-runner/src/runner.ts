@@ -135,6 +135,24 @@ export function createWorkflowRunner(
       secrets: Object.values(req.secrets),
     });
 
+    const debugSecrets = Object.fromEntries(
+      Object.keys(req.secrets).map((key) => [key, "***"]),
+    );
+    const debugEndpoint = {
+      socket_path: req.endpoint.socket_path,
+      token: "***",
+    };
+
+    // 临时调试：平台实际交给 Runner 的请求，敏感值只保留键名
+    bizSink("info", {
+      message: "临时调试：平台实际调用 Runner 的 RunRequest",
+      fields: {
+        ...req,
+        secrets: debugSecrets,
+        endpoint: debugEndpoint,
+      },
+    });
+
     const envelope: StdinEnvelope = {
       contract_version: "v1",
       input: req.event,
@@ -289,7 +307,17 @@ export function createWorkflowRunner(
       child.stdin.on("error", () => {
         // EPIPE：子进程早退，吞掉（退出码走 close 判定）
       });
-      child.stdin.write(encodeStdinEnvelope(envelope));
+      const encodedEnvelope = encodeStdinEnvelope(envelope);
+      // 临时调试：紧挨 stdin 写入，记录实际交给业务进程的信封
+      bizSink("info", {
+        message: "临时调试：Runner 实际写入业务进程的 StdinEnvelope",
+        fields: {
+          ...envelope,
+          secrets: debugSecrets,
+          endpoint: debugEndpoint,
+        },
+      });
+      child.stdin.write(encodedEnvelope);
       child.stdin.end();
     });
   };
