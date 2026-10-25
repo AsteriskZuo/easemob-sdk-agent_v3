@@ -20,7 +20,6 @@
 
 ```bash
 yarn install
-yarn build        # 构建全部 packages 与 app（含 console 产物 app/console/dist）
 
 # 配置（必填项见下表）
 export AGENT_WORKSPACE=/path/to/workspace
@@ -35,22 +34,25 @@ export AGENT_ADMIN_PASSWORD=your-initial-password
 
 ### 生产模式（部署运行）
 
-server 单进程托管一切（API + 双循环 + 控制台静态文件）：
+先构建全部 packages 与 app（含 console 产物 `app/console/dist`），再由 server 单进程托管一切（API + 双循环 + 控制台静态文件）：
 
 ```bash
+yarn build
 AGENT_CONSOLE_STATIC_DIR=$(pwd)/app/console/dist yarn workspace @asteriskzuo/agent-server start
 # 浏览器访问 http://localhost:6100
 ```
 
+`start` 读取 `app/server/dist` 与 `packages/*/dist`；修改源码后需重新构建并重启。
+
 ### 开发模式（日常调试）
 
-两个进程分开跑，前端热更新：
+两个进程分开跑。server 直接运行 `app/server/src` 与 `packages/*/src` 并监听变更，无需手动构建；console 由 Vite 提供源码热更新：
 
 ```bash
-# 终端 1：server（纯 API，不托管静态文件）
-yarn workspace @asteriskzuo/agent-server start
+# 终端 1：server 源码模式（纯 API，不托管静态文件）
+yarn workspace @asteriskzuo/agent-server dev
 
-# 终端 2：console dev server（/api 自动代理到 localhost:6100）
+# 终端 2：console 源码模式（/api 自动代理到 localhost:6100）
 yarn workspace @asteriskzuo/agent-console dev
 ```
 
