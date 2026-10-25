@@ -367,7 +367,7 @@ describe("业务表单", () => {
     ).toBeNull();
   });
 
-  it("⑥ agent/大模型下拉由 /api/config 驱动（可选集合来自 models.json，无硬编码项）", async () => {
+  it("⑥ agent/大模型下拉由 /api/config 驱动（可选集合来自 AGENT_PI_MODELS，无硬编码项）", async () => {
     installBusinessMocks();
     renderApp("/businesses/new");
     const user = setupUser();

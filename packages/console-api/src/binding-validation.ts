@@ -21,7 +21,7 @@ export interface EffectiveBinding {
  *  任一不过 → 400 invalid_input。
  *  - binding 为 undefined = 本次写不涉及绑定字段（如 patch 只改 prompt）→ 绑定校验整体跳过（零物化）；
  *  - model/agent_kind 与绑定无关：字段出现且非空时必须 ∈ config.models / config.agents
- *    （可选集合由部署侧 models.json 驱动）。
+ *    （可选集合由部署侧 AGENT_PI_MODELS 驱动）。
  *  注意：assets.get 是同步接口且可能触发 git clone——管理 API 的单线程事件循环会被阻塞，
  *  本版接受（配置期低频操作） */
 export function validateBusinessWrite(

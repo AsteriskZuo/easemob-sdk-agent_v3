@@ -304,7 +304,7 @@ export interface EffectiveConfigView {
   pi_cli_path: string;
   /** PI_CODING_AGENT_DIR（非机密，原样回显） */
   pi_agent_dir: string;
-  /** 可选大模型列表（provider/id 形式）：server 启动时解析 pi_agent_dir/models.json 所得全量 */
+  /** 可选大模型列表（provider/id 形式）：server 校验 AGENT_PI_MODELS 并生成派生 models.json 后提取；不回显密钥 */
   models: string[];
   /** 可选 agent 内核列表（MVP 恒 ['pi']） */
   agents: string[];

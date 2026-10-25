@@ -13,3 +13,4 @@
 - [x] T25：event_type 留空通配（接收该来源全部事件）+ 创建页 localStorage 草稿 + 创建接口随建 env（解创建死锁）；适配器默认事件标签（2026-10-10）
 - [x] T26：资产版本更新——asset_id 哈希去 commit（升级不换 id、绑定不断）、asset-registry updateRef（重新物化+失败回滚）、共享资产禁止更新（409）、console-api PUT /api/assets/:id、console 资产页更新入口（2026-10-11）
 - [x] pi 内核落地为 npm 依赖（回归 2026-09-27 选型决策原意）：app/server 依赖 @earendil-works/pi-coding-agent@0.87.1 精确锁定（yarn.lock），AGENT_PI_CLI_PATH 降为可选覆盖（缺省从 node_modules 解析 bin），子进程执行模式不变；宿主前提去掉 pi（2026-10-21）
+- [x] Pi 配置受管化：AGENT_PI_CLI_PATH / AGENT_PI_AGENT_DIR 均为可选覆盖（默认 npm CLI 与 platform/cache/pi/agent）；AGENT_PI_MODELS 统一模型与密钥来源，启动严格校验并原子同步 models.json；真实配置与派生文件不进 git/日志/API（2026-10-25，规格见 docs/specs/2026-10-25-pi-managed-configuration-spec.md）

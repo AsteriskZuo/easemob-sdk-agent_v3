@@ -219,14 +219,14 @@ export default function BusinessEditPage() {
   const [tools, setTools] = useState<AssetMeta[]>([]);
   const [skills, setSkills] = useState<AssetMeta[]>([]);
   const [entryPrograms, setEntryPrograms] = useState<string[]>([]);
-  // 可选集合由 server 解析 models.json 经 /api/config 提供——平台与 console 均不内置模型名
+  // 可选集合由 server 解析 AGENT_PI_MODELS 经 /api/config 提供——平台与 console 均不内置模型名
   const [models, setModels] = useState<string[]>([]);
   const [agents, setAgents] = useState<string[]>([]);
   // 入口适配器自描述（/api/config 的 entry_adapters）：MatchEditor 事件文档与 entry_config 表单数据源
   const [entryAdapters, setEntryAdapters] = useState<EntryAdapterView[]>([]);
   // 现有业务列表：source=internal 的「上游业务」下拉数据源
   const [businesses, setBusinesses] = useState<BusinessProfile[]>([]);
-  // 编辑态失效侦测：profile 原值不在可选集合（models.json 后来改了）时保留显示并标黄
+  // 编辑态失效侦测：profile 原值不在可选集合（AGENT_PI_MODELS 后来改了）时保留显示并标黄
   const watchedModel = Form.useWatch("model", form);
   const watchedAgentKind = Form.useWatch("agent_kind", form);
 
@@ -327,7 +327,7 @@ export default function BusinessEditPage() {
     setEnvSecrets([]);
   }, [form]);
 
-  // 初始加载：出口工具菜单 + 三类资产下拉数据源 + 可选模型/内核（models.json 驱动）
+  // 初始加载：出口工具菜单 + 三类资产下拉数据源 + 可选模型/内核（AGENT_PI_MODELS 驱动）
   useEffect(() => {
     apiFetch<ExitToolMenuItem[]>("/api/exit-tools")
       .then(setExitTools)
@@ -668,7 +668,7 @@ export default function BusinessEditPage() {
           <Form.Item
             name="model"
             label="大模型"
-            tooltip="是什么：本业务大模型调用使用的模型，可选项来自服务端 models.json（provider/id 形式）。何时用：创建时必选，按业务质量与成本需要选择。配错后果：不在可选列表时保存被拒绝；运行期模型失效 = agent 调用失败。"
+            tooltip="是什么：本业务大模型调用使用的模型，可选项来自服务端 AGENT_PI_MODELS（provider/id 形式）。何时用：创建时必选，按业务质量与成本需要选择。配错后果：不在可选列表时保存被拒绝；运行期模型失效 = agent 调用失败。"
             rules={[{ required: true, message: "请选择模型" }]}
             extra={
               isEdit &&
@@ -677,7 +677,7 @@ export default function BusinessEditPage() {
               models.length > 0 &&
               !models.includes(watchedModel) ? (
                 <span style={{ color: "#faad14" }}>
-                  该模型已不在可选列表（models.json 已变更）
+                  该模型已不在可选列表（AGENT_PI_MODELS 已变更并重启）
                 </span>
               ) : undefined
             }

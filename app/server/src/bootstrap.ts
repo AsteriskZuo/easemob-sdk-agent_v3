@@ -37,7 +37,7 @@ import { createWorkflowRunner } from "@asteriskzuo/agent-workflow-runner";
 import { resolveServerConfig } from "./config.js";
 import type { ServerConfig } from "./config.js";
 import { createExitDriver } from "./exit-driver.js";
-import { loadModelList } from "./models.js";
+import { loadModelList, preparePiModels } from "./models.js";
 import { runSelfCheck } from "./self-check.js";
 
 /** 装配产物：T13 管理 API 与 T18 入口适配器复用的全部实例 */
@@ -102,14 +102,16 @@ export async function bootstrap(overrides?: {
   let context: AssembledContext | null = null;
 
   try {
-    // 3. 启动自检（fail-fast，全量收集一次性报出）
+    // 3. 从生效配置生成 Pi 派生文件；源配置或写入失败均不消费旧文件
+    preparePiModels(config.pi_agent_dir, config.pi_models);
+
+    // 4. 启动自检（fail-fast，全量收集一次性报出）
     await runSelfCheck(config);
 
-    // 3.5 可选模型全量列表（自检已保证 models.json 可解析且非空，此处必成功）；
-    // 不读不记 apiKey——它只属 pi 子进程
+    // 4.5 可选模型全量列表；只向管理 API 提供 provider/id，不回显 apiKey
     const models = loadModelList(config.pi_agent_dir);
 
-    // 4. system 日志「启动中」（回显关键配置，不含任何 secret）
+    // 4.6 system 日志「启动中」（回显关键配置，不含任何 secret）
     log.info("平台启动中", {
       workspace: config.workspace,
       hop_limit: config.hop_limit,

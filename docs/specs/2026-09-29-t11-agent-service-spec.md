@@ -2,6 +2,8 @@
 
 > 实现任务规格。**本文自包含，是执行者的唯一必读依据**；背景出处（非必读）：`docs/designs/2026-09-14-skill-platform-spec-v3/design/business-workflow.md` §4、`design/package-model.md` §10、`design/channel-model.md` §3。
 > 包名 `@asteriskzuo/agent-service`，目录 `packages/agent-service/`。
+>
+> **2026-10-25 修订**：Pi 模型配置以 `docs/specs/2026-10-25-pi-managed-configuration-spec.md` 为准：`AGENT_PI_MODELS` 是必需源配置，`models.json` 是 server 每次启动严格校验后原子生成/同步的受管派生缓存；本包仍只消费装配根注入的路径与基础 env，不读取 `process.env`。
 
 ## 1. 目标
 
@@ -104,7 +106,7 @@ export interface AgentServeContext {
   workspace: string;               // run 工作目录 = pi 子进程 cwd
   prompt: string;                  // 提示词总纲 → --system-prompt
   skills: SkillRef[];              // 本业务 skill 白名单（全集；请求选子集注入）
-  model: string;                   // --model 值（provider/id 或 models.json 中的模型名）
+  model: string;                   // --model 值（provider/id，来自启动校验后的可选集合）
   session_dir: string;             // pi 会话存储目录 businesses/{business_id}/cache/agent-sessions/{source}/{session_id}/（装配根保证存在）
   audit_log_path: string;          // 请求体审计落盘路径 businesses/{business_id}/runs/{source}/{session_id}/{run_id}/audit/llm-requests.jsonl
   quota: { max_agent_calls: number }; // 按 run 计的 agent 调用上限
@@ -120,8 +122,8 @@ export interface AgentSessionMapping {
 /** 装配根注入的依赖 */
 export interface AgentServiceDeps {
   pi_cli_path: string;             // pi 可执行文件绝对路径（测试指向 fixture 脚本）
-  pi_agent_dir: string;            // PI_CODING_AGENT_DIR（models.json 所在，平台管理）
-  pi_env: Record<string, string>;  // pi 子进程基础 env（PATH/HOME/模型凭据实际值等，装配根组齐）
+  pi_agent_dir: string;            // PI_CODING_AGENT_DIR（启动生成/同步 models.json 的平台专用受管目录）
+  pi_env: Record<string, string>;  // pi 子进程基础 env（仅 PATH/HOME，装配根组齐；模型凭据不走 env）
   mapping: AgentSessionMapping;
 }
 

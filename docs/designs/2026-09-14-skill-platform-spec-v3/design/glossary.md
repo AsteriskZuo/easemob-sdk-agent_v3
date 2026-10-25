@@ -148,7 +148,7 @@
 
 精确义：`sdk.agent()` 的另一端——每 run 一个本地 socket + 一次性 token；平台 spawn pi 子进程执行（pi 是唯一内核），注入提示词总纲、按业务白名单校验 skill 并经 `--no-skills` + `--skill` 注入、经 `-e` + `--no-extensions` 注入平台审计 extension（请求体落盘；不支持业务 extension）、按通道映射恢复会话、按 run 计配额。契约与 hooks 纪律的唯一定义处：`design/business-workflow.md` §4。
 
-要点：模型凭据由平台持有，不进入业务进程。
+要点：模型可选集合来自必需的 `AGENT_PI_MODELS`；server 每次启动严格校验并原子生成/同步平台专用受管 `{pi_agent_dir}/models.json`（含 secret，目录 `0700`、文件 `0600`）。模型凭据不进入业务进程或 Pi 子进程环境变量，`/api/config` 只回显 `provider/id`；修改源配置后重启生效，不热更新。
 
 ## 业务标记 · Business Markers
 
@@ -186,7 +186,7 @@
 
 精确义：位于资产根（subpath 之后）的 `agent.materialize.mjs`，**package/tool 资产必带**（缺失 = 物化失败），skill 不需要。物化流程以 `node agent.materialize.mjs` 执行（cwd = 资产根，env 仅 PATH/HOME/NPM_CONFIG_REGISTRY，timeout 10 分钟，exit≠0 = 失败）。职责 = 完成本仓库的一切初始化（转译/codegen/资源下载/其他语言产物的构建安装）；平台不传参、不理解过程，**只验收产物**（清单 programs 声明的文件必须就位）。
 
-要点：为什么必带——仓库内容不限语言、初始化方式各不相同，平台不可能枚举；模板 `templates/agent-package/` 自带默认实现（esbuild 转译 src/ → dist/，与 `npm run build` 同产物），简单项目原样可用。**语言边界**：所有 program 入口必须 node 可执行的 JS（其他语言 = 薄 JS wrapper + child_process）；**环境边界**：平台宿主只保证 node 24 + npm + git + pi，其余语言环境谁用谁装。
+要点：为什么必带——仓库内容不限语言、初始化方式各不相同，平台不可能枚举；模板 `templates/agent-package/` 自带默认实现（esbuild 转译 src/ → dist/，与 `npm run build` 同产物），简单项目原样可用。**语言边界**：所有 program 入口必须 node 可执行的 JS（其他语言 = 薄 JS wrapper + child_process）；**环境边界**：平台宿主只保证 node 24 + npm + git，pi 由 server 的锁定 npm 依赖提供，其余语言环境谁用谁装。
 
 ## dataDir · 业务级持久目录
 

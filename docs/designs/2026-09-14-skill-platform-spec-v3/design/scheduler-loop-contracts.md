@@ -1,6 +1,6 @@
 # 调度循环契约
 
-> 日期：2026-09-15（2026-09-26 修订：双循环、结果扇出、出口契约；移除 ResultDisposition。2026-09-27 修订：代码即流程——BusinessContext 面向流程程序 + agent 服务，Lifecycle = spawn 业务流程程序。2026-10-08 修订：出口空结果跳过——派生事件 payload===null（sdk.return(null)）时出口循环不投递直接完结，入口下游照常）
+> 日期：2026-09-15（2026-09-26 修订：双循环、结果扇出、出口契约；移除 ResultDisposition。2026-09-27 修订：代码即流程——BusinessContext 面向流程程序 + agent 服务，Lifecycle = spawn 业务流程程序。2026-10-08 修订：出口空结果跳过——派生事件 payload===null（sdk.return(null)）时出口循环不投递直接完结，入口下游照常。2026-10-25 修订：模型可选集合来自 `AGENT_PI_MODELS`，经启动严格校验并生成受管 `models.json` 后解析）
 > 状态：定稿
 > 范围：**只覆盖两个调度循环（入口事件循环 / 出口事件循环）直接使用的契约**。入口内部、业务语义去重（后续单独设计）、控制台 UI、日志接口不在本文档。
 > 依据：`design/glossary.md`、`design/scheduler.md`、`design/processing-chain.md`、`design/lifecycle.md`、`design/event-contract.md`（v1）、`design/channel-model.md`。
@@ -175,8 +175,8 @@ interface AgentCliObject {
 
 /** 大模型最小视图 */
 interface ModelObject {
-  name: string;               // provider/id 形式（如 'qwen/qwen3.8max'）；可选集合 = 部署侧
-                              // models.json 解析所得（console-design §4），平台代码不内置具体模型名
+  name: string;               // provider/id 形式（如 'qwen/qwen3.8max'）；可选集合 = 必需的 AGENT_PI_MODELS
+                              // 经启动严格校验并生成受管 models.json 后解析所得（console-design §4），平台代码不内置具体模型名
   params?: Record<string, unknown>;
 }
 

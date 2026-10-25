@@ -56,7 +56,7 @@ export interface AgentServiceDeps {
   pi_cli_path: string;
   /** PI_CODING_AGENT_DIR（models.json 所在，平台管理） */
   pi_agent_dir: string;
-  /** pi 子进程基础 env（PATH/HOME/模型凭据实际值等，装配根组齐） */
+  /** pi 子进程基础 env（仅 PATH/HOME；模型凭据走 pi_agent_dir/models.json） */
   pi_env: Record<string, string>;
   /** 通道会话映射 */
   mapping: AgentSessionMapping;

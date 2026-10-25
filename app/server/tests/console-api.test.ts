@@ -18,7 +18,6 @@ jest.setTimeout(60000);
 
 let tmpDir: string;
 let piCliPath: string;
-let piAgentDir: string;
 let handle: ServerHandle | null = null;
 
 beforeEach(() => {
@@ -26,18 +25,19 @@ beforeEach(() => {
   piCliPath = join(tmpDir, "fake-pi");
   writeFileSync(piCliPath, "#!/bin/sh\nexit 0\n");
   chmodSync(piCliPath, 0o755);
-  piAgentDir = join(tmpDir, "pi-agent-dir");
-  mkdirSync(piAgentDir, { recursive: true });
-  // 合法 models.json（伪造占位内容；自检要求可解析且非空）
+  const platformDir = join(tmpDir, "workspace", "platform");
+  mkdirSync(platformDir, { recursive: true });
   writeFileSync(
-    join(piAgentDir, "models.json"),
+    join(platformDir, "config.json"),
     JSON.stringify({
-      providers: {
-        "test-provider": {
-          baseUrl: "https://test-provider.example.com/v1",
-          api: "openai-completions",
-          apiKey: "sk-fake-placeholder",
-          models: [{ id: "model-a" }, { id: "model-b" }],
+      AGENT_PI_MODELS: {
+        providers: {
+          "test-provider": {
+            baseUrl: "https://test-provider.example.com/v1",
+            api: "openai-completions",
+            apiKey: "sk-fake-placeholder",
+            models: [{ id: "model-a" }, { id: "model-b" }],
+          },
         },
       },
     }),
@@ -71,7 +71,6 @@ function testEnv(
   return {
     AGENT_WORKSPACE: join(tmpDir, "workspace"),
     AGENT_PI_CLI_PATH: piCliPath,
-    AGENT_PI_AGENT_DIR: piAgentDir,
     PATH: process.env.PATH ?? "",
     HOME: process.env.HOME ?? tmpDir,
     ...over,
@@ -117,7 +116,11 @@ describe("bootstrap 装配管理 API", () => {
       headers: { cookie: `agent_console_token=${token}` },
     });
     expect(configRes.status).toBe(200);
-    const configView = (await configRes.json()) as {
+    const rawConfig = await configRes.text();
+    expect(rawConfig).not.toContain("sk-fake-placeholder");
+    expect(rawConfig).not.toContain("apiKey");
+    expect(rawConfig).not.toContain("pi_models");
+    const configView = JSON.parse(rawConfig) as {
       models: string[];
       agents: string[];
       entry_adapters: Array<{

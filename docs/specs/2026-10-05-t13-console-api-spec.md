@@ -4,6 +4,8 @@
 > 状态：待评审
 > 任务：T13（依赖 T12；被 T14 console SPA 依赖）
 > 本规格自包含：执行者只读本规格与总计划（`docs/plans/2026-09-28-platform-implementation-plan.md`），不读原始设计文档。
+>
+> **2026-10-25 修订**：Pi 配置以 `docs/specs/2026-10-25-pi-managed-configuration-spec.md` 为准。`ServerConfig.pi_models` 含 secret，不进入 `EffectiveConfigView`；`/api/config` 的 `models` 只回显 `provider/id`，不回显 `pi_models`、providers 原文或 `apiKey`，且不得通过展开 `ServerConfig` 构造 DTO。模型配置修改后重启生效。
 
 ---
 
@@ -45,7 +47,9 @@ export async function bootstrap(overrides?: {
 }): Promise<ServerHandle>;
 ```
 
-`app/server/src/config.ts` 的 `ServerConfig` 现有字段：workspace / log_level / log_enabled / hop_limit / task_concurrency / result_concurrency / task_timeout_minutes / max_agent_calls / pi_cli_path / pi_agent_dir / pi_env。解析规则：环境变量 > `{workspace}/platform/config.json` 同名键 > 代码默认；逐键解析器 `KeyResolver` 已有 `string/number/boolean` 三方法。**本任务在其中追加 `console_port`（见 §5.8），沿用同一 KeyResolver 模式，不改既有字段。**
+`app/server/src/config.ts` 的 `ServerConfig` 在 T12 完成时的字段：workspace / log_level / log_enabled / hop_limit / task_concurrency / result_concurrency / task_timeout_minutes / max_agent_calls / pi_cli_path / pi_agent_dir / pi_env。解析规则：环境变量 > `{workspace}/platform/config.json` 同名键 > 代码默认；逐键解析器 `KeyResolver` 已有 `string/number/boolean` 三方法。**本任务在其中追加 `console_port`（见 §5.8），沿用同一 KeyResolver 模式，不改既有字段。**
+
+2026-10-25 当前契约另增 `pi_models`：必需的 `AGENT_PI_MODELS` 在 config.json 中为 object、在 env 中为 JSON 字符串，整体覆盖且不深合并；该字段由专用严格校验器处理，不走上述三种标量解析方法，也不进入本文件的回显子集。
 
 bootstrap 内部还创建了但未放进 AssembledContext 的实例，本任务需要其中两个（见 §5.8）：
 - `createExitRegistry()`（exit-tools，出口工具菜单）；
@@ -207,7 +211,7 @@ export function createExitRegistry(): ExitRegistry;
 
 ## 3. 不做清单
 
-- **ConfigStore（全局设置库内可写）不做**：`design/config-contracts.md` 的键注册表 + 运行中重载是独立设计量（循环以 PlatformConfig 构造期注入，热改要动调度器）。本期只提供 `GET /api/config` 只读回显生效中的 ServerConfig；改全局参数 = 改环境变量/config.json 后重启。后续单独立项。
+- **ConfigStore（全局设置库内可写）不做**：`design/config-contracts.md` 的键注册表 + 运行中重载是独立设计量（循环以 PlatformConfig 构造期注入，热改要动调度器）。本期只提供 `GET /api/config` 只读回显生效中的非敏感配置视图；改全局参数或 `AGENT_PI_MODELS` = 改环境变量/config.json 后重启，不热更新。后续单独立项。
 - **任务干预（终止/重试）不做**：终止需要 workflow-runner 支持 kill 子进程、重试需要重入队语义，均涉现有包契约，后续单独立项。本期监控全部只读。
 - **身份目录**（jira↔github↔邮箱↔企微映射）：设计文档明确「实现归后续任务」，不做。
 - **统计搜索页 / 日志检索 / 结果统计**：console-design §12 标注「后续增加」，不做。
@@ -445,7 +449,7 @@ export interface BusinessRegistry {
 
 | 方法 路径 | 角色 | 说明 |
 |-----------|------|------|
-| GET `/api/config` | 登录可读 | 生效中的平台配置（ServerConfig 去敏感后回显：workspace/log_level/log_enabled/hop_limit/task_concurrency/result_concurrency/task_timeout_minutes/max_agent_calls；**不含** pi_env；pi_cli_path/pi_agent_dir 原样——非机密）。只读；改配置 = 改 env/config.json 重启（DTO 注释写明） |
+| GET `/api/config` | 登录可读 | 生效中的平台配置（装配层显式选择非敏感字段：workspace/log_level/log_enabled/hop_limit/task_concurrency/result_concurrency/task_timeout_minutes/max_agent_calls；后续新增的 `models` 只含 `provider/id`；**不含** pi_env/pi_models、providers 原文或 apiKey，禁止展开 ServerConfig；pi_cli_path/pi_agent_dir 原样——非机密）。只读；改全局参数或模型配置 = 改 env/config.json 后重启（DTO 注释写明） |
 | GET `/api/exit-tools` | 登录可读 | 出口工具菜单：`Array<{ kind, name, implemented, configSchema: ConfigField[] }>`（`createExitRegistry().list()` 原样映射；secret 字段声明照传但仅作 UI 提示——所有字段原样进 ExitBinding.config，敏感值用 `{{key}}` 占位，见 T24） |
 
 ### 5.9 路由：监控（routes-monitoring.ts，全部只读）
@@ -492,7 +496,7 @@ export interface EffectiveConfigView {
 }
 ```
 
-`ConsoleApiDeps.config: EffectiveConfigView`。
+`ConsoleApiDeps.config: EffectiveConfigView`。装配层必须逐字段显式映射，禁止展开 `ServerConfig`；视图永不包含 `pi_models`，后续 `models` 扩展也只含 `provider/id`。
 
 ```ts
 export interface ConsoleApiOptions {
@@ -599,7 +603,7 @@ export interface ApiErrorBody { error: { code: string; message: string } }
 
 1. **管理 API 独立成包** `packages/console-api`，不放 app/server：app 层只装配，逻辑可独立测试；DTO 由包根导出供 console type-only 复用。
 2. **API 契约不进 contracts 包**：contracts 保持事件域；console 直接 type-only 依赖 console-api。总计划 T13 行「契约补入 contracts」表述随之更新。
-3. **ConfigStore 不做**：全局参数改法 = 改 env/config.json 重启；`GET /api/config` 只读回显。运行中热改涉及调度器契约，后续单独立项。
+3. **ConfigStore 不做**：全局参数与 `AGENT_PI_MODELS` 的修改均为改 env/config.json 后重启；`GET /api/config` 只读回显非敏感视图，模型只回显 `provider/id`，不支持热更新。运行中热改涉及调度器契约，后续单独立项。
 4. **监控全部只读**：任务终止/重试不做（需 runner kill 与重入队设计）。
 5. **两个契约增补**（asset-registry.remove、registry.list）属控制台读写的最小必要缺口，已在 §5.6/§5.7 固化签名，实现时不得偏离。
 6. **私有资产凭据统一从通用层安全桶解析**（`env.getFor("")`）；业务层安全桶不参与资产登记期凭据解析。

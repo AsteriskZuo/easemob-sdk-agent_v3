@@ -22,7 +22,7 @@ export interface BusinessProfile {
   creator_id: string; // 创建者账号 id（权限归属判定用）
   on_failure: boolean; // 失败也扇出开关
   prompt: string; // 提示词总纲（可空串）
-  model: string; // 大模型选择：provider/id 形式（如 qwen/qwen3.8-max）；可选集合由部署侧 models.json 决定
+  model: string; // 大模型选择：provider/id 形式（如 qwen/qwen3.8-max）；可选集合由 AGENT_PI_MODELS 经启动生成派生 models.json 后决定
   agent_kind: string; // agent 内核（MVP 仅 pi）
   package_asset_id?: string; // 绑定的包资产；未绑定 = undefined
   entry_program?: string; // 流程程序入口名（包清单 programs 的键）

@@ -63,7 +63,7 @@ function stubRegistryUrl(): string {
   return `http://127.0.0.1:${(registryStub!.address() as AddressInfo).port}/`;
 }
 
-/** 造完整可过自检的 fixture（假 pi + models.json + 独立 workspace），返回 bootstrap envMap */
+/** 造完整可过自检的 fixture（假 pi + 模型源配置 + 独立 workspace），返回 bootstrap envMap */
 async function makeEnv(
   name: string,
   over: Record<string, string | undefined> = {},
@@ -74,25 +74,20 @@ async function makeEnv(
   mkdirSync(dir, { recursive: true });
   writeFileSync(piCliPath, "#!/bin/sh\nexit 0\n");
   chmodSync(piCliPath, 0o755);
-  const piAgentDir = join(dir, "pi-agent-dir");
-  mkdirSync(piAgentDir, { recursive: true });
-  writeFileSync(
-    join(piAgentDir, "models.json"),
-    JSON.stringify({
-      providers: {
-        "test-provider": {
-          baseUrl: "https://test-provider.example.com/v1",
-          api: "openai-completions",
-          apiKey: "sk-fake-placeholder",
-          models: [{ id: "model-a" }],
-        },
+  const piModels = {
+    providers: {
+      "test-provider": {
+        baseUrl: "https://test-provider.example.com/v1",
+        api: "openai-completions",
+        apiKey: "sk-fake-placeholder",
+        models: [{ id: "model-a" }],
       },
-    }),
-  );
+    },
+  };
   return {
     AGENT_WORKSPACE: workspace,
     AGENT_PI_CLI_PATH: piCliPath,
-    AGENT_PI_AGENT_DIR: piAgentDir,
+    AGENT_PI_MODELS: JSON.stringify(piModels),
     AGENT_CONSOLE_PORT: "0",
     AGENT_NPM_REGISTRY: stubRegistryUrl(),
     PATH: process.env.PATH ?? "",
@@ -145,6 +140,8 @@ describe("入口适配器开关（AGENT_ENTRY_*_ENABLED）", () => {
     expect(log).toContain("入口适配器开关");
     expect(log).toContain('"id":"webhook","enabled":true');
     expect(log).toContain('"id":"jira-polling","enabled":false');
+    expect(log).not.toContain("sk-fake-placeholder");
+    expect(log).not.toContain("pi_models");
   }, 30_000);
 
   it("webhook 关闭：不创建不启动（端口拒连），平台照常启动；日志含 enabled:false", async () => {

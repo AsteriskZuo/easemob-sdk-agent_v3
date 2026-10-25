@@ -95,6 +95,16 @@ function makeConfig(over: Partial<ServerConfig> = {}): ServerConfig {
     max_agent_calls: 20,
     pi_cli_path: piCliPath,
     pi_agent_dir: piAgentDir,
+    pi_models: {
+      providers: {
+        "test-provider": {
+          baseUrl: "https://test-provider.example.com/v1",
+          api: "openai-completions",
+          apiKey: "sk-fake-placeholder",
+          models: [{ id: "model-a" }],
+        },
+      },
+    },
     pi_env: { PATH: "/usr/bin", HOME: "/home/tester" },
     npm_registry: registryUrl,
     ...over,

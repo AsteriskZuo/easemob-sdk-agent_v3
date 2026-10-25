@@ -5,6 +5,7 @@
 - **决策依据**：`docs/decisions/2026-10-08-package-scope-rename.md`、`docs/decisions/2026-10-08-asset-materialization-build.md`
 - **依赖**：T12（装配/EntryAdapter 接口）、T16（asset-registry）、T20（包名已改 @asteriskzuo/\*）
 - **吸收**：T18（webhook 入口适配器，原计划单列，并入本任务 §7.2）
+- **2026-10-25 修订**：Pi 配置与 `/api/config` 脱敏口径以 `docs/specs/2026-10-25-pi-managed-configuration-spec.md` 为准；本文相关当前契约已补充，原批次范围与历史记录不变。
 
 ## 1. 背景（为什么做这个批次）
 
@@ -90,7 +91,7 @@ clone → validateAsset（清单形状校验）
 - 执行：`node agent.materialize.mjs`，cwd = 资产根，env 同 §4.3，timeout 10 分钟，exit≠0 = 物化失败（stderr 尾部透传）。
 - 职责：完成本仓库的一切初始化——TS 转译、其他语言产物的构建/安装、codegen、资源下载、git 操作等，平台不传参、不理解过程，**只验收产物**：脚本跑完后清单 programs 声明的每个产物文件必须存在。
 - **语言边界（准确口径）**：仓库内容不限语言，但**所有 program 入口必须是 node 可执行的 JS**（runner 与 sdk.run 均以 `node <program>` 拉起）。其他语言的接入方式 = 薄 JS wrapper + child_process 调用（wrapper 接信封、spawn 目标语言、回传结果），目标语言的产物/环境由初始化脚本准备。
-- **环境边界**：平台宿主只保证 node 24 + npm + git + pi（自检）；python/rust/go 等其他语言环境平台不提供、不检查——谁用谁装，缺失会在 bind 期被初始化脚本明确暴露（如 `python3: command not found` 进 400 错误）。
+- **环境边界**：平台宿主只保证 node 24 + npm + git；pi 是 server 的锁定 npm 依赖，缺省从依赖解析 CLI，不要求宿主单独安装；python/rust/go 等其他语言环境平台不提供、不检查——谁用谁装，缺失会在 bind 期被初始化脚本明确暴露（如 `python3: command not found` 进 400 错误）。
 - 模板自带默认实现（esbuild 转译 `src/` → `dist/`，与模板 `npm run build` 同产物），简单项目原样可用。
 
 ### 4.5 清单 programs 维持产物路径（不变）
@@ -205,7 +206,7 @@ export interface EntryAdapterFactory {
 
 ### 8.1 console-api
 
-1. **GET /api/config 扩展**：新增 `entry_adapters: EntryAdapterSpec[]`（含 configSchema/eventDoc/defaultEnabled/当前开关状态）；exit_tools 各项追加 `resultDoc`（见 §8.1.2）。
+1. **GET /api/config 扩展**：新增 `entry_adapters: EntryAdapterSpec[]`（含 configSchema/eventDoc/defaultEnabled/当前开关状态）；exit_tools 各项追加 `resultDoc`（见 §8.1.2）。既有 `models` 仍只回显 `provider/id`，不得回显 `pi_models`、providers 原文或 `apiKey`，也不得通过展开 `ServerConfig` 构造响应。
 2. **ExitTool.resultDoc**：`packages/exit-tools/src/types.ts` 的 ExitTool 加 `resultDoc: string`（markdown：`sdk.return` 该返回什么形状 + 示例 JSON）。七个内置工具全部补齐（wecom-webhook：字符串或 `{ content: string|object, mentions?: string[] }` 等）。console-api 原样透传。
 3. **缓存清理**：`POST /api/cache/clear`（仅 admin）→ 清空 `{workspace}/platform/cache/assets/`（asset-registry 加 `clearCache()`：删 cacheRoot 下全部内容）。响应 `{ cleared: true }`。行为写入文档：清理后已创建业务下次 run 时触发重新物化+构建（懒重建），可能耗时分钟级。
 4. **webhook path 查重**：业务写校验追加——`source='webhook'` 行的 `entry_config.path` 全平台唯一（跨业务）。实现用 `registry.list()`（BusinessProfile 含 matches 含 entry_config，已存在）全量扫描比对，**不需要 registry 加新方法**。

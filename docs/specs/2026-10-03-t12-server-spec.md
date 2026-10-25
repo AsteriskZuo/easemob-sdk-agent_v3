@@ -3,6 +3,8 @@
 > 实现任务规格。**本文自包含，是执行者的唯一必读依据**；背景出处（非必读）：`docs/designs/2026-09-14-skill-platform-spec-v3/design/core-modules.md` §4.8/§5、`design/logging.md` §5、`design/scheduler-loop-contracts.md` §9.3、`design/console-design.md` §6、`design/event-contract.md` §1。
 >
 > **2026-10-04 修订**：webhook 入口适配器从本任务移出（归后续独立任务 T18——外部业务推送形态复杂，需单独适配设计）；AibotConnector 维持后移（归企微入口任务）。本任务收缩为：配置解析 + 启动自检 + 装配根 + 进程入口 + EntryAdapter 接口 + ExitDriver + 集成验证。
+>
+> **2026-10-25 修订**：Pi 配置以 `docs/specs/2026-10-25-pi-managed-configuration-spec.md` 为当前契约：两个路径配置可选、显式优先且推荐默认；`AGENT_PI_MODELS` 必需，每次启动严格校验并原子生成/同步受管 `models.json`。本文相关配置、自检、装配与验收口径已同步，其余任务历史保留。
 
 ## 1. 目标
 
@@ -135,7 +137,7 @@ createLifecycle(deps: { loader: ContextLoader; runner: WorkflowRunner; agentServ
 
 `@asteriskzuo/agent-workflow-runner`：`createWorkflowRunner({ workspaceRoot, maxOutputBytes?, killGraceMs?, nodePath? }): WorkflowRunner`。
 
-`@asteriskzuo/agent-service`：`createAgentService({ pi_cli_path, pi_agent_dir, pi_env, mapping }): AgentService`。`pi_env` = pi 子进程基础环境（PATH/HOME 等）；模型凭据由 `pi_agent_dir` 下的 `models.json` 承载（平台管理文件，不进环境变量）。
+`@asteriskzuo/agent-service`：`createAgentService({ pi_cli_path, pi_agent_dir, pi_env, mapping }): AgentService`。`pi_env` = pi 子进程基础环境（仅 PATH/HOME）；模型凭据由 server 根据 `AGENT_PI_MODELS` 启动生成/同步的 `pi_agent_dir/models.json` 承载（含 secret 的受管派生缓存，不进环境变量）。
 
 `@asteriskzuo/agent-asset-registry`：`createAssetRegistry(db, { cache_root }): AssetRegistry`（`register/list/get/materialize`）。
 
@@ -183,18 +185,20 @@ app/server/
 │   ├── index.ts            # 导出 bootstrap / ServerHandle / AssembledContext / 各工厂与类型（供测试与 T13 复用）
 │   ├── main.ts             # 进程入口：bootstrap + 信号处理 + 未捕获兜底
 │   ├── config.ts           # ServerConfig 解析（env > config.json > 默认）
+│   ├── models.ts           # AGENT_PI_MODELS 严格校验、派生 models.json 原子同步与模型列表加载
 │   ├── self-check.ts       # 启动自检（fail-fast）
 │   ├── bootstrap.ts        # 装配根：创建全部模块实例并按依赖方向接线
 │   ├── entry-adapter.ts    # EntryAdapter / EntryDeps 接口（装配层契约）
 │   └── exit-driver.ts      # ExitDriver 实现（投递前 resolveConfigPlaceholders 占位解析）
 └── tests/
     ├── config.test.ts
+    ├── models.test.ts        # 派生模型配置校验、权限、同步与失败语义
     ├── self-check.test.ts
     ├── exit-driver.test.ts
     └── integration.test.ts # 端到端：直接落队 → 业务执行 → 出口投递（内存 fixture）
 ```
 
-`dependencies`（版本号形式）：`@asteriskzuo/agent-contracts`、`@asteriskzuo/agent-database`、`@asteriskzuo/agent-queue`、`@asteriskzuo/agent-registry`、`@asteriskzuo/agent-channel`、`@asteriskzuo/agent-logger`、`@asteriskzuo/agent-env`、`@asteriskzuo/agent-scheduler`、`@asteriskzuo/agent-runtime`、`@asteriskzuo/agent-workflow-runner`、`@asteriskzuo/agent-service`、`@asteriskzuo/agent-asset-registry`、`@asteriskzuo/agent-exit-tools`。**零第三方运行时依赖**。包级脚本模板同 T0 §4，另加 `"start": "node dist/main.js"`。
+`dependencies`（版本号形式）：`@asteriskzuo/agent-contracts`、`@asteriskzuo/agent-database`、`@asteriskzuo/agent-queue`、`@asteriskzuo/agent-registry`、`@asteriskzuo/agent-channel`、`@asteriskzuo/agent-logger`、`@asteriskzuo/agent-env`、`@asteriskzuo/agent-scheduler`、`@asteriskzuo/agent-runtime`、`@asteriskzuo/agent-workflow-runner`、`@asteriskzuo/agent-service`、`@asteriskzuo/agent-asset-registry`、`@asteriskzuo/agent-exit-tools`，以及锁定的 `@earendil-works/pi-coding-agent`（缺省 Pi CLI 的解析来源）。**第三方运行时依赖仅此锁定 Pi 依赖**。包级脚本模板同 T0 §4，另加 `"start": "node dist/main.js"`。
 
 ## 5. 详细规格
 
@@ -211,15 +215,18 @@ export interface ServerConfig {
   result_concurrency: number;   // 出口闸门
   task_timeout_minutes: number; // run 超时全局默认（业务可覆盖，runtime 解析）
   max_agent_calls: number;      // agent 调用配额全局默认（同上）
-  pi_cli_path: string;          // pi 可执行文件绝对路径
-  pi_agent_dir: string;         // PI_CODING_AGENT_DIR（models.json 所在，模型凭据由该文件承载）
+  pi_cli_path: string;          // 已解析 Pi CLI 路径：显式值优先，缺省取 npm 锁定依赖 manifest bin
+  pi_agent_dir: string;         // 平台专用受管目录：显式值优先，缺省 {workspace}/platform/cache/pi/agent
+  pi_models: PiModelsConfig;    // 已校验完整 Pi 配置；含 secret，不进日志或 EffectiveConfigView
   pi_env: Record<string, string>; // pi 子进程基础环境：{ PATH, HOME }（缺失 = 配置错误）
 }
 
 /** 解析配置。envMap 可注入（测试用），缺省 process.env；
- *  缺失必填项 / 非法值 → 抛 EnvError（message 列出全部问题） */
+ *  缺失必填项 / 非法值 → 抛 EnvError（message 列出全部问题，不含原始配置值） */
 export function resolveServerConfig(envMap?: Record<string, string | undefined>): ServerConfig;
 ```
+
+`PiModelsConfig` 保留 Pi 原生顶层、provider、model 的未知字段，完整类型见 `docs/specs/2026-10-25-pi-managed-configuration-spec.md` §4.1。
 
 环境变量清单（优先级：**环境变量 > `{workspace}/platform/config.json` 同名键 > 代码默认**）：
 
@@ -233,12 +240,15 @@ export function resolveServerConfig(envMap?: Record<string, string | undefined>)
 | `AGENT_RESULT_CONCURRENCY` | 否 | `16` | ≥1 |
 | `AGENT_TASK_TIMEOUT_MINUTES` | 否 | `60` | ≥1 |
 | `AGENT_MAX_AGENT_CALLS` | 否 | `20` | ≥1 |
-| `AGENT_PI_CLI_PATH` | 是 | — | 自检验存在可执行 |
-| `AGENT_PI_AGENT_DIR` | 是 | — | 自检验含 models.json |
+| `AGENT_PI_CLI_PATH` | 否 | server 的 npm 锁定依赖 `@earendil-works/pi-coding-agent` manifest `bin` | 显式值优先；自检验存在可执行 |
+| `AGENT_PI_AGENT_DIR` | 否 | `{workspace}/platform/cache/pi/agent` | 显式值优先；默认与自定义均为平台专用受管目录 |
+| `AGENT_PI_MODELS` | 是 | — | config.json 为 Pi `models.json` 同形 object；env 为同结构 JSON 字符串 |
 
-- **config.json**：`{workspace}/platform/config.json`，可选；扁平 JSON object，**键名与环境变量同名**（含 `AGENT_` 前缀），值类型须与目标类型匹配（string/number/boolean）；文件不存在 = 跳过，非法 JSON / 值类型不符 → 抛 EnvError；
-- 解析实现：先取 `AGENT_WORKSPACE`（仅 envMap）→ 读 config.json（有则）→ 逐键 `envMap` 优先、文件次之、默认兜底；字符串/数字/布尔解析委托 env 包的三个函数（对 envMap 来源），文件来源的值直接校验类型；
-- `pi_env` 固定组 `{ PATH, HOME }`（取自 envMap，缺任一 → 抛 EnvError）；模型凭据一律走 `pi_agent_dir/models.json`（决策点 5）。
+- **config.json**：`{workspace}/platform/config.json`，可选；JSON object，**键名与环境变量同名**（含 `AGENT_` 前缀）。普通标量值类型须与目标类型匹配（string/number/boolean）；`AGENT_PI_MODELS` 例外，为 Pi `models.json` 同形 object。文件不存在 = 跳过，非法 JSON / 值类型不符 → 抛 EnvError；
+- 解析实现：先取 `AGENT_WORKSPACE`（仅 envMap）→ 读 config.json（有则）→ 逐键 `envMap` 优先、文件次之、默认兜底；字符串/数字/布尔解析委托 env 包的三个函数（对 envMap 来源），文件来源的值直接校验类型。`AGENT_PI_MODELS` 的 env 值单独按 JSON 字符串解析，存在时**整体覆盖**文件值，不深合并；高优先级来源存在但非法时直接失败，不 fallback。两个显式路径非法时同样失败，不回退默认值；推荐使用两个默认路径；
+- **模型严格校验**：顶层与 `providers` 必须是非数组 object，`providers` 非空；每个 provider 配置必须是 object，其 `baseUrl`/`api`/`apiKey` 为非空字符串，`models` 为非空数组；每个 model 必须是 object，其 `id` 为非空字符串且同一 provider 内不重复。任一已声明 provider/model 非法都失败，不静默跳过；未知字段原样保留，可用模型按声明顺序产出 `provider/id`。错误只含配置键/字段路径，不含原始 JSON、`apiKey` 值或其他配置值；
+- **启动派生文件**：每次启动由 `preparePiModels` 再次校验并递归创建受管目录（`0700`），将完整 `pi_models` 序列化到同目录随机临时文件（`0600`），再原子 rename 替换 `{pi_agent_dir}/models.json`。源配置非法时不进入写入；任一写入/替换失败都清理本次临时文件并中止启动，不删除旧文件、不继续消费旧文件。派生文件含 secret，不得进 git 或日志；人工修改不会保留，修改源配置后重启生效，不热更新；
+- `pi_env` 固定组 `{ PATH, HOME }`（取自 envMap，缺任一 → 抛 EnvError）；模型凭据一律走启动生成的 `pi_agent_dir/models.json`（决策点 5），不加入 Pi 子进程环境。
 
 ### 5.2 启动自检（self-check.ts）
 
@@ -252,7 +262,7 @@ export function runSelfCheck(config: ServerConfig): void;
 1. `{workspace}` 可建可写（mkdirSync recursive + 探测文件写删）；
 2. 数据分类子目录骨架可建：`platform/`（`data/` `cache/` `logs/`）与 `businesses/`（2026-10-12 工作区目录重构后布局，console-design §6）；
 3. `pi_cli_path` 存在且可执行（`accessSync(path, constants.X_OK)`）；
-4. `pi_agent_dir` 存在且含 `models.json` 文件；
+4. `pi_agent_dir` 存在且含本次启动生成的派生 `models.json` 文件，并可经 `loadModelList` 严格解析出非空 `provider/id` 列表；自检保留独立验证职责，不以旧文件代替生成失败；
 5. `git` 可用（`execFileSync('git', ['--version'])` 成功）——asset-registry 物化资产经 git 子进程，git 缺失则一切资产拉取必败；
 6. （node 不单列：workflow-runner 缺省用 `process.execPath` spawn 业务程序，server 能启动即 node 必然在；数据库可打开/迁移由各工厂创建时自然 fail-fast，亦不单列。）
 
@@ -331,8 +341,8 @@ export function bootstrap(overrides?: {
 
 1. `config = resolveServerConfig(overrides?.env)`；
 2. `initLogger({ logsDir: '{workspace}/platform/logs', level: config.log_level, enabled: config.log_enabled })`——自带目录自检；
-3. `runSelfCheck(config)`；
-4. system 日志「启动中」（回显关键配置：闸门/workspace/pi 路径——**不含任何 secret**）；
+3. `preparePiModels(config.pi_agent_dir, config.pi_models)` → `runSelfCheck(config)` → `const models = loadModelList(config.pi_agent_dir)`（供配置视图）：先创建/同步派生文件，再由自检独立验证；源配置非法或生成失败立即中止，不得消费旧 `models.json`；
+4. system 日志「启动中」（回显关键配置：闸门/workspace/pi 路径——**不含任何 secret，不打印 `pi_models`**）；
 5. 接线（依赖方向即创建顺序）：
    - `db = openDatabase('{workspace}/platform/data/platform.db')`；
    - `entryQueue = createTaskQueue(db, 'entry_tasks')`、`exitQueue = createTaskQueue(db, 'exit_tasks')`；
@@ -372,16 +382,19 @@ export function bootstrap(overrides?: {
 
 **config.test.ts**：
 
-- 必填缺失（AGENT_WORKSPACE / AGENT_PI_CLI_PATH / PATH / HOME）→ EnvError 且 message 含变量名；
-- 全默认：给齐必填 → 各默认值正确（8/4/16/60/20/info/true），pi_env = { PATH, HOME }；
-- config.json 兜底：临时 workspace 写 config.json（`AGENT_TASK_CONCURRENCY: 9`）→ 生效；同名环境变量存在 → 环境变量优先；非法 JSON / 值类型不符 → EnvError；
+- 必填缺失（AGENT_WORKSPACE / AGENT_PI_MODELS / PATH / HOME）→ EnvError 且 message 含变量名；
+- 全默认：给齐必填 → 各默认值正确（8/4/16/60/20/info/true），CLI 命中 npm 锁定依赖 manifest `bin`，agent dir 命中 `{workspace}/platform/cache/pi/agent`，pi_env = { PATH, HOME }；两个显式路径分别优先，非法显式路径不回退默认；
+- config.json 兜底：临时 workspace 写 config.json（`AGENT_TASK_CONCURRENCY: 9`）→ 生效；同名环境变量存在 → 环境变量优先；`AGENT_PI_MODELS` 文件 object 与 env JSON 字符串均可解析，env 整体覆盖文件且不深合并；非法 JSON / 值类型不符 / 高优先级来源非法 → EnvError，不 fallback；
+- 模型严格校验：缺 provider/model、`apiKey` 等非空字符串字段缺失、空 models、缺 id、重复 id、顶层或 providers 为数组均失败，不跳过坏项；未知字段保留；错误与启动日志不含 sentinel secret；
 - 数字越界 / 非法布尔 / 非法 log_level → EnvError。
+
+**models.test.ts**（2026-10-25 增补）：首次生成、配置变化后重启同步、完整未知字段保留、目录 `0700` / 文件 `0600`、生成后 `provider/id` 列表正确；非法源配置不覆盖已有文件，目录创建失败中止且不破坏既有文件。
 
 **self-check.test.ts**：
 
-- 全绿通过（临时 workspace + fixture pi）；
+- 全绿通过（临时 workspace + fixture pi + 已生成的合法派生 models.json）；
 - pi_cli_path 不存在 / 不可执行 → 抛错且 message 含路径；
-- pi_agent_dir 缺 models.json → 抛错；
+- 派生 models.json 缺失 / 非法 / 模型列表为空 → 抛错；
 - workspace 不可写（注入只读目录）→ 抛错；多项同时失败 → message 列出全部失败项；
 - git 不可用（用例内临时将 `process.env.PATH` 置空、结束恢复）→ 抛错且 message 含 `git`。
 
@@ -394,7 +407,7 @@ export function bootstrap(overrides?: {
 
 **integration.test.ts**（端到端，全真实装配）：
 
-- 临时 workspace；envMap 注入必填项（pi_cli_path 指向 fixture 假 pi 可执行脚本、pi_agent_dir 指向含哑 models.json 的 fixture 目录）→ `bootstrap({ env })`；
+- 临时 workspace；envMap 注入 `AGENT_WORKSPACE`/`PATH`/`HOME`、必需的 `AGENT_PI_MODELS`（合法 fixture JSON）与显式 `AGENT_PI_CLI_PATH=<假 pi>`；`AGENT_PI_AGENT_DIR` 缺省且不预建 `models.json` → `bootstrap({ env })`，启动必须成功生成派生文件才能继续；`/api/config` 的模型列表与 secret 防泄漏由 `console-api.test.ts` 验证；
 - 造资产：临时目录 git init + commit 一个**包资产**（含 `agent-package.json` 清单 + 流程程序 fixture：读 stdin 信封，stdout 输出一行 `{contract_version:'v1', ok:true, output:{echo: input.payload, got_config: config['X']}}`）→ `assets.register({ kind:'package', url: 本地路径, ref:'HEAD', owner_id })`；git commit 用 `git -c user.email=test@test -c user.name=test`；
 - `registry.create` 业务（绑定该包 + entry_program + prompt；EnvProvider vars 写 `X`）→ `addMatch(bid, 'manual', 'test.ping')` → 出口绑定 `webhook` 工具（config.url 指向本地接收服务器）；
 - **模拟入口落队**（等价于入口适配器的落队动作）：直接向 `entryQueue.enqueue` 一个 `{ source:'manual', event_type:'test.ping', session_id:'S-1', ... }` 合法信封；
@@ -405,9 +418,9 @@ export function bootstrap(overrides?: {
 
 1. 根级六连全绿：`yarn build && yarn test && yarn typecheck && yarn lint && yarn format:check && yarn circular`；
 2. §6 测试清单全覆盖；integration.test.ts 连跑 10 次不 flake；
-3. 零第三方运行时依赖；packages 零改动；无任何 packages 依赖 app/server；
+3. 第三方运行时依赖仅锁定的 `@earendil-works/pi-coding-agent`；packages 零改动；无任何 packages 依赖 app/server；
 4. 导出签名与本文 §5 一致；全包仅 config.ts 经 env 包接触环境变量，无散点 `process.env`；
-5. `yarn workspace @asteriskzuo/agent-server build && AGENT_WORKSPACE=<临时目录> AGENT_PI_CLI_PATH=<假pi> AGENT_PI_AGENT_DIR=<fixture> node app/server/dist/main.js` 能起能停（自检失败路径同样验证：缺 AGENT_WORKSPACE 退出码 1）。
+5. `yarn workspace @asteriskzuo/agent-server build && AGENT_WORKSPACE=<临时目录> AGENT_PI_CLI_PATH=<假pi> AGENT_PI_MODELS='<合法 Pi models.json 同形 JSON>' node app/server/dist/main.js` 能起能停（缺省使用 `{workspace}/platform/cache/pi/agent`；自检失败路径同样验证：缺 AGENT_WORKSPACE 或 AGENT_PI_MODELS 退出码 1）。
 
 ## 8. 本规格的决策点（设计文档未覆盖或有调整，主 agent 已定，owner 已审）
 
@@ -415,9 +428,9 @@ export function bootstrap(overrides?: {
 2. **webhook 入口适配器后移 T18**（2026-10-04，owner 裁决）：webhook 监听外部业务推送，验签与会话标识规则需结合真实外部业务形态单独设计，不在装配任务里凭空定。本任务只立接口；entry_config schema / 验签 / 幂等头约定随 T18 定。
 3. **AibotConnector 不在本任务**（owner 裁决）：归企微入口任务（入口/出口共享同一 SDK 连接，T9 spec 决策 J）。连接器落地前 wecom-aibot 出口绑定 bind 必抛错 → 重试耗尽死信，已知缺口。
 4. **出口配置占位解析定稿**：`{{key}}` 统一机制，exitSecretKey 约定废弃（T24）——所有字段原样存 binding.config，投递前 resolveConfigPlaceholders 统一解析；destinationOf 不解析占位（含占位字段 → `tpl_` 哈希身份）。
-5. **pi_env 只组 PATH/HOME**：模型凭据由 `pi_agent_dir/models.json` 承载（平台管理文件），不进环境变量、不进日志；将来确有 env 形式凭据需求再扩配置项。
+5. **pi_env 只组 PATH/HOME**：模型凭据由 server 根据 `AGENT_PI_MODELS` 启动生成/同步的 `pi_agent_dir/models.json` 承载（含 secret 的受管派生缓存），不进环境变量、不进日志；将来确有 env 形式凭据需求再扩配置项。
 6. **入口流量与管理 API 各自独立**（owner 裁决）：各入口适配器自管理监听资源（webhook 将来在 T18 自起 HTTP 服务、独立端口），管理 API（T13）另起独立 HTTP 服务与端口——架构清晰、各自演化，不共享实例。
-7. **config.json 兜底**：env > `{workspace}/platform/config.json`（同名键、扁平 JSON）> 代码默认；`AGENT_WORKSPACE` 仅环境变量（config.json 栖身于 workspace）。
+7. **config.json 兜底**：env > `{workspace}/platform/config.json`（同名键 JSON object）> 代码默认；`AGENT_WORKSPACE` 仅环境变量（config.json 栖身于 workspace）。`AGENT_PI_MODELS` 文件值为 object、env 值为 JSON 字符串，env 整体覆盖文件且不深合并。
 8. **集成验证的入口 = 直接落队**：入口适配器的本质动作就是 `queue.enqueue`（验签/包装归 T18），集成测试直接落队即可走通全链路，不因 webhook 后移而削弱验证强度。
 9. **自检失败退出码 1**：initLogger 之前的失败（配置解析）走 stderr；之后走 system error 日志 + stderr。带病运行比不运行更危险（logging.md §5.1）。
-10. **自检覆盖 git、不覆盖 node**（owner 裁决）：git 是 asset-registry 物化资产的子进程依赖（`execFileSync("git", …)`），缺失则资产拉取必败，必须 fail-fast；node 由 workflow-runner 以 `process.execPath`（server 进程本体）spawn 业务程序，server 能启动即恒真，不做恒真检查。pi 经 `AGENT_PI_CLI_PATH` 检查（存在+可执行）。
+10. **自检覆盖 git、不覆盖 node**（owner 裁决）：git 是 asset-registry 物化资产的子进程依赖（`execFileSync("git", …)`），缺失则资产拉取必败，必须 fail-fast；node 由 workflow-runner 以 `process.execPath`（server 进程本体）spawn 业务程序，server 能启动即恒真，不做恒真检查。pi 经解析后的 `pi_cli_path` 检查（存在+可执行；显式 `AGENT_PI_CLI_PATH` 优先，缺省解析 npm 锁定依赖）。

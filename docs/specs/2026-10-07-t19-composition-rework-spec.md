@@ -6,6 +6,8 @@
 > `docs/designs/2026-09-14-skill-platform-spec-v3/design/asset-model.md` §6/§7.1、
 > `design/console-design.md` §4、
 > `design/business-workflow.md` §2/§3（均已按本批决策更新）。
+>
+> **2026-10-25 修订**：Pi 模型配置以 `docs/specs/2026-10-25-pi-managed-configuration-spec.md` 为当前契约：可选模型来自必需的 `AGENT_PI_MODELS`；server 每次启动严格校验并原子生成/同步受管 `models.json`，不再要求人工预置，也不允许跳过非法 provider/model。本文 §2.6 及相关表述已同步。
 
 ---
 
@@ -14,7 +16,7 @@
 真机验证（server + console 实跑）暴露三类问题，本批一次性修复：
 
 1. **工具组合链路断**：`sdk.run('jira-fetch')` 中的程序名没有任何解析机制——stdin 信封从未注入程序名→路径映射，跨仓库工具物化在 `platform/cache/assets/{asset_id}/`（hash 目录），业务代码无从得知路径，跨资产 `sdk.run` 必然失败。
-2. **模型名硬编码**：`'qwen3.8max'` 散落在 registry 默认值、console 下拉、设计文档中；且该值缺 provider 前缀，对 pi 而言本就不是合法模型名（models.json 里的合法选择是 `provider/id` 形式，如 `qwen/qwen3.8-max`）。**目标态：平台代码不出现任何具体模型名**，可选集合由部署侧 models.json 驱动。
+2. **模型名硬编码**：`'qwen3.8max'` 散落在 registry 默认值、console 下拉、设计文档中；且该值缺 provider 前缀，对 pi 而言本就不是合法模型名（合法选择是 `provider/id` 形式，如 `qwen/qwen3.8-max`）。**目标态：平台代码不出现任何具体模型名**，可选集合由必需的 `AGENT_PI_MODELS` 经启动严格校验并生成受管 `models.json` 后驱动。
 3. **业务编辑页不可用**：agent/model 下拉硬编码；绑定下拉为空时无任何引导；出口机密项不知道去哪配；叹号提示单薄。
 
 **核心原则**（本批所有改动的统一准绳）：资产的物理路径是平台内部计算结果，业务只有**使用权**（按名调用），没有**管理权**（任何界面/代码都不让业务填路径）；对外暴露的只有 git 引用（url + commit + 子路径）与程序名。
@@ -30,7 +32,7 @@
 | `packages/runtime` | `RunContext` 增加 `programs`；ContextLoader 产出全量映射；lifecycle 传递 | T19a |
 | `packages/registry` | 去掉 model 硬编码默认；迁移 v3 清理历史行 | T19a |
 | `packages/console-api` | `GET /api/config` 返回 `models`/`agents`；业务绑定配置期校验（本批最大新逻辑） | T19a |
-| `app/server` | models.json 解析函数；自检增强；configView 扩展 | T19a |
+| `app/server` | `AGENT_PI_MODELS` 严格校验；受管 `models.json` 原子生成/同步与解析；自检增强；configView 扩展 | T19a |
 | `templates/agent-package` | README 补「包内程序 vs 共享工具」分工 | T19a |
 | `app/console` | 业务编辑页重做（下拉 API 驱动、空资产引导、出口机密项标注、叹号文案、关系说明） | T19b |
 
@@ -97,7 +99,7 @@ run(program: string, args: {...}): Promise<unknown> {
 
 - `CreateBusinessInput.model` 注释改为「缺省 ''（空串 = 未选择；registry 层机械存储，必选校验归控制台表单）」。
 - `create()` 两处 `input.model ?? "qwen3.8max"` → `input.model ?? ""`。
-- `BusinessProfile.model` 注释去掉「MVP 仅 qwen3.8max」，改为「provider/id 形式（如 qwen/qwen3.8-max）；可选集合由部署侧 models.json 决定」。
+- `BusinessProfile.model` 注释去掉「MVP 仅 qwen3.8max」，改为「provider/id 形式（如 qwen/qwen3.8-max）；可选集合由 `AGENT_PI_MODELS` 经启动严格校验并生成受管 models.json 后决定」。
 - **迁移纪律：已有迁移（v1/v2）一个字节都不能改。** 新增迁移 v3：
 
 ```sql
@@ -116,7 +118,7 @@ UPDATE businesses SET model = '' WHERE model = 'qwen3.8max';
 - `EffectiveConfigView` 增加两字段：
 
 ```ts
-/** 可选大模型列表（provider/id 形式）：server 启动时解析 pi_agent_dir/models.json 所得全量 */
+/** 可选大模型列表（provider/id 形式）：AGENT_PI_MODELS 经启动严格校验并生成受管 pi_agent_dir/models.json 后解析所得全量；不含 pi_models/apiKey */
 models: string[];
 /** 可选 agent 内核列表（MVP 恒 ['pi']） */
 agents: string[];
@@ -145,28 +147,38 @@ POST `/api/businesses` 与 PATCH `/api/businesses/:id` 在落库前执行以下�
 
 **c) 测试**：存在性/权限/entry_program/程序名查重/skill 名查重/requires 缺绑/model 非法/agent_kind 非法 各一条；「patch 只改 prompt 不触发校验」一条（用会抛错的 assets stub 证明未被调用）；「全部合法 → 通过且物化发生」一条。资产用本地临时 git 仓库夹具（routes-assets 的既有测试同法，可复用其模式）。
 
-### 2.6 server：models.json 解析 + 自检增强
+### 2.6 server：`AGENT_PI_MODELS` 校验 + 派生 `models.json` + 自检增强（2026-10-25 修订）
 
-文件：`app/server/src/models.ts`（新建）、`self-check.ts`、`bootstrap.ts`
+文件：`app/server/src/config.ts`、`models.ts`、`self-check.ts`、`bootstrap.ts`
 
-- **新建 `models.ts`**：
+- **源配置**：`AGENT_PI_MODELS` 必需；config.json 中为 Pi `models.json` 同形 object，env 中为同结构 JSON 字符串，env 存在时整体覆盖文件值，不深合并。完整字段类型见本文顶部修订指引的当前契约。
+- **`models.ts` 当前接口**：
 
 ```ts
-/** 解析 pi 的 models.json（{pi_agent_dir}/models.json），产出可选模型全量列表（provider/id 形式）。
- *  结构非法（非 JSON / providers 非对象 / 无任一 provider 含非空 models 数组）→ 抛错（消息说明原因） */
+/** 校验未知输入并提取模型列表；错误只含配置键/字段路径，不含原始值 */
+export function validatePiModelsConfig(
+  value: unknown,
+  source?: string,
+): { config: PiModelsConfig; models: string[] };
+
+/** 创建受管目录并原子同步 models.json；失败抛出且不继续使用旧文件 */
+export function preparePiModels(piAgentDir: string, config: PiModelsConfig): void;
+
+/** 读取并严格校验派生文件，返回 provider/id 列表 */
 export function loadModelList(piAgentDir: string): string[];
 ```
 
-models.json 结构（pi 原生格式，模板见 `templates/models.json.example`）：
+`AGENT_PI_MODELS` 与派生 `models.json` 同形（`templates/models.json.example` 只是源值结构示例，不再表示手工复制到 agent 目录）：
 
 ```jsonc
 { "providers": { "<provider>": { "baseUrl": "...", "api": "...", "apiKey": "...", "models": [{ "id": "<model-id>" }] } } }
 ```
 
-  解析规则：遍历 `providers` 每个键值对，对其 `models` 数组的每项取 `id`，产出 `${provider}/${id}`；**不读、不记、不回显 apiKey**（它只属 pi 子进程）。任一 provider 的 `models` 为空数组或缺 `id` 字段 → 跳过该项不算错，但最终全平台列表为空 = 抛错。
-- `self-check.ts` ④ 增强：在「models.json 是文件」之上，调 `loadModelList` 验证可解析且非空，失败原因进 `failures`。
-- `bootstrap.ts`：自检通过后 `const models = loadModelList(config.pi_agent_dir)`（自检已保证合法，此处必成功）；`configView` 增加 `models` 与 `agents: ["pi"]`（字面量，注释：新内核 = 代码新增 + 此处登记）。
-- 测试：models.ts 单测（合法多 provider / 非法 JSON / 空 providers / 全部空 models / 缺 id 跳过）；self-check 增强用例；bootstrap 集成测试断言 configView 携带 models/agents。
+- **严格校验**：顶层与 `providers` 必须是非数组 object，`providers` 非空；每个 provider 配置必须是 object，其 `baseUrl`/`api`/`apiKey` 必须是非空字符串，`models` 必须是非空数组；每个 model 必须是 object，其 `id` 必须是非空字符串且同一 provider 内不重复。任一已声明 provider/model 非法都失败，**不得跳过坏项**；未知顶层/provider/model 字段原样保留。模型列表按声明顺序只产出 `${provider}/${id}`；`apiKey` 仅随完整配置受管序列化，不进日志、错误详情或 API 回显；
+- **生成与启动顺序**：`resolveServerConfig`（含源配置严格校验）→ `initLogger` → `preparePiModels` → `runSelfCheck` → `loadModelList`。受管目录权限 `0700`，同目录随机临时文件权限 `0600`，写入后原子 rename；任一写入/替换失败清理临时文件并中止启动，不删除旧文件、不继续消费旧文件。默认与自定义 `pi_agent_dir` 均为平台专用受管目录，人工修改派生文件不会保留；
+- `self-check.ts` ④ 增强：在派生 `models.json` 是文件之上，调 `loadModelList` 独立验证可严格解析且非空，失败原因进 `failures`；
+- `bootstrap.ts`：`preparePiModels` 和自检通过后再 `const models = loadModelList(config.pi_agent_dir)`；`configView` 增加 `models` 与 `agents: ["pi"]`。`models` 只含 `provider/id`，不得通过展开 `ServerConfig` 带入 `pi_models` 或 `apiKey`；
+- 测试：合法多 provider / 非法 JSON / 空 providers / 空 models / 缺 id / 重复 id 均按严格规则通过或失败；覆盖 env 整体覆盖、未知字段保留、首次生成与重启同步、目录/文件权限、写入失败不消费旧文件；bootstrap 集成测试断言 configView 携带 models/agents 且无 secret。
 
 ### 2.7 包模板 README 补充分工说明
 
@@ -188,7 +200,7 @@ models.json 结构（pi 原生格式，模板见 `templates/models.json.example`
 
 - 页面加载时请求 `GET /api/config`（`EffectiveConfigView`，T19a 后含 `agents`/`models`），两个 Select 的 options 由其驱动；**删除全部硬编码**（约 385/386/415/421 行的 `'pi'`/`'qwen3.8max'` 固定项与 initialValues）。
 - 创建模式：`agent_kind` 默认选中 `agents[0]`；`model` **必选、无默认选中**（placeholder「请选择模型」，表单 rules required）——模型没有部署无关的合理默认，必须用户显式选。
-- 编辑模式：回显 profile 原值；若原值不在可选集合（models.json 后来改了），保留显示并标黄提示「该模型已不在可选列表」。
+- 编辑模式：回显 profile 原值；若原值不在可选集合（`AGENT_PI_MODELS` 修改并重启后），保留显示并标黄提示「该模型已不在可选列表」。
 
 ### 3.2 空资产引导
 
@@ -246,5 +258,5 @@ T19a（平台侧：runner/sdk/runtime/registry/console-api/server/模板）
 - Aibot 连接器、webhook 入口（T18 另行讨论）；
 - 绑定校验的异步化（同步 get 阻塞事件循环的已知代价，本版接受）；
 - console 其他页面的改版（本批只动业务编辑页）；
-- models.json 的热更新（改了重启 server）；
+- `AGENT_PI_MODELS` 的热更新（修改源配置后重启 server，启动时重新生成/同步派生 `models.json`）；
 - pi `--model` 传参链路的改动（pi-runner 原样传 `model` 字符串，行为不变——变化的是值的来源）。

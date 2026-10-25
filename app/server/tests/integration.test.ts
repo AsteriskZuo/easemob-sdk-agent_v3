@@ -136,22 +136,16 @@ beforeAll(async () => {
   const piCliPath = join(tmpDir, "fake-pi");
   writeFileSync(piCliPath, "#!/bin/sh\nexit 0\n");
   chmodSync(piCliPath, 0o755);
-  // fixture pi_agent_dir（自检要求含可解析、非空的 models.json；伪造占位内容）
-  const piAgentDir = join(tmpDir, "pi-agent-dir");
-  mkdirSync(piAgentDir, { recursive: true });
-  writeFileSync(
-    join(piAgentDir, "models.json"),
-    JSON.stringify({
-      providers: {
-        "test-provider": {
-          baseUrl: "https://test-provider.example.com/v1",
-          api: "openai-completions",
-          apiKey: "sk-fake-placeholder",
-          models: [{ id: "model-a" }],
-        },
+  const piModels = {
+    providers: {
+      "test-provider": {
+        baseUrl: "https://test-provider.example.com/v1",
+        api: "openai-completions",
+        apiKey: "sk-fake-placeholder",
+        models: [{ id: "model-a" }],
       },
-    }),
-  );
+    },
+  };
 
   const receiverUrl = await startReceiver();
   const repoDir = makeAssetRepo();
@@ -160,7 +154,7 @@ beforeAll(async () => {
     env: {
       AGENT_WORKSPACE: workspace,
       AGENT_PI_CLI_PATH: piCliPath,
-      AGENT_PI_AGENT_DIR: piAgentDir,
+      AGENT_PI_MODELS: JSON.stringify(piModels),
       AGENT_CONSOLE_PORT: "0", // 随机端口，避免与本机/并发测试的 6100 冲突
       AGENT_WEBHOOK_PORT: "0", // webhook 入口适配器同理（T21b 起默认开启，随机端口避冲突）
       // 自检的 registry 可达性检查指向本地接收服务器（测试不触外网）
