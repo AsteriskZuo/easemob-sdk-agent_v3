@@ -4,7 +4,10 @@ import type {
   AssetMeta,
   AssetRegistry,
 } from "@asteriskzuo/agent-asset-registry";
+import { computeAssetId, resolveRef } from "@asteriskzuo/agent-asset-registry";
 import { logger } from "@asteriskzuo/agent-logger";
+import type { BusinessRegistry } from "@asteriskzuo/agent-registry";
+import { findAssetReferencers } from "@asteriskzuo/agent-registry";
 import type { EnvProvider } from "@asteriskzuo/agent-runtime";
 import type { User } from "./accounts.js";
 import { ApiError } from "./errors.js";
@@ -16,6 +19,7 @@ import {
   sendNoContent,
 } from "./http.js";
 import type { Route } from "./router.js";
+import type { UpdateSubmission, UpdateSubmitter } from "./updates.js";
 
 const ASSET_KINDS: readonly AssetKind[] = ["package", "tool", "skill"];
 
@@ -65,14 +69,48 @@ function optionalField<T>(
   return value as T;
 }
 
-/** 资产路由：读 = 登录用户；写（登记/更新/下架）= 仅 member（admin 不持有资产），更新/下架仅限属主本人；
- *  共享资产（tool/skill shared=true）禁止版本更新（asset-registry shared_immutable → 409） */
+/** 统一响应：已应用 = 现有同步语义（201/200 + meta）；已接受排队 = 202 { accepted: true } */
+function respondMeta<T>(
+  res: Parameters<typeof sendJson>[0],
+  submission: UpdateSubmission<T>,
+  appliedStatus: number,
+): void {
+  if (submission.outcome === "applied") {
+    sendJson(res, appliedStatus, submission.result);
+  } else {
+    sendJson(res, 202, { accepted: true });
+  }
+}
+
+/** 资产路由：读 = 登录用户；写（登记/更新/上下架/删除）= 仅 member（admin 不持有资产），更新/上下架/删除仅限属主本人；
+ *  共享资产（tool/skill shared=true）禁止版本更新（asset-registry shared_immutable → 409）。
+ *  写操作一律经统一更新队列：登记/删除按提交时引用方（通常空），更新/上下架 = 全部引用方屏障 */
 export function assetRoutes(deps: {
   assets: AssetRegistry;
   env: EnvProvider;
+  registry: BusinessRegistry;
+  updates: UpdateSubmitter;
 }): Route[] {
-  const { assets, env } = deps;
+  const { assets, env, registry, updates } = deps;
   const log = logger.for({ module: "console-api" });
+
+  function assertMemberWritable(
+    actor: User,
+    assetId: string,
+    action: string,
+  ): AssetMeta {
+    if (actor.role !== "member") {
+      throw new ApiError("forbidden", `admin 不持有资产，${action}仅 member`);
+    }
+    const meta = findMeta(assets, assetId);
+    if (meta === undefined) {
+      throw new ApiError("not_found", `资产不存在: ${assetId}`);
+    }
+    if (meta.owner_id !== actor.user_id) {
+      throw new ApiError("forbidden", `仅属主本人可${action}`);
+    }
+    return meta;
+  }
 
   function listFilter(req: { query: URLSearchParams }): { kind?: AssetKind } {
     const kind = req.query.get("kind");
@@ -94,25 +132,34 @@ export function assetRoutes(deps: {
             `scope 非法: ${scope}（允许: mine/shared/all）`,
           );
         }
+        // enabled 过滤（可选）：选择器用 enabled=true 只看可用资产；缺省返回全部（含已下架）
+        const enabledParam = req.query.get("enabled");
+        const enabledFilter =
+          enabledParam === "true"
+            ? { enabled: true }
+            : enabledParam === "false"
+              ? { enabled: false }
+              : {};
+        const fullFilter = { ...filter, ...enabledFilter };
         let metas: AssetMeta[];
         if (scope === "mine") {
-          metas = assets.list({ ...filter, owner_id: actor.user_id });
+          metas = assets.list({ ...fullFilter, owner_id: actor.user_id });
         } else if (scope === "shared") {
-          metas = assets.list({ ...filter, shared: true });
+          metas = assets.list({ ...fullFilter, shared: true });
         } else if (actor.role === "admin") {
           // admin 缺省/显式 all = 全量（admin 只读，不持有资产）
-          metas = assets.list(filter);
+          metas = assets.list(fullFilter);
         } else {
           // member 缺省 = 自己的 + 共享的（两个查询合并，按 asset_id 去重——
           // 自己的共享资产两边都命中）；member 的 scope=all 语义 = 其可见全集，同样合并
           const byId = new Map<string, AssetMeta>();
           for (const meta of assets.list({
-            ...filter,
+            ...fullFilter,
             owner_id: actor.user_id,
           })) {
             byId.set(meta.asset_id, meta);
           }
-          for (const meta of assets.list({ ...filter, shared: true })) {
+          for (const meta of assets.list({ ...fullFilter, shared: true })) {
             byId.set(meta.asset_id, meta);
           }
           metas = [...byId.values()];
@@ -123,12 +170,12 @@ export function assetRoutes(deps: {
     {
       method: "POST",
       pattern: "/api/assets",
-      handler: (req, res) => {
+      handler: async (req, res) => {
         const actor = req.actor as User;
         if (actor.role !== "member") {
           throw new ApiError(
             "forbidden",
-            "admin 不持有资产，登记/下架仅 member",
+            "admin 不持有资产，资产写操作仅 member",
           );
         }
         const body = requirePlainObject(
@@ -166,7 +213,6 @@ export function assetRoutes(deps: {
         );
         if (credentialKey !== undefined) input.credential_key = credentialKey;
 
-        let credential: string | undefined;
         if (input.is_private === true) {
           if (
             input.credential_key === undefined ||
@@ -177,36 +223,44 @@ export function assetRoutes(deps: {
               "is_private 需要 credential_key",
             );
           }
-          credential = resolveCredential(env, input.credential_key);
         }
-        const meta = assets.register(input, { credential });
+        // 提交时固定版本（ref → 40 位 commit）：排队期间分支移动不影响实际应用版本。
+        // 私有资产 ls-remote 需要凭据真值（仅本次解析用，不进入队列 payload——payload 只存键名）
+        const credential =
+          input.is_private === true
+            ? resolveCredential(env, input.credential_key as string)
+            : undefined;
+        const fixedCommit = resolveRef(input.url, input.ref, credential);
+        const fixedInput: AssetInput = { ...input, ref: fixedCommit };
+        // 同 id 已存在 = 幂等返回既有 meta（register 语义）；有在役引用时仍需排队等待
+        const assetId = computeAssetId(
+          input.owner_id,
+          input.url,
+          input.kind,
+          input.subpath,
+        );
+        const referencers = findAssetReferencers(registry, assetId);
+        const submission = await updates.submit<AssetMeta>({
+          kind: "asset.register",
+          payload: { input: fixedInput },
+          business_ids: referencers,
+          requested_by: actor.user_id,
+        });
         log.info("API 登记资产", {
           operator_id: actor.user_id,
-          asset_id: meta.asset_id,
-          kind: meta.kind,
+          asset_id: assetId,
+          update_id: submission.update_id,
         });
-        sendJson(res, 201, meta);
+        respondMeta(res, submission, 201);
       },
     },
     {
       method: "PUT",
       pattern: "/api/assets/:id",
-      handler: (req, res) => {
+      handler: async (req, res) => {
         const actor = req.actor as User;
-        if (actor.role !== "member") {
-          throw new ApiError(
-            "forbidden",
-            "admin 不持有资产，登记/更新/下架仅 member",
-          );
-        }
         const assetId = req.params.id;
-        const meta = findMeta(assets, assetId);
-        if (meta === undefined) {
-          throw new ApiError("not_found", `资产不存在: ${assetId}`);
-        }
-        if (meta.owner_id !== actor.user_id) {
-          throw new ApiError("forbidden", "仅属主本人可更新");
-        }
+        const meta = assertMemberWritable(actor, assetId, "更新");
         const body = requirePlainObject(
           req.body,
           "body",
@@ -216,13 +270,57 @@ export function assetRoutes(deps: {
         if (meta.is_private && meta.credential_key !== undefined) {
           credential = resolveCredential(env, meta.credential_key);
         }
-        // 物化/校验失败时 asset-registry 已回滚 commit；错误经 toApiError 透出原因
-        const updated = assets.updateRef(assetId, ref, { credential });
+        // 只读预解析：固定 commit；与现版本相同 → 幂等直接返回，不入队
+        const resolved = assets.resolveUpdateRef(assetId, ref, { credential });
+        if (!resolved.changed) {
+          sendJson(res, 200, findMeta(assets, assetId));
+          return;
+        }
+        const submission = await updates.submit<AssetMeta>({
+          kind: "asset.update",
+          payload: {
+            asset_id: assetId,
+            commit: resolved.commit,
+            ...(meta.credential_key !== undefined
+              ? { credential_key: meta.credential_key }
+              : {}),
+          },
+          business_ids: findAssetReferencers(registry, assetId),
+          requested_by: actor.user_id,
+        });
         log.info("API 更新资产版本", {
           operator_id: actor.user_id,
           asset_id: assetId,
+          update_id: submission.update_id,
         });
-        sendJson(res, 200, updated);
+        respondMeta(res, submission, 200);
+      },
+    },
+    {
+      method: "PUT",
+      pattern: "/api/assets/:id/status",
+      handler: async (req, res) => {
+        const actor = req.actor as User;
+        const assetId = req.params.id;
+        assertMemberWritable(actor, assetId, "上下架");
+        const body = requirePlainObject(req.body, "body");
+        if (typeof body.enabled !== "boolean") {
+          throw new ApiError("invalid_input", "enabled 必须是布尔值");
+        }
+        const enabled = body.enabled;
+        const submission = await updates.submit<AssetMeta>({
+          kind: "asset.enabled.set",
+          payload: { asset_id: assetId, enabled },
+          business_ids: findAssetReferencers(registry, assetId),
+          requested_by: actor.user_id,
+        });
+        log.info("API 上下架资产", {
+          operator_id: actor.user_id,
+          asset_id: assetId,
+          enabled,
+          update_id: submission.update_id,
+        });
+        respondMeta(res, submission, 200);
       },
     },
     {
@@ -246,22 +344,34 @@ export function assetRoutes(deps: {
     {
       method: "DELETE",
       pattern: "/api/assets/:id",
-      handler: (req, res) => {
+      handler: async (req, res) => {
         const actor = req.actor as User;
         const assetId = req.params.id;
-        const meta = findMeta(assets, assetId);
-        if (meta === undefined) {
-          throw new ApiError("not_found", `资产不存在: ${assetId}`);
+        assertMemberWritable(actor, assetId, "删除");
+        // 删除是物理删除：仍有业务绑定时拒绝（提示先解绑或改用下架开关），不制造悬空绑定
+        const referencers = findAssetReferencers(registry, assetId);
+        if (referencers.length > 0) {
+          throw new ApiError(
+            "conflict",
+            `资产仍被业务绑定，不能删除: ${assetId}（引用方: ${referencers.join(", ")}；请先解除绑定，或改用下架开关）`,
+          );
         }
-        if (meta.owner_id !== actor.user_id) {
-          throw new ApiError("forbidden", "仅属主本人可下架");
-        }
-        assets.remove(assetId);
-        log.info("API 下架资产", {
+        const submission = await updates.submit({
+          kind: "asset.remove",
+          payload: { asset_id: assetId },
+          business_ids: [],
+          requested_by: actor.user_id,
+        });
+        log.info("API 删除资产", {
           operator_id: actor.user_id,
           asset_id: assetId,
+          update_id: submission.update_id,
         });
-        sendNoContent(res);
+        if (submission.outcome === "applied") {
+          sendNoContent(res);
+        } else {
+          sendJson(res, 202, { accepted: true });
+        }
       },
     },
   ];

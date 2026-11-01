@@ -42,6 +42,13 @@ export interface SchedulerOptions {
   };
 }
 
+/** 运行屏障窄接口（统一更新协调器经它包裹业务执行）：scheduler 不认识 registry、资产或 Pi。
+ *  缺省 = 直通（不注入时行为与旧版一致） */
+export interface RunGate {
+  /** 包裹一次业务执行：applying 屏障等待（不占并发名额）→ 同步登记活动执行 → fn → finally 释放并触发空闲更新 */
+  run<T>(business_id: string, fn: () => Promise<T>): Promise<T>;
+}
+
 /** 循环句柄 */
 export interface SchedulerLoop {
   start(): void; // 启动摄取循环与 drain 触发；幂等（重复调不重复启动）

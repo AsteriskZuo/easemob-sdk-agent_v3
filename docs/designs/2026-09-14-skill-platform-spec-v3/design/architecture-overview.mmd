@@ -3,7 +3,7 @@
 %% 数据流视图（一次任务的生命周期）见 docs/specs/2026-10-03-t12-server-spec.md §2 装配总览
 %% 语义备注：通道池管顺序（同通道串行、跨通道并行）；并发上限另由闸门 Semaphore 控制
 %%           （入口 task_concurrency 保护 LLM 执行进程 / 出口 result_concurrency 管投递）；
-%%           两条队列是 platform.db 中的表，此处为表达「一个循环配一个队列」单独画出
+%%           两条事件队列是 platform.db 中的表，此处为表达「一个循环配一个队列」单独画出（管理面更新命令队列未画出）
 flowchart TB
   subgraph CONSOLE["控制台层"]
     SPA["app/console（T14）<br/>React SPA · 开关与仪表盘 · 无业务逻辑"]

@@ -25,6 +25,7 @@ import type {
 } from "@asteriskzuo/agent-console-api";
 import { apiFetch, ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import EffectivenessNote from "../components/EffectivenessNote";
 
 type Scope = "mine" | "shared" | "all";
 
@@ -34,7 +35,8 @@ const KIND_TABS: Array<{ key: AssetKind; label: string }> = [
   { key: "skill", label: "Skill" },
 ];
 
-/** 资产管理：三族 Tab + scope 筛选 + 登记/详情/下架。
+/** 资产管理：三族 Tab + scope 筛选 + 登记/详情/上架下架/删除。
+ *  下架 = enabled 开关（登记/绑定/缓存保留，重新上架恢复）；删除 = 物理移除。
  *  admin 不持有资产——登记入口对 admin 隐藏（API 侧也 403） */
 export default function AssetsPage() {
   const { user } = useAuth();
@@ -115,13 +117,34 @@ export default function AssetsPage() {
     }
   };
 
+  /** 上架/下架开关（经统一更新队列生效）：只改 enabled 标记，登记、绑定与缓存均保留 */
+  const setEnabled = async (assetId: string, enabled: boolean) => {
+    try {
+      await apiFetch<AssetMeta>(`/api/assets/${assetId}/status`, {
+        method: "PUT",
+        body: { enabled },
+      });
+      message.success(enabled ? "已上架" : "已下架");
+      await reload();
+    } catch (err) {
+      message.error(
+        err instanceof ApiError
+          ? err.message
+          : enabled
+            ? "上架失败"
+            : "下架失败",
+      );
+    }
+  };
+
+  /** 删除（物理删除：移除登记并清理物化缓存；有在役引用时服务端 409 拒绝） */
   const remove = async (assetId: string) => {
     try {
       await apiFetch<void>(`/api/assets/${assetId}`, { method: "DELETE" });
-      message.success("已下架");
+      message.success("已删除");
       await reload();
     } catch (err) {
-      message.error(err instanceof ApiError ? err.message : "下架失败");
+      message.error(err instanceof ApiError ? err.message : "删除失败");
     }
   };
 
@@ -155,7 +178,7 @@ export default function AssetsPage() {
       <div style={{ marginBottom: 16, display: "flex", alignItems: "center" }}>
         <h2 style={{ margin: 0, flex: 1 }}>
           资产管理
-          <Tooltip title="资产 = git 仓库里的包/工具/skill 集合。登记 = 记录仓库坐标；首次查看详情会物化（git 克隆，较慢）。下架不校验在役引用。">
+          <Tooltip title="资产 = git 仓库里的包/工具/skill 集合。登记 = 记录仓库坐标；首次查看详情会物化（git 克隆，较慢）。下架 = 开关：绑定该资产的业务运行时将直接失败，重新上架后恢复，登记/绑定/缓存均保留。删除 = 物理移除登记与缓存（有在役引用会被拒绝）。">
             <QuestionCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
           </Tooltip>
         </h2>
@@ -203,6 +226,16 @@ export default function AssetsPage() {
           },
           { title: "属主", dataIndex: "owner_id" },
           {
+            title: "状态",
+            key: "enabled",
+            render: (_, row: AssetMeta) =>
+              row.enabled ? (
+                <Tag color="green">已上架</Tag>
+              ) : (
+                <Tag color="red">已下架</Tag>
+              ),
+          },
+          {
             title: "标记",
             key: "flags",
             render: (_, row: AssetMeta) => (
@@ -225,11 +258,11 @@ export default function AssetsPage() {
                 >
                   详情
                 </Button>
-                {/* 更新/下架仅属主本人可见（API 侧也强制）；共享资产禁止更新版本 */}
+                {/* 更新/上下架/删除仅属主本人可见（API 侧也强制）；共享资产禁止更新版本 */}
                 {user !== null && row.owner_id === user.user_id && (
                   <>
                     {row.shared ? (
-                      <Tooltip title="共享资产不可更新版本：可能被他人业务引用，静默换版本会让别人莫名出问题。如需新版本请下架后重新登记。">
+                      <Tooltip title="共享资产不可更新版本：可能被他人业务引用，静默换版本会让别人莫名出问题。如需新版本请以不同 url/subpath 重新登记新资产。">
                         <Button size="small" type="link" disabled>
                           更新
                         </Button>
@@ -246,14 +279,34 @@ export default function AssetsPage() {
                         更新
                       </Button>
                     )}
+                    {row.enabled ? (
+                      <Popconfirm
+                        title="确认下架？下架后绑定该资产的业务运行时将直接失败（shared 资产可能包含其他用户的业务），重新上架后恢复；登记、绑定与缓存均保留。"
+                        okText="下架"
+                        cancelText="取消"
+                        onConfirm={() => void setEnabled(row.asset_id, false)}
+                      >
+                        <Button size="small" type="link">
+                          下架
+                        </Button>
+                      </Popconfirm>
+                    ) : (
+                      <Button
+                        size="small"
+                        type="link"
+                        onClick={() => void setEnabled(row.asset_id, true)}
+                      >
+                        上架
+                      </Button>
+                    )}
                     <Popconfirm
-                      title="确认下架？下架不校验在役引用，绑定该资产的业务运行时将报错。"
-                      okText="下架"
+                      title="确认删除？删除将移除登记并清理物化缓存，绑定该资产的业务运行时将失败（有在役引用时会被拒绝）。只想暂时停用请用「下架」。"
+                      okText="删除"
                       cancelText="取消"
                       onConfirm={() => void remove(row.asset_id)}
                     >
                       <Button size="small" type="link" danger>
-                        下架
+                        删除
                       </Button>
                     </Popconfirm>
                   </>
@@ -263,6 +316,9 @@ export default function AssetsPage() {
           },
         ]}
       />
+
+      {/* 登记/更新/上下架/删除均经统一更新队列生效（不展示队列状态，只给统一说明） */}
+      <EffectivenessNote />
 
       <Drawer
         title={`登记${KIND_TABS.find((t) => t.key === kind)?.label ?? ""}资产`}

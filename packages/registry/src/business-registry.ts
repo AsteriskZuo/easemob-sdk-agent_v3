@@ -115,6 +115,19 @@ export interface BusinessRegistry {
 
   /** 删除业务（匹配行、出口绑定一并删）；不存在幂等不报错 */
   remove(business_id: string): void;
+
+  /** 业务自定义 Pi 配置读口（原始 models.json 对象）；未配置返回 undefined。
+   *  专用读口：原始配置（可含 secret）不进入 BusinessProfile、list/getProfile 或普通 patch */
+  getPiModels(business_id: string): Record<string, unknown> | undefined;
+
+  /** 设置或删除业务自定义 Pi 配置，与 model 在同一写操作中更新（不可拆分）：
+   *  config=对象 → 自定义模式（model = 所选 provider/id）；config=null → 删除自定义回全局（model = 合法全局模型）。
+   *  业务不存在抛错；配置合法性校验归调用方（console-api/app/server 验证流程） */
+  setPiModels(
+    business_id: string,
+    config: Record<string, unknown> | null,
+    model: string,
+  ): void;
 }
 
 const MIGRATIONS: readonly string[] = [
@@ -146,6 +159,8 @@ const MIGRATIONS: readonly string[] = [
   // v3：清理历史默认填入的模型名（旧值 'qwen3.8max' 缺 provider 前缀，本就不是合法模型名 → 归一为 '' = 未选择）。
   // v2 的 `DEFAULT 'qwen3.8max'` 是死代码（INSERT 恒显式给值），按迁移纪律保留不改
   `UPDATE businesses SET model = '' WHERE model = 'qwen3.8max';`,
+  // v4：业务自定义 Pi 配置（原始 models.json 文本，可含 secret）；NULL = 未配置（走全局派生目录）
+  `ALTER TABLE businesses ADD COLUMN pi_models TEXT;`,
 ];
 
 interface BusinessRow {
@@ -163,6 +178,7 @@ interface BusinessRow {
   skill_asset_ids: string;
   timeout_minutes: number | null;
   max_agent_calls: number | null;
+  pi_models: string | null;
 }
 
 interface MatchRow {
@@ -192,6 +208,8 @@ interface BusinessState {
   skill_asset_ids: string[];
   timeout_minutes?: number;
   max_agent_calls?: number;
+  /** 业务自定义 Pi 配置（原始对象；可含 secret）。不出现在 BusinessProfile 读面 */
+  pi_models?: Record<string, unknown> | null;
   matches: MatchState[];
 }
 
@@ -211,7 +229,7 @@ class SqliteBusinessRegistry implements BusinessRegistry {
 
   private loadAll(): void {
     const businessRows = this.db.all<BusinessRow>(
-      "SELECT business_id, business_name, creator_id, on_failure, exit_bindings, prompt, model, agent_kind, package_asset_id, entry_program, tool_asset_ids, skill_asset_ids, timeout_minutes, max_agent_calls FROM businesses",
+      "SELECT business_id, business_name, creator_id, on_failure, exit_bindings, prompt, model, agent_kind, package_asset_id, entry_program, tool_asset_ids, skill_asset_ids, timeout_minutes, max_agent_calls, pi_models FROM businesses",
     );
     for (const row of businessRows) {
       const state: BusinessState = {
@@ -233,6 +251,10 @@ class SqliteBusinessRegistry implements BusinessRegistry {
         state.timeout_minutes = row.timeout_minutes;
       if (row.max_agent_calls !== null)
         state.max_agent_calls = row.max_agent_calls;
+      // 业务自定义 Pi 配置（可含 secret）：只进内存态专用读口，不进 BusinessProfile
+      if (row.pi_models !== null) {
+        state.pi_models = JSON.parse(row.pi_models) as Record<string, unknown>;
+      }
       this.businesses.set(row.business_id, state);
     }
     const matchRows = this.db.all<MatchRow>(
@@ -567,9 +589,55 @@ class SqliteBusinessRegistry implements BusinessRegistry {
     this.removeFromView(business_id);
     this.businesses.delete(business_id);
   }
+
+  getPiModels(business_id: string): Record<string, unknown> | undefined {
+    const state = this.businesses.get(business_id);
+    if (!state || state.pi_models === undefined || state.pi_models === null) {
+      return undefined;
+    }
+    return state.pi_models;
+  }
+
+  setPiModels(
+    business_id: string,
+    config: Record<string, unknown> | null,
+    model: string,
+  ): void {
+    const state = this.businesses.get(business_id);
+    if (!state) {
+      throw new Error(`registry: 业务不存在: ${business_id}`);
+    }
+    // 配置与 model 同一写操作（write-through：先落库后更新内存）
+    this.db.run(
+      "UPDATE businesses SET pi_models = ?, model = ? WHERE business_id = ?",
+      [config === null ? null : JSON.stringify(config), model, business_id],
+    );
+    state.pi_models = config;
+    state.model = model;
+    this.refreshView(business_id);
+  }
 }
 
 /** 创建注册表。启动时从 SQLite 加载全量匹配行进内存视图 */
 export function createBusinessRegistry(db: Database): BusinessRegistry {
   return new SqliteBusinessRegistry(db);
+}
+
+/** 引用某资产的全部业务 id（package/tool/skill 绑定任一命中）；按 business_id 字典序。
+ *  纯读面遍历（控制台规模下 list() 全量可接受）；统一更新队列与路由共用 */
+export function findAssetReferencers(
+  registry: BusinessRegistry,
+  assetId: string,
+): string[] {
+  const out: string[] = [];
+  for (const profile of registry.list()) {
+    if (
+      profile.package_asset_id === assetId ||
+      profile.tool_asset_ids.includes(assetId) ||
+      profile.skill_asset_ids.includes(assetId)
+    ) {
+      out.push(profile.business_id);
+    }
+  }
+  return out.sort();
 }

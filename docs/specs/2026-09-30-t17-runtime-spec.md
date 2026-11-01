@@ -47,7 +47,7 @@ export interface RunRequest {
   event: EventEnvelope;       // 触发信封（取 source/session_id 用于目录与日志键）
   business_id: string;
   config: Record<string, string>;   // 业务非机密配置（→ stdin config）
-  secrets: Record<string, string>;  // 业务安全变量（→ stdin secrets，不落盘不进日志）
+  secrets: Record<string, string>;  // 业务安全变量（→ stdin secrets，不进日志、不明文回显，存 platform.db）
   endpoint: { socket_path: string; token: string }; // AgentService 的 per-run 端点
   quota: { timeout_minutes: number };               // wall-clock 超时；agent 次数配额归 agent-service
   // 本任务扩展 ↓（见 §5.5）

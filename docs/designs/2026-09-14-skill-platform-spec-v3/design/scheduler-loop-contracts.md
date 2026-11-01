@@ -48,7 +48,7 @@ type ChannelId = string;
 
 ## 2. 任务队列（TaskQueue）
 
-循环的摄取口。**平台有两条队列——入口队列与出口队列，共用本契约、两个实例**。事件进来即持久化；取出不删、完结才标记，崩溃可恢复。
+循环的摄取口。**平台事件面有两条队列——入口队列与出口队列，共用本契约、两个实例**（2026-10-26 起管理面另有更新命令队列，不共用本契约，见 `docs/specs/2026-10-26-business-pi-configuration-spec.md` §9）。事件进来即持久化；取出不删、完结才标记，崩溃可恢复。
 
 ```ts
 /** 队列中的任务 = 事件 + 消化状态 */
@@ -183,7 +183,7 @@ interface ModelObject {
 /** 环境配置对象：控制台 key-value 的运行时读取面——普通/安全两桶（github/jira 等账号凭证本质也是 key-value，不设第三类） */
 interface EnvConfig {
   vars: Record<string, string>;          // 普通桶：环境变量
-  secrets: Record<string, string>;       // 安全桶：运行时注入，不落盘不进日志
+  secrets: Record<string, string>;       // 安全桶：运行时注入，不进日志、不明文回显（存 platform.db）
 }
 
 /** 通道映射引用（四操作归通道模块，循环只持有引用并注入 agent 调用） */

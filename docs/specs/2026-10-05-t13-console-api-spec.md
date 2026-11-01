@@ -5,7 +5,9 @@
 > 任务：T13（依赖 T12；被 T14 console SPA 依赖）
 > 本规格自包含：执行者只读本规格与总计划（`docs/plans/2026-09-28-platform-implementation-plan.md`），不读原始设计文档。
 >
-> **2026-10-25 修订**：Pi 配置以 `docs/specs/2026-10-25-pi-managed-configuration-spec.md` 为准。`ServerConfig.pi_models` 含 secret，不进入 `EffectiveConfigView`；`/api/config` 的 `models` 只回显 `provider/id`，不回显 `pi_models`、providers 原文或 `apiKey`，且不得通过展开 `ServerConfig` 构造 DTO。模型配置修改后重启生效。
+> **2026-10-25 修订**：Pi 配置以 `docs/specs/2026-10-25-pi-managed-configuration-spec.md` 为准。`ServerConfig.pi_models` 含 secret，不进入 `EffectiveConfigView`；`/api/config` 的 `models` 只回显 `provider/id`，不回显 `pi_models`、providers 原文或 `apiKey`，且不得通过展开 `ServerConfig` 构造 DTO。全局模型配置修改后重启生效。
+>
+> **2026-10-26 修订**：① 业务自定义 Pi 配置（脱敏读取 / 在线验证 / 确认保存 / 恢复平台默认）以 `docs/specs/2026-10-26-business-pi-configuration-spec.md` 为准，经统一更新队列生效、不重启；② 资产「下架」改为 `enabled` 开关（`PUT /api/assets/:id/status`），`DELETE` 保留为物理删除且有在役引用返回 409；③ 全部运行时管理写入（业务资料/env/资产/业务 Pi 配置）经统一更新队列提交——能立即应用保持既有同步响应，被活动执行阻塞时返回 202 `{accepted:true}`。
 
 ---
 
@@ -15,7 +17,7 @@
 
 1. 新包 `packages/console-api`（`@asteriskzuo/agent-console-api`）：HTTP 服务 + 账号体系 + 全部管理路由，零第三方运行时依赖（node:http 自制轻量路由）；
 2. `app/server` 装配扩展：配置新增管理 API 端口，bootstrap 启动/停止管理 API 服务；
-3. `packages/asset-registry` 增补 `remove` 方法（下架，见 §5.6——**契约增补，本规格是其唯一依据**）。
+3. `packages/asset-registry` 增补 `remove` 方法（物理删除，见 §5.6——**契约增补，本规格是其唯一依据**；2026-10-26 起「下架」改由 `setEnabled` 开关承载，见 t16 规格 §5.10）。
 
 管理 API 是平台全部控制开关的读写口：账号、业务配置、资产登记、环境配置（两桶）、出口工具菜单、运行监控（只读）。设计依据：`design/console-design.md` §4/§12、`design/accounts.md`、`design/config-contracts.md`。
 
@@ -236,7 +238,8 @@ packages/console-api/
 │   ├── routes-auth.ts      # 登录/登出/me/改密码
 │   ├── routes-users.ts     # 用户管理（admin）
 │   ├── routes-businesses.ts# 业务 CRUD + 匹配行增删
-│   ├── routes-assets.ts    # 资产登记/列表/详情/下架
+│   ├── routes-assets.ts    # 资产登记/列表/详情/上下架/删除
+│   ├── routes-pi-config.ts # 业务 Pi 配置：脱敏读取/在线验证/确认保存/恢复默认（2026-10-26 起，见新规格）
 │   ├── routes-env.ts       # 环境配置两桶（global/business）
 │   ├── routes-config.ts    # 生效配置只读回显 + 出口工具菜单
 │   ├── routes-monitoring.ts# 队列计数 / 任务查询 / 业务运行记录
@@ -392,7 +395,7 @@ export function createAccountService(db: Database): AccountService;
 
 ### 5.5 路由：资产（routes-assets.ts）
 
-权限：读 = 登录用户；列表过滤——member 看「自己的 + 共享的」，admin 看全部（admin 只读）。写（登记/更新/下架）= **仅 member**（admin 不持有资产，`design/accounts.md` §1 权限表）；更新/下架仅限属主本人。
+权限：读 = 登录用户；列表过滤——member 看「自己的 + 共享的」，admin 看全部（admin 只读）。写（登记/更新/上下架/删除）= **仅 member**（admin 不持有资产，`design/accounts.md` §1 权限表）；更新/上下架/删除仅限属主本人。列表另支持可选 `enabled=true|false` 过滤（2026-10-26 起，供控制台绑定选择器只展示可用资产；缺省返回全部含已下架）。
 
 | 方法 路径 | 说明 |
 |-----------|------|
@@ -400,7 +403,8 @@ export function createAccountService(db: Database): AccountService;
 | POST `/api/assets` | body `{kind, url, ref, subpath?, shared?, is_private?, credential_key?}`；`owner_id = actor.user_id`；私有资产凭据解析见下；**登记即校验（fail fast）**：物化（clone+构建）+ 清单校验不过 → 400 透出真实原因（`validation_failed`/`materialize_failed` 原文），登记行回滚不落库；201 `AssetMeta` |
 | PUT `/api/assets/:id` | 版本更新（T26）：body `{ref}`；仅属主 member；asset_id 不变（业务绑定不断），重新物化+校验，失败回滚 commit；**共享资产（tool/skill shared=true）→ 409**（`shared_immutable`，防止静默换版本影响他人业务）；200 `AssetMeta` |
 | GET `/api/assets/:id` | `AssetObject`（meta + manifest）；命中物化缓存直接返回（登记时已物化），缓存被清后首次会重新 clone（慢）——路由不另设超时，由 node:http 默认行为承载 |
-| DELETE `/api/assets/:id` | 下架：仅属主本人；删登记行 + 清物化缓存（§5.6）；204 |
+| DELETE `/api/assets/:id` | 删除（物理删除）：仅属主本人；删登记行 + 清物化缓存（§5.6）；**有在役引用（业务绑定）→ 409**（2026-10-26 起；只想停用请用下架开关）；204 |
+| PUT `/api/assets/:id/status` | 上架/下架开关（2026-10-26 起）：body `{enabled: boolean}`；仅属主本人；幂等，只改 `enabled` 标记——登记行、commit、绑定、缓存均保留；下架后绑定业务运行时 fail-fast（`asset_disabled`），重新上架恢复；200 `AssetMeta` |
 
 **私有资产凭据解析**：`is_private` 资产的 register/get 需要 `opts.credential` 值。本任务约定：**凭据值从通用层安全桶解析**——`env.getFor("").secrets[credential_key]`（getFor 空串 = 只取通用层，见 §2.4）。取不到 → invalid_input（提示先在通用配置登记该 credential_key）。此约定写入 DTO 注释。
 
@@ -410,14 +414,14 @@ export function createAccountService(db: Database): AccountService;
 export interface AssetRegistry {
   // ……既有四方法不变……
 
-  /** 下架：删登记行 + 清物化缓存目录；不存在幂等不报错。
-   *  不校验在役引用——业务绑定着已下架资产时，运行时取用在 ContextLoader 处抛 asset_not_found，
-   *  属配置错误，由控制台操作者负责（console UI 可在删除前提示在役业务，非本包职责） */
+  /** 删除（物理删除）：删登记行 + 清物化缓存目录；不存在幂等不报错。
+   *  2026-10-26 起在役引用检查上移到本层（管理 API）：有业务绑定 → 409；
+   *  业务绑定着已删除资产时，运行时取用在 ContextLoader 处抛 asset_not_found，属配置错误 */
   remove(asset_id: string): void;
 }
 ```
 
-实现：`DELETE FROM assets WHERE asset_id = ?` + `rmSync(path.join(cacheRoot, asset_id), { recursive: true, force: true })`。asset-registry 现有测试照常全绿；新增 remove 用例（存在删除 + 缓存清理、不存在幂等、删后可重新登记同三元组得到同 asset_id）。
+实现：`DELETE FROM assets WHERE asset_id = ?` + `rmSync(path.join(cacheRoot, asset_id), { recursive: true, force: true })`。asset-registry 现有测试照常全绿；新增 remove 用例（存在删除 + 缓存清理、不存在幂等、删后可重新登记同三元组得到同 asset_id）。2026-10-26 起「下架」语义由 `setEnabled` 开关承载（见 `docs/specs/2026-09-30-t16-asset-registry-spec.md` §5.10），`remove` 保留为显式物理删除。
 
 ### 5.7 registry 增补：list（契约增补）
 
@@ -583,7 +587,7 @@ export interface ApiErrorBody { error: { code: string; message: string } }
 
 **businesses-routes.test.ts**：创建（201 + 返回 profile）；creator 可改/他人 403/admin 可改；PATCH 白名单外字段 400；匹配行增删幂等；DELETE 后 404；GET /api/businesses 列表。
 
-**assets-routes.test.ts**：登记（本地 git fixture）201；member 列表示自己的+共享的、admin 列表全部；admin 登记 403；详情触发物化返回 manifest；下架 204 + 再登记同三元组同 asset_id；非属主下架 403；is_private 无 credential_key 400。
+**assets-routes.test.ts**：登记（本地 git fixture）201；member 列表示自己的+共享的、admin 列表全部；admin 登记 403；详情触发物化返回 manifest；删除 204 + 再登记同三元组同 asset_id；非属主删除 403；is_private 无 credential_key 400。2026-10-26 起增补：`PUT /:id/status` 上下架幂等 + 仅属主；删除有在役引用 409；列表 enabled 过滤。
 
 **env-routes.test.ts**：global 读（member 可读）；global 写 member 403/admin 204；业务层写 creator/他人/admin 权限矩阵；secrets 只写——list 只见键名不见值；key 非法（空白）400。
 
@@ -609,4 +613,4 @@ export interface ApiErrorBody { error: { code: string; message: string } }
 6. **私有资产凭据统一从通用层安全桶解析**（`env.getFor("")`）；业务层安全桶不参与资产登记期凭据解析。
 7. **首启 admin 注入失败不阻断平台启动**（记 error 日志）——平台核心职责是跑业务循环，控制台可后续补建。
 8. **cookie 不加 Secure 标记**：HTTPS 终结属部署层；SameSite=Lax + HttpOnly 已有基本防护。
-9. **下架不校验在役引用**：机械删除，提示义务归 console UI。
+9. **删除与下架分离（2026-10-26 修订）**：原「下架不校验在役引用、机械删除」已改——`remove` 物理删除在本层校验在役引用（有引用 409）；「暂时停用」语义由 `enabled` 开关承载（不校验引用、登记/绑定/缓存保留、运行时 fail-fast、重新上架恢复）。提示义务仍归 console UI。

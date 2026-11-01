@@ -234,8 +234,8 @@ describe("GET /api/assets/:id 详情", () => {
   });
 });
 
-describe("DELETE /api/assets/:id 下架", () => {
-  it("属主下架 → 204；再登记同三元组 → 同 asset_id", async () => {
+describe("DELETE /api/assets/:id 删除（物理删除）", () => {
+  it("属主删除 → 204；再登记同三元组 → 同 asset_id", async () => {
     const { meta } = await registerAsset(alice.token);
     const del = await api(server, "DELETE", `/api/assets/${meta.asset_id}`, {
       token: alice.token,
@@ -250,7 +250,7 @@ describe("DELETE /api/assets/:id 下架", () => {
     expect(again.meta.asset_id).toBe(meta.asset_id);
   });
 
-  it("非属主下架 → 403（member 他人与 admin 都非属主）", async () => {
+  it("非属主删除 → 403（member 他人与 admin 都非属主）", async () => {
     const { meta } = await registerAsset(alice.token);
     const byBob = await api(server, "DELETE", `/api/assets/${meta.asset_id}`, {
       token: bob.token,

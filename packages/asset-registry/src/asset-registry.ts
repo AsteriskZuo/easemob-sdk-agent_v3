@@ -37,6 +37,8 @@ export interface AssetMeta {
   owner_id: string;
   shared: boolean;
   is_private: boolean;
+  /** 上架/下架开关：false=下架（绑定业务运行时 asset_disabled 失败）；登记/绑定/commit/缓存均不受影响 */
+  enabled: boolean;
   /** 仅 is_private 时有值 */
   credential_key?: string;
   /** ISO 时间戳 */
@@ -51,16 +53,26 @@ export interface AssetObject {
   manifest: AssetManifest;
 }
 
+/** 版本预解析结果（resolveUpdateRef 的返回；只读不写） */
+export interface ResolvedAssetRef {
+  /** 可直接交回 updateRef 的 40 位 commit */
+  commit: string;
+  /** false=与当前登记 commit 相同，无需入队或重新物化 */
+  changed: boolean;
+}
+
 export interface AssetRegistry {
   /** 登记：解析 ref→commit（需网络/可达 git 仓库）→ 算 asset_id → 幂等或插行。不下载内容。
+   *  同 id 已存在（含已下架）→ 原样返回既有 meta，不自动上架、不更换版本。
    *  opts.credential：调用方从操作者安全桶解析出的凭据值（is_private 资产的 ls-remote 需要，见 §5.3/§5.6） */
   register(input: AssetInput, opts?: { credential?: string }): AssetMeta;
 
-  /** 列表：按 kind / owner_id / shared 过滤（均可缺省 = 不过滤）；权限过滤归调用方 */
+  /** 列表：按 kind / owner_id / shared / enabled 过滤（均可缺省 = 不过滤）；权限过滤归调用方 */
   list(filter: {
     kind?: AssetKind;
     owner_id?: string;
     shared?: boolean;
+    enabled?: boolean;
   }): AssetMeta[];
 
   /** 取用：内部先 materialize 再按 kind 校验解析；未登记抛 asset_not_found */
@@ -72,9 +84,12 @@ export interface AssetRegistry {
    *  opts.credential 同 register（仅缓存缺失、需要真正 clone 时需要，见 §5.7） */
   materialize(asset_id: string, opts?: { credential?: string }): string;
 
-  /** 下架：删登记行 + 清物化缓存目录；不存在幂等不报错。
-   *  不校验在役引用——业务绑定着已下架资产时，运行时取用在 ContextLoader 处抛 asset_not_found，
-   *  属配置错误，由控制台操作者负责（console UI 可在删除前提示在役业务，非本包职责） */
+  /** 上架/下架开关（幂等）：只改 enabled 标记；不删登记行、不改 commit、不解绑、不清缓存。
+   *  下架后绑定它的业务运行时以 asset_disabled 失败，重新上架后恢复。资产不存在抛 asset_not_found */
+  setEnabled(asset_id: string, enabled: boolean): AssetMeta;
+
+  /** 物理删除：删登记行 + 清物化缓存目录；不存在幂等不报错。
+   *  引用方校验归调用方（console-api 提交前有引用则 409）；运行时在 ContextLoader 处抛 asset_not_found */
   remove(asset_id: string): void;
 
   /** 版本更新：解析 ref→commit 换版本并重新物化，asset_id 不变（业务绑定不断）。
@@ -89,12 +104,20 @@ export interface AssetRegistry {
     opts?: { credential?: string },
   ): AssetMeta;
 
+  /** 版本预解析（只读）：校验资产存在与 shared_immutable/凭据前置条件，解析 ref→commit，
+   *  不写登记行也不动缓存。供更新命令提交时固定版本，避免排队期间分支移动 */
+  resolveUpdateRef(
+    asset_id: string,
+    ref: string,
+    opts?: { credential?: string },
+  ): ResolvedAssetRef;
+
   /** 清空物化缓存根目录下全部内容（登记行不动）；cacheRoot 不存在时不报错（幂等）。
    *  清理后已登记资产下次 get/materialize 触发重新物化构建（懒重建，可能耗时分钟级） */
   clearCache(): void;
 }
 
-/** 存储迁移（spec §5.5）：下标即版本号，v1 建 assets 表 */
+/** 存储迁移（spec §5.5）：下标即版本号，v1 建 assets 表，v2 加上下架开关 */
 const MIGRATIONS = [
   // commit 是 SQLite 保留字，列名须加双引号（列名仍为 commit，与 spec §5.5 一致）
   `CREATE TABLE assets (
@@ -110,6 +133,8 @@ const MIGRATIONS = [
   created_at TEXT NOT NULL,
   modified_at TEXT NOT NULL
 )`,
+  // v2：上架/下架开关，既有数据默认 1（上架）
+  `ALTER TABLE assets ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1`,
 ];
 
 /** assets 表行形态（snake_case 原样） */
@@ -123,6 +148,7 @@ interface AssetRow {
   is_private: number;
   credential_key: string | null;
   owner_id: string;
+  enabled: number;
   created_at: string;
   modified_at: string;
 }
@@ -134,6 +160,7 @@ function rowToMeta(row: AssetRow): AssetMeta {
     owner_id: row.owner_id,
     shared: row.shared === 1,
     is_private: row.is_private === 1,
+    enabled: row.enabled === 1,
     ...(row.credential_key !== null
       ? { credential_key: row.credential_key }
       : {}),
@@ -205,13 +232,14 @@ class AssetRegistryImpl implements AssetRegistry {
 
     const existing = this.getRow(assetId);
     if (existing) {
+      // 幂等：同 id 已存在（含已下架）原样返回，不自动上架、不更换版本
       return rowToMeta(existing);
     }
     const now = new Date().toISOString();
     this.db.run(
       `INSERT INTO assets
-       (asset_id, kind, url, "commit", subpath, shared, is_private, credential_key, owner_id, created_at, modified_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (asset_id, kind, url, "commit", subpath, shared, is_private, credential_key, owner_id, enabled, created_at, modified_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
       [
         assetId,
         input.kind,
@@ -232,7 +260,7 @@ class AssetRegistryImpl implements AssetRegistry {
       const root = this.materialize(assetId, { credential: opts?.credential });
       validateAsset(root, input.kind);
     } catch (err) {
-      this.remove(assetId);
+      this.remove(assetId); // 登记失败的私有回滚清理，不是管理删除操作
       throw err;
     }
     return rowToMeta(this.getRow(assetId) as AssetRow);
@@ -242,6 +270,7 @@ class AssetRegistryImpl implements AssetRegistry {
     kind?: AssetKind;
     owner_id?: string;
     shared?: boolean;
+    enabled?: boolean;
   }): AssetMeta[] {
     const conds: string[] = [];
     const params: unknown[] = [];
@@ -256,6 +285,10 @@ class AssetRegistryImpl implements AssetRegistry {
     if (filter.shared !== undefined) {
       conds.push("shared = ?");
       params.push(filter.shared ? 1 : 0);
+    }
+    if (filter.enabled !== undefined) {
+      conds.push("enabled = ?");
+      params.push(filter.enabled ? 1 : 0);
     }
     const where = conds.length > 0 ? ` WHERE ${conds.join(" AND ")}` : "";
     return this.db
@@ -305,6 +338,21 @@ class AssetRegistryImpl implements AssetRegistry {
     });
   }
 
+  setEnabled(asset_id: string, enabled: boolean): AssetMeta {
+    const row = this.getRow(asset_id);
+    if (!row) {
+      throw new Error(`asset_not_found: ${asset_id}`);
+    }
+    const next = enabled ? 1 : 0;
+    if (row.enabled !== next) {
+      this.db.run("UPDATE assets SET enabled = ? WHERE asset_id = ?", [
+        next,
+        asset_id,
+      ]);
+    }
+    return rowToMeta(this.getRow(asset_id) as AssetRow);
+  }
+
   remove(asset_id: string): void {
     this.db.run("DELETE FROM assets WHERE asset_id = ?", [asset_id]);
     rmSync(path.join(this.cacheRoot, asset_id), {
@@ -327,7 +375,7 @@ class AssetRegistryImpl implements AssetRegistry {
     }
     if (row.shared === 1) {
       throw new Error(
-        `shared_immutable: 共享资产不可更新版本（${asset_id}）；如需新版本请下架后重新登记`,
+        `shared_immutable: 共享资产不可更新版本（${asset_id}）；如需新版本请以不同 url/subpath 重新登记新资产`,
       );
     }
     if (row.is_private === 1 && !opts?.credential) {
@@ -364,6 +412,30 @@ class AssetRegistryImpl implements AssetRegistry {
       throw err;
     }
     return rowToMeta(this.getRow(asset_id) as AssetRow);
+  }
+
+  resolveUpdateRef(
+    asset_id: string,
+    ref: string,
+    opts?: { credential?: string },
+  ): ResolvedAssetRef {
+    const row = this.getRow(asset_id);
+    if (!row) {
+      throw new Error(`asset_not_found: ${asset_id}`);
+    }
+    if (typeof ref !== "string" || ref.length === 0) {
+      invalid("ref 不能为空");
+    }
+    if (row.shared === 1) {
+      throw new Error(
+        `shared_immutable: 共享资产不可更新版本（${asset_id}）；如需新版本请以不同 url/subpath 重新登记新资产`,
+      );
+    }
+    if (row.is_private === 1 && !opts?.credential) {
+      throw new Error(`credential_required: ${row.credential_key}`);
+    }
+    const commit = resolveRef(row.url, ref, opts?.credential);
+    return { commit, changed: commit !== row.commit };
   }
 
   clearCache(): void {

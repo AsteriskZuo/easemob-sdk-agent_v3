@@ -287,6 +287,27 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@asteriskzuo/agent-pi-probe@npm:0.1.0, @asteriskzuo/agent-pi-probe@workspace:packages/pi-probe":
+  version: 0.0.0-use.local
+  resolution: "@asteriskzuo/agent-pi-probe@workspace:packages/pi-probe"
+  dependencies:
+    "@asteriskzuo/agent-process-runner": "npm:0.1.0"
+    esbuild: "npm:^0.28.1"
+    jest: "npm:^29.7.0"
+    typescript: "npm:^5.9.0"
+  languageName: unknown
+  linkType: soft
+
+"@asteriskzuo/agent-process-runner@npm:0.1.0, @asteriskzuo/agent-process-runner@workspace:packages/process-runner":
+  version: 0.0.0-use.local
+  resolution: "@asteriskzuo/agent-process-runner@workspace:packages/process-runner"
+  dependencies:
+    esbuild: "npm:^0.28.1"
+    jest: "npm:^29.7.0"
+    typescript: "npm:^5.9.0"
+  languageName: unknown
+  linkType: soft
+
 "@asteriskzuo/agent-queue@npm:0.1.0, @asteriskzuo/agent-queue@workspace:packages/queue":
   version: 0.0.0-use.local
   resolution: "@asteriskzuo/agent-queue@workspace:packages/queue"
@@ -350,6 +371,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asteriskzuo/agent-sdk@workspace:packages/sdk"
   dependencies:
+    "@asteriskzuo/agent-process-runner": "npm:0.1.0"
     "@jest/globals": "npm:^29.7.0"
     esbuild: "npm:^0.28.1"
     jest: "npm:^29.7.0"
@@ -370,6 +392,7 @@ __metadata:
     "@asteriskzuo/agent-env": "npm:0.1.0"
     "@asteriskzuo/agent-exit-tools": "npm:0.1.0"
     "@asteriskzuo/agent-logger": "npm:0.1.0"
+    "@asteriskzuo/agent-pi-probe": "npm:0.1.0"
     "@asteriskzuo/agent-queue": "npm:0.1.0"
     "@asteriskzuo/agent-registry": "npm:0.1.0"
     "@asteriskzuo/agent-runtime": "npm:0.1.0"
@@ -389,6 +412,7 @@ __metadata:
   resolution: "@asteriskzuo/agent-service@workspace:packages/agent-service"
   dependencies:
     "@asteriskzuo/agent-logger": "npm:0.1.0"
+    "@asteriskzuo/agent-process-runner": "npm:0.1.0"
     "@jest/globals": "npm:^29.7.0"
     esbuild: "npm:^0.28.1"
     jest: "npm:^29.7.0"
@@ -402,6 +426,7 @@ __metadata:
   dependencies:
     "@asteriskzuo/agent-contracts": "npm:0.1.0"
     "@asteriskzuo/agent-logger": "npm:0.1.0"
+    "@asteriskzuo/agent-process-runner": "npm:0.1.0"
     "@jest/globals": "npm:^29.7.0"
     esbuild: "npm:^0.28.1"
     jest: "npm:^29.7.0"

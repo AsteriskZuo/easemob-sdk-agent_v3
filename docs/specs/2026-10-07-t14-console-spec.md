@@ -150,7 +150,8 @@ app/console/
 | 包绑定（必填提示） | 下拉：`GET /api/assets?kind=package&scope=mine`；选中后 `GET /api/assets/:id` 取 manifest，`entry_program` 下拉 = `programs` 键列表 | `package_asset_id` / `entry_program` |
 | 工具绑定 | 多选：`GET /api/assets?kind=tool&scope=all`（member 可见全集=mine+shared） | `tool_asset_ids` |
 | skill 绑定 | 多选：`GET /api/assets?kind=skill&scope=all` | `skill_asset_ids` |
-| agent / 大模型 | Select 固定项 `pi` / `qwen3.8max`（注册表驱动，MVP 单值） | `agent_kind` / `model` |
+| agent | 下拉：`GET /api/config` 的 `agents`（注册表驱动，MVP 单值 pi） | `agent_kind` |
+| 大模型 | 创建页 = 下拉（`GET /api/config` 的 `models`，即平台默认）。**编辑页双模式（2026-10-26 起，`PiConfigSection`）**：平台默认（同创建页下拉，随主保存 PATCH）/ 业务自定义（自由输入 provider/id，不受全局下拉限制 + 完整 models.json 编辑 + 在线验证 + 验证通过后确认保存；任何编辑使验证失效，掩码字段必须重填；已配置自定义的业务可「恢复平台默认」——选全局模型后 DELETE）。厂商帮助抽屉（`PiProviderHelpDrawer`）：千问/DeepSeek/OpenAI 分标签模板 + 复制 + 官方文档链接，纯静态帮助不参与验证 | `model`（自定义模式/已配置自定义时不进 PATCH——自定义配置业务的 model 由 pi-config 端点与配置同一写操作维护，PATCH 单独改被服务端 409） |
 | 提示词总纲 | Textarea（rows≥6） | `prompt` |
 | 入口（匹配行） | `MatchEditor` 列表：source 下拉（contracts 七值）、event_type Input（**可留空** = 通配该来源全部事件，T25；填写 = 精确过滤）、entry_config 表单/JSON Tabs 双视图；增删行。提示文案：「关注上游业务产出 = source 选 internal + event_type 填 `业务id.产出类型`」 | 创建时首个匹配行进 `CreateBusinessBody`；编辑态增删行 = `POST/DELETE /api/businesses/:id/matches` |
 | 出口（可选） | `GET /api/exit-tools` 菜单勾选；勾选后按 `configSchema` 动态渲染表单项（required 标红星）；`implemented=false` 的工具置灰不可选 | 见下方「出口配置分流」 |
@@ -168,13 +169,14 @@ app/console/
 - **创建页草稿（T25）**：仅创建模式，表单全量状态防抖 500ms 写 `localStorage["business-create-draft-v1"]`，重进恢复 + 可手动清除，提交成功自动清除；编辑模式不做草稿；
 - **随建环境配置区（T25）**：仅创建模式的折叠区（普通/安全两组 key-value 行），随 POST body 的 `env` 一并提交，解决「业务级 secrets 需要 business_id、而 id 要创建成功才有」的死锁；占位校验失败的错误提示引导用户在该区补键重提；
 - 编辑：进入时 `GET /api/businesses/:id` + `GET /api/env/businesses/:id` 回填；保存 = `PATCH`（资料字段，含出口绑定）+ 匹配行增删 diff + env diff；
+- **统一更新队列生效（2026-10-26 起）**：全部管理写入（业务资料/env/资产/业务 Pi 配置）经服务端统一更新队列——能立即应用保持同步响应，被活动执行阻塞时 202 接受、受影响业务空闲后自动生效。页面一律不展示 pending/update_id/进度，只在相关操作区展示统一说明：「当前有任务执行时，修改将在受影响业务空闲后自动生效，后续运行使用新配置；生效前页面显示当前生效值。」（`EffectivenessNote` 组件）；
 - env/secret 的「diff」（2026-10-12 更新）：编辑页环境配置与创建页同一套**行内编辑**（KvGroup 行 UI，草稿语义）；保存由**主「保存」按钮统一触发**（EnvEditor `ref.save()`，内部仍逐 key PUT/DELETE，不并入 PATCH body——部分失败时业务资料已存成、env 报错并把展示回滚为服务端状态，停留本页供修正重试）；设置页通用层保留 EnvEditor 自带保存/重置按钮。
 
 ### 5.4 页面：资产管理
 
 - kind Tab（包/工具/skill）+ scope 筛选（我的/共享的/全部——member 的「全部」= 可见全集）；
 - 登记表单（Drawer）：kind（当前 Tab）、url、ref、subpath、shared（仅 tool/skill 可勾，package 隐藏）、is_private + credential_key（is_private 时必填，叹号提示「凭据值需先在通用配置安全桶登记同名 key」）；
-- 列表：asset_id（截断+复制）、名称（manifest.name 无则 —）、owner_id、shared/is_private 徽标、created_at；行操作：详情（`GET /api/assets/:id`，Modal 展示 manifest 美化 JSON + meta；提示「首次查看可能触发 git 克隆，较慢」）、更新（T26：**仅 `owner_id === 当前用户` 显示**；非共享资产可点，Modal 输入新 ref → `PUT /api/assets/:id`，成功后提示「已重新物化」；**共享资产按钮禁用**，tooltip 说明「共享资产不可更新版本，如需新版本请下架后重新登记」）、下架（**仅 `owner_id === 当前用户` 显示**；确认框文案提示「下架不校验在役引用，绑定该资产的业务运行时将报错」）；
+- 列表：asset_id（截断+复制）、名称（manifest.name 无则 —）、owner_id、**状态列（已上架/已下架 Tag，2026-10-26 起）**、shared/is_private 徽标、created_at；行操作（更新/上下架/删除均**仅 `owner_id === 当前用户` 显示**）：详情（`GET /api/assets/:id`，Modal 展示 manifest 美化 JSON + meta；提示「首次查看可能触发 git 克隆，较慢」）、更新（非共享资产可点，Modal 输入新 ref → `PUT /api/assets/:id`，成功后提示「已重新物化」；**共享资产按钮禁用**，tooltip 说明「共享资产不可更新版本，如需新版本请以不同 url/subpath 重新登记新资产」）、下架/上架（`PUT /api/assets/:id/status`；下架确认文案「下架后绑定该资产的业务运行时将直接失败（shared 资产可能包含其他用户的业务），重新上架后恢复；登记、绑定与缓存均保留。」）、删除（物理删除；确认文案「删除将移除登记并清理物化缓存，绑定该资产的业务运行时将失败（有在役引用时会被拒绝）。只想暂时停用请用『下架』。」）；
 - admin 提示：admin 不持有资产——登记表单对 admin 隐藏（API 也 403）。
 
 ### 5.5 后端扩展：console-api 静态托管（小增补）
@@ -219,7 +221,7 @@ jsdom + @testing-library；API 一律 mock（`apiFetch` 层注入或 globalThis.
 - **auth-guard.test.tsx**：me 200 → 渲染子路由；me 401 → 跳 /login；loading 中显示加载态（不闪现登录页）。
 - **login-page.test.tsx**：提交调用 login 且成功跳转；失败展示统一错误文案；已登录重定向。
 - **business-form.test.tsx**（核心）：① 创建提交映射——表单值 → `CreateBusinessBody`（首个匹配行/agent/model/资产绑定/超时覆盖）；② **出口配置全量进绑定**——所有字段（含 secret 提示项）原样进 ExitBinding.config，表单/JSON Tabs 双视图同步；③ 编辑回填——BusinessDetail → 表单初值（占位文本原样回显）；④ entry_config 非法 JSON 表单内报错不提交；⑤ 清除超时覆盖提交 null。
-- **assets-page.test.tsx**：登记表单提交映射（package 隐藏 shared；is_private 必填 credential_key）；下架按钮仅属主可见；admin 不见登记入口；更新入口（T26：非共享资产弹窗提交 PUT 带 ref；共享资产更新按钮禁用）。
+- **assets-page.test.tsx**：登记表单提交映射（package 隐藏 shared；is_private 必填 credential_key）；下架按钮仅属主可见；admin 不见登记入口；更新入口（T26：非共享资产弹窗提交 PUT 带 ref；共享资产更新按钮禁用）。2026-10-26 起增补：状态列渲染（已上架/已下架）、上下架动作 PUT `/:id/status`、删除与下架分离。
 - **pages-smoke.test.tsx**：Dashboard（队列卡片渲染 mock 计数）、Settings（config 只读展示 + member 隐藏编辑）、Users（admin 表格渲染、停用确认）。
 - console-api 静态托管用例见 §5.5。
 

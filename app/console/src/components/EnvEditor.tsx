@@ -10,6 +10,7 @@ import type { EnvListView } from "@asteriskzuo/agent-console-api";
 import { apiFetch, ApiError } from "../api/client";
 import { KvGroup } from "./CreateEnvEditor";
 import type { EnvKvRow } from "./CreateEnvEditor";
+import EffectivenessNote from "./EffectivenessNote";
 
 export interface EnvEditorProps {
   /** 通用层（global）或业务层（business） */
@@ -182,6 +183,8 @@ const EnvEditor = forwardRef<EnvEditorHandle, EnvEditorProps>(
           >
             重置
           </Button>
+          {/* env 修改经统一更新队列生效（hideActions 时由外层页面展示同一说明） */}
+          <EffectivenessNote />
         </div>
       );
 

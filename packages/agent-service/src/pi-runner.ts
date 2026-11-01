@@ -1,10 +1,9 @@
-import type { ChildProcess } from "node:child_process";
-import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { CategoryLogger } from "@asteriskzuo/agent-logger";
+import { ProcessError, runProcess } from "@asteriskzuo/agent-process-runner";
 import type {
   AgentServeContext,
   AgentServiceDeps,
@@ -16,6 +15,9 @@ import type { ServiceResponse } from "./socket-server.js";
 const MAX_INPUT_BYTES = 512 * 1024;
 /** agent_failed 错误里携带的 stderr 尾部长度 */
 const STDERR_TAIL_CHARS = 2048;
+/** agent op 自身不设执行时限：实际界限由 run 级 wall-clock 与 AgentService.close 的 abort 控制；
+ *  进程原语要求正数超时，这里给 24h 兜底（等价于迁移前的"无超时"） */
+const AGENT_OP_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
 /** 平台审计 extension 的绝对路径（本包 extensions/audit.js）。
  *  dist/ 与 dist-test/src/ 布局深度不同，从本模块位置向上找 */
@@ -31,14 +33,15 @@ export function resolveAuditExtensionPath(): string {
   throw new Error("@asteriskzuo/agent-service: 未找到 extensions/audit.js");
 }
 
-/** pi 子进程 env：deps 注入的基础 env + PI_CODING_AGENT_DIR + AUDIT_LOG_PATH（不继承其他环境） */
+/** pi 子进程 env：deps 注入的基础 env + PI_CODING_AGENT_DIR + AUDIT_LOG_PATH（不继承其他环境）。
+ *  PI_CODING_AGENT_DIR 优先取 run 上下文的业务派生目录（业务自定义 Pi 配置），缺省用全局目录 */
 export function buildPiEnv(
   deps: AgentServiceDeps,
   ctx: AgentServeContext,
 ): Record<string, string> {
   return {
     ...deps.pi_env,
-    PI_CODING_AGENT_DIR: deps.pi_agent_dir,
+    PI_CODING_AGENT_DIR: ctx.pi_agent_dir ?? deps.pi_agent_dir,
     AUDIT_LOG_PATH: ctx.audit_log_path,
   };
 }
@@ -89,13 +92,13 @@ function extractAssistantOutput(stdout: string): {
   return last;
 }
 
-/** agent op：装配命令行 → spawn pi（单次推理）→ 提取最终 assistant 文本。
+/** agent op：装配命令行 → 经 process-runner 执行 pi（单次推理）→ 提取最终 assistant 文本。
  *  失败路径全部返回 ok:false（input_too_large / skill_not_allowed / agent_failed / agent_empty_output） */
 export async function runAgentOp(
   deps: AgentServiceDeps,
   ctx: AgentServeContext,
   req: ValidatedAgentRequest,
-  procs: Set<ChildProcess>,
+  inflight: Set<AbortController>,
   log: CategoryLogger,
 ): Promise<ServiceResponse> {
   const startedAt = Date.now();
@@ -169,47 +172,34 @@ export async function runAgentOp(
     inputText,
   ];
 
-  const child = spawn(deps.pi_cli_path, args, {
-    cwd: ctx.workspace,
-    env: buildPiEnv(deps, ctx),
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  procs.add(child);
-
-  let stdout = "";
-  let stderr = "";
-  child.stdout.on("data", (chunk: Buffer) => {
-    stdout += chunk.toString("utf8");
-  });
-  child.stderr.on("data", (chunk: Buffer) => {
-    stderr += chunk.toString("utf8");
-  });
-
-  const exit = await new Promise<{
-    code: number | null;
-    signal: string | null;
-  }>((resolve) => {
-    child.on("error", (err) => {
-      stderr += String(err.message);
-      resolve({ code: -1, signal: null });
+  const controller = new AbortController();
+  inflight.add(controller);
+  try {
+    const result = await runProcess(deps.pi_cli_path, args, {
+      cwd: ctx.workspace,
+      env: { mode: "exact", values: buildPiEnv(deps, ctx) },
+      timeout_ms: AGENT_OP_TIMEOUT_MS,
+      signal: controller.signal,
+      max_output_bytes: null, // 迁移前聚合不设上限，保持兼容
     });
-    child.on("close", (code, signal) => resolve({ code, signal }));
-  });
-  procs.delete(child);
-
-  if (exit.code !== 0) {
-    const tail = stderr.slice(-STDERR_TAIL_CHARS).trim();
-    return fail(
-      `agent_failed: ${tail || `pi 退出异常 code=${exit.code} signal=${exit.signal}`}`,
+    const extracted = extractAssistantOutput(result.stdout);
+    if (!extracted || extracted.text === "") {
+      return fail("agent_empty_output");
+    }
+    return done(
+      { contract_version: "v1", ok: true, output: extracted.text },
+      extracted.usage,
     );
+  } catch (e) {
+    // 统一归类：非零退出 / close abort / 超时都回 agent_failed（stderr 有界尾部优先）
+    if (e instanceof ProcessError) {
+      const tail = e.stderr.slice(-STDERR_TAIL_CHARS).trim();
+      return fail(
+        `agent_failed: ${tail || `pi 退出异常 code=${e.code} signal=${e.signal}`}`,
+      );
+    }
+    throw e;
+  } finally {
+    inflight.delete(controller);
   }
-
-  const extracted = extractAssistantOutput(stdout);
-  if (!extracted || extracted.text === "") {
-    return fail("agent_empty_output");
-  }
-  return done(
-    { contract_version: "v1", ok: true, output: extracted.text },
-    extracted.usage,
-  );
 }

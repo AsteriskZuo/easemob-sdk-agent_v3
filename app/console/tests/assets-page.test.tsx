@@ -15,6 +15,7 @@ const OWN_PACKAGE: AssetMeta = {
   owner_id: MEMBER_USER.user_id,
   shared: false,
   is_private: false,
+  enabled: true,
   created_at: "2026-01-01T00:00:00.000Z",
   modified_at: "2026-01-01T00:00:00.000Z",
 };

@@ -94,6 +94,9 @@ export function createLifecycle(deps: LifecycleDeps): EntryDriver {
           session_dir,
           audit_log_path,
           quota: { max_agent_calls: ctx.quota.max_agent_calls },
+          ...(ctx.pi_agent_dir !== undefined
+            ? { pi_agent_dir: ctx.pi_agent_dir }
+            : {}),
         });
       } catch (err) {
         store.markTerminal(run_id, "failed");

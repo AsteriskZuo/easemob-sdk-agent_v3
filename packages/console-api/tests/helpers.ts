@@ -26,6 +26,16 @@ import { createConsoleApi } from "../src/index.js";
 import type { ConsoleApi, EffectiveConfigView } from "../src/index.js";
 import { createAccountService } from "../src/accounts.js";
 import type { AccountService } from "../src/accounts.js";
+import { assertPlaceholderKeysExist } from "../src/placeholder-validation.js";
+import { ApiError } from "../src/errors.js";
+import type { BusinessPiConfigService } from "../src/routes-pi-config.js";
+import type { UpdateSubmitter } from "../src/updates.js";
+import type {
+  BusinessPatch,
+  CreateBusinessInput,
+} from "@asteriskzuo/agent-registry";
+import type { EventSource } from "@asteriskzuo/agent-contracts";
+import type { AssetInput } from "@asteriskzuo/agent-asset-registry";
 
 /** 测试用生效配置回显（GET /api/config 断言基准） */
 export const TEST_CONFIG_VIEW: EffectiveConfigView = {
@@ -105,6 +115,171 @@ export interface TestServer {
   stop(): Promise<void>;
 }
 
+/** 测试用直接更新提交器：无队列无屏障，立即按命令内容直写生效注册表。
+ *  与 app/server 的 UpdateCoordinator 生产路径等价的效果，但绕过闲时/屏障语义
+ *  （那些语义由 app/server 集成测试覆盖，console-api 单测只关心路由行为） */
+function createDirectUpdates(deps: {
+  registry: BusinessRegistry;
+  env: EnvProvider;
+  assets: AssetRegistry;
+}): UpdateSubmitter {
+  const { registry, env, assets } = deps;
+  const credentialOf = (key?: string): string | undefined =>
+    key === undefined ? undefined : env.getFor("").secrets[key];
+  return {
+    submit(command) {
+      const p = command.payload as Record<string, unknown>;
+      const result = ((): unknown => {
+        switch (command.kind) {
+          case "business.create": {
+            const input = p.input as CreateBusinessInput;
+            const businessId = registry.create(input);
+            const written: Array<{ bucket: "vars" | "secrets"; key: string }> =
+              [];
+            try {
+              for (const entry of (p.env_entries ?? []) as Array<{
+                bucket: "vars" | "secrets";
+                key: string;
+                value: string;
+              }>) {
+                env.set(businessId, entry.bucket, entry.key, entry.value);
+                written.push(entry);
+              }
+              if (p.entry_config !== undefined) {
+                assertPlaceholderKeysExist(
+                  env,
+                  businessId,
+                  p.entry_config as Record<string, unknown>,
+                  "entry_config",
+                );
+              }
+              for (const [index, binding] of (
+                input.exit_bindings ?? []
+              ).entries()) {
+                assertPlaceholderKeysExist(
+                  env,
+                  businessId,
+                  binding.config,
+                  `exit_bindings[${index}].config`,
+                );
+              }
+            } catch (err) {
+              for (const entry of written) {
+                env.remove(businessId, entry.bucket, entry.key);
+              }
+              registry.remove(businessId);
+              throw err;
+            }
+            if (p.entry_config !== undefined) {
+              registry.removeMatch(businessId, input.source, input.event_type);
+              registry.addMatch(
+                businessId,
+                input.source,
+                input.event_type,
+                p.entry_config as Record<string, unknown>,
+              );
+            }
+            return registry.getProfile(businessId);
+          }
+          case "business.patch":
+            registry.update(p.business_id as string, p.patch as BusinessPatch);
+            return null;
+          case "business.delete":
+            registry.remove(p.business_id as string);
+            return null;
+          case "business.match.add":
+            registry.addMatch(
+              p.business_id as string,
+              p.source as EventSource,
+              p.event_type as string,
+              p.entry_config as Record<string, unknown> | undefined,
+            );
+            return registry.get(p.business_id as string);
+          case "business.match.remove":
+            registry.removeMatch(
+              p.business_id as string,
+              p.source as EventSource,
+              p.event_type as string,
+            );
+            return null;
+          case "env.global.set":
+            env.set(
+              null,
+              p.bucket as "vars" | "secrets",
+              p.key as string,
+              p.value as string,
+            );
+            return null;
+          case "env.global.remove":
+            env.remove(null, p.bucket as "vars" | "secrets", p.key as string);
+            return null;
+          case "env.business.set":
+            env.set(
+              p.business_id as string,
+              p.bucket as "vars" | "secrets",
+              p.key as string,
+              p.value as string,
+            );
+            return null;
+          case "env.business.remove":
+            env.remove(
+              p.business_id as string,
+              p.bucket as "vars" | "secrets",
+              p.key as string,
+            );
+            return null;
+          case "asset.register": {
+            const input = p.input as AssetInput;
+            return assets.register(input, {
+              credential: credentialOf(input.credential_key),
+            });
+          }
+          case "asset.update":
+            return assets.updateRef(p.asset_id as string, p.commit as string, {
+              credential: credentialOf(p.credential_key as string | undefined),
+            });
+          case "asset.enabled.set":
+            return assets.setEnabled(
+              p.asset_id as string,
+              p.enabled as boolean,
+            );
+          case "asset.remove":
+            assets.remove(p.asset_id as string);
+            return null;
+          case "asset.cache.clear":
+            assets.clearCache();
+            return { cleared: true };
+          default:
+            throw new Error(`测试提交器未知命令: ${command.kind}`);
+        }
+      })();
+      return Promise.resolve({
+        update_id: "upd_test",
+        outcome: "applied" as const,
+        result,
+      });
+    },
+  };
+}
+
+/** 测试桩：业务 Pi 配置服务（真实验证链路属 app/server 测试；console-api 单测只验路由形状与权限） */
+function createStubPiConfig(
+  registry: BusinessRegistry,
+): BusinessPiConfigService {
+  return {
+    getConfig: (businessId) => ({
+      configured: false,
+      model: registry.getProfile(businessId)?.model ?? "",
+    }),
+    validate: () =>
+      Promise.reject(new ApiError("invalid_input", "测试桩：不执行真实验证")),
+    confirm: () =>
+      Promise.reject(new ApiError("conflict", "测试桩：无有效凭据")),
+    remove: () =>
+      Promise.reject(new ApiError("invalid_input", "测试桩：不支持")),
+  };
+}
+
 /** 起测试服务。deps 全真实（无 mock）；bootstrap_admin 注入首启 admin；static_dir 开启静态托管 */
 export async function startTestServer(
   options: {
@@ -131,6 +306,8 @@ export async function startTestServer(
       assets,
       env,
       exits: createExitRegistry(),
+      updates: createDirectUpdates({ registry, env, assets }),
+      piConfig: createStubPiConfig(registry),
       entryQueue,
       exitQueue,
       lifecycle,

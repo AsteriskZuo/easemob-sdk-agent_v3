@@ -13,6 +13,7 @@ import type {
   EntryDriver,
   ExecutionResult,
   PlatformConfig,
+  RunGate,
   SchedulerLoop,
   SchedulerOptions,
 } from "./types.js";
@@ -37,9 +38,13 @@ export function createEntryLoop(deps: {
   channels: ChannelPool; // 入口专用池（与出口循环各持一个实例）
   config: PlatformConfig;
   driver: EntryDriver;
+  /** 运行屏障（统一更新协调器）；缺省直通，不改变旧行为 */
+  runGate?: RunGate;
   options?: SchedulerOptions;
 }): SchedulerLoop {
   const { queue, exitQueue, registry, channels, config, driver } = deps;
+  // 未注入时直通：不等待屏障、不登记活动
+  const gate: RunGate = deps.runGate ?? { run: (_id, fn) => fn() };
   const pollIntervalMs = deps.options?.pollIntervalMs ?? 50;
   const log = logger.for({ module: "entry-loop" });
   const semaphore: Semaphore = createSemaphore(config.task_concurrency);
@@ -115,47 +120,50 @@ export function createEntryLoop(deps: {
     for await (const item of channel) {
       const { task } = item;
       const bm = item.watcher as BusinessMatch;
-      await semaphore.acquire(); // 业务闸门 = config.task_concurrency
-      try {
-        let result: ExecutionResult;
+      // RunGate 包裹「并发名额 + 执行 + 扇出 + 完结」：applying 屏障等待不提前占名额，活动计数覆盖整个窗口
+      await gate.run(bm.business_id, async () => {
+        await semaphore.acquire(); // 业务闸门 = config.task_concurrency
         try {
-          result = await driver.execute(task, bm); // 分钟级长调用
-        } catch (err) {
-          // 基础设施异常兜底：合成 failed
-          result = { status: "failed", output: undefined };
-          log.error("业务执行抛异常", {
-            event_id: task.event.event_id,
-            task_id: task.task_id,
-            business_id: bm.business_id,
-            channel_id: channel.key,
-            error: errMessage(err),
-          });
-        }
-        if (result.status === "success" || bm.on_failure === true) {
-          const next = deriveEvent(task.event, bm, result);
-          if (next.hop_count > config.hop_limit) {
-            // 判循环：两队落库留痕即死信
-            const t1 = queue.enqueue(next);
-            queue.deadLetter(t1.task_id, "hop_limit");
-            const t2 = exitQueue.enqueue(next);
-            exitQueue.deadLetter(t2.task_id, "hop_limit");
-            log.error("hop 超限，派生事件死信", {
-              event_id: next.event_id,
+          let result: ExecutionResult;
+          try {
+            result = await driver.execute(task, bm); // 分钟级长调用
+          } catch (err) {
+            // 基础设施异常兜底：合成 failed
+            result = { status: "failed", output: undefined };
+            log.error("业务执行抛异常", {
+              event_id: task.event.event_id,
               task_id: task.task_id,
+              business_id: bm.business_id,
               channel_id: channel.key,
-              correlation_id: next.correlation_id,
-              hop_count: next.hop_count,
+              error: errMessage(err),
             });
-          } else {
-            queue.enqueue(next); // 下游业务关注者消化
-            exitQueue.enqueue(next); // 出口绑定投递
           }
+          if (result.status === "success" || bm.on_failure === true) {
+            const next = deriveEvent(task.event, bm, result);
+            if (next.hop_count > config.hop_limit) {
+              // 判循环：两队落库留痕即死信
+              const t1 = queue.enqueue(next);
+              queue.deadLetter(t1.task_id, "hop_limit");
+              const t2 = exitQueue.enqueue(next);
+              exitQueue.deadLetter(t2.task_id, "hop_limit");
+              log.error("hop 超限，派生事件死信", {
+                event_id: next.event_id,
+                task_id: task.task_id,
+                channel_id: channel.key,
+                correlation_id: next.correlation_id,
+                hop_count: next.hop_count,
+              });
+            } else {
+              queue.enqueue(next); // 下游业务关注者消化
+              exitQueue.enqueue(next); // 出口绑定投递
+            }
+          }
+          // result.status 非 success 且 on_failure 未开：不扇出（下游天然不触发、出口无投递）
+        } finally {
+          semaphore.release();
+          settle(task);
         }
-        // result.status 非 success 且 on_failure 未开：不扇出（下游天然不触发、出口无投递）
-      } finally {
-        semaphore.release();
-        settle(task);
-      }
+      });
     }
   }
 

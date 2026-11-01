@@ -60,7 +60,7 @@
 
 T12 交付的 server 启动后是**空跑态**：registry 无业务、两桶无配置、资产无登记——平台的一切业务数据（业务资料、入口/出口绑定、vars/secrets、资产登记）都由控制台经管理 API（T13）写入。**没有 console，server 只能初始化运行，这是分层而非缺陷**：server 提供机械执行能力，配置生产归 console。自检不校验"是否有业务"，空库是合法状态。
 
-- **双循环**：入口循环消化业务执行（EntryDriver = T17 的 Lifecycle），出口循环消化结果投递（ExitDriver = 本任务实现）。业务产出派生事件无脑投两条队列，各循环自行过滤。
+- **双循环**：入口循环消化业务执行（EntryDriver = T17 的 Lifecycle），出口循环消化结果投递（ExitDriver = 本任务实现）。业务产出派生事件无脑投两条队列，各循环自行过滤。2026-10-26 起管理面另有统一更新队列（UpdateCoordinator），与双循环并存，见 `docs/specs/2026-10-26-business-pi-configuration-spec.md` §9。
 - **入口职责链**（各入口适配器通用）：验签 → 包装信封（含 session_id）→ 落队，立即返回。落库才算收到；`event_id` 兼任入口幂等键（queue.enqueue 同 event_id 返回已有任务、不产生新行）。本任务只立接口，第一个真实入口适配器是 T18 的 webhook。
 - **出口占位解析**：绑定配置存全部字段原样（含 `{{key}}` 占位文本）；投递前 `resolveConfigPlaceholders` 统一解析占位后再 bind；destinationOf 消费未解析配置（T24 定稿，见 §5.4）。
 - **日志纪律**：error/warn/info 契约性必打；系统级日志是总纲（启动自检结果、关键事件）；入口侧流水用 module `'entry-loop'`，出口用 `'exit-loop'`，平台级用 `'system'`。
@@ -116,7 +116,8 @@ interface ExitDriver {
 interface SchedulerLoop { start(): void; stop(): Promise<void> } // start 幂等；stop 等在飞消化落定
 createEntryLoop(deps: { queue; exitQueue; registry; channels; config: PlatformConfig; driver: EntryDriver; options? }): SchedulerLoop;
 createExitLoop(deps: { queue; registry; channels; config: PlatformConfig; driver: ExitDriver; options? }): SchedulerLoop;
-// 装配纪律（本任务履行）：① start 前 initLogger + 两条队列各 recover()；② 两个循环各持专用 ChannelPool
+// 装配纪律（本任务履行）：① start 前 initLogger + 两条事件队列各 recover()；② 两个循环各持专用 ChannelPool
+// 2026-10-26 增补：③ 更新命令队列 recover + UpdateCoordinator 启动（先于事件循环与 console API 开放）
 ```
 
 `@asteriskzuo/agent-runtime`：

@@ -1,4 +1,3 @@
-import type { ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -38,6 +37,8 @@ export interface AgentServeContext {
   audit_log_path: string;
   /** 按 run 计的 agent 调用上限 */
   quota: { max_agent_calls: number };
+  /** 业务自定义 Pi 配置的派生 agent 目录（含业务 models.json）；未配置 = undefined → 用 deps.pi_agent_dir 全局目录 */
+  pi_agent_dir?: string;
 }
 
 /** 通道会话映射最小面（T5 ChannelStore 结构兼容，本包自定义不 import） */
@@ -129,22 +130,14 @@ function validateRequest(
   return { ok: false };
 }
 
-/** 杀进程组：SIGTERM，2 秒后未退补 SIGKILL（timer unref，不拖住主进程） */
-function killAll(procs: Set<ChildProcess>): void {
-  for (const p of procs) {
+/** 杀在飞 pi：逐个 abort（process-runner 内部 SIGTERM，2 秒未退补 SIGKILL） */
+function abortAll(inflight: Set<AbortController>): void {
+  for (const controller of inflight) {
     try {
-      p.kill("SIGTERM");
+      controller.abort();
     } catch {
-      // 已退出，忽略
+      // 已结束，忽略
     }
-    const timer = setTimeout(() => {
-      try {
-        p.kill("SIGKILL");
-      } catch {
-        // 已退出，忽略
-      }
-    }, 2000);
-    timer.unref();
   }
 }
 
@@ -158,7 +151,7 @@ export function createAgentService(deps: AgentServiceDeps): AgentService {
       const token = randomUUID();
       // socket 放 os.tmpdir()：unix socket 路径长约 104 字符，三维 run 目录易超限
       const socketPath = join(tmpdir(), `ea-${ctx.run_id}.sock`);
-      const procs = new Set<ChildProcess>(); // 在飞 pi 子进程（退出移除，close 强杀）
+      const inflight = new Set<AbortController>(); // 在飞 pi 调用的取消器（结束移除，close 全量 abort）
       const log: CategoryLogger = logger.for({
         // 模块日志归 system.log：entry-loop.log 只留循环流转骨架（取出→
         // 挂通道→run 开始/终态→完结），agent 服务调用细节属模块内部
@@ -193,10 +186,10 @@ export function createAgentService(deps: AgentServiceDeps): AgentService {
               error: "quota_exceeded",
             };
           }
-          return runAgentOp(deps, ctx, req, procs, log);
+          return runAgentOp(deps, ctx, req, inflight, log);
         }
         if (req.op === "compact") {
-          return runCompactOp(deps, ctx, procs, log);
+          return runCompactOp(deps, ctx, inflight, log);
         }
         deps.mapping.clear(ctx.channel_id);
         log.info("agent 服务调用", { op: "clear", result: "ok" });
@@ -214,7 +207,7 @@ export function createAgentService(deps: AgentServiceDeps): AgentService {
         // 幂等：重复 close 返回同一个进行中的 Promise
         if (closePromise) return closePromise;
         closed = true; // token 随 closed 失效（dispatch 入口即拒）
-        killAll(procs); // 杀在飞 pi：在飞的 agent/compact 以 agent_failed 收尾回完
+        abortAll(inflight); // 杀在飞 pi：在飞的 agent/compact 以 agent_failed 收尾回完
         closePromise = server.drainAndClose();
         return closePromise;
       };

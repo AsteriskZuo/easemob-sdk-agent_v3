@@ -11,6 +11,7 @@ import {
   sendNoContent,
 } from "./http.js";
 import type { Route } from "./router.js";
+import type { UpdateSubmitter } from "./updates.js";
 
 type Bucket = "vars" | "secrets";
 
@@ -50,13 +51,27 @@ function toView(list: {
   return { vars: list.vars, secret_keys: list.secret_keys };
 }
 
+/** 统一响应：已应用 = 204（与既有同步语义一致）；已接受排队 = 202 { accepted: true } */
+function respondSubmission(
+  res: Parameters<typeof sendJson>[0],
+  submission: { outcome: "applied" | "accepted" },
+): void {
+  if (submission.outcome === "applied") {
+    sendNoContent(res);
+  } else {
+    sendJson(res, 202, { accepted: true });
+  }
+}
+
 /** 环境配置路由（两桶 × 通用层/业务层）：
- *  读 = 登录用户；通用层写 = 仅 admin；业务层写 = creator 本人或 admin */
+ *  读 = 登录用户；通用层写 = 仅 admin；业务层写 = creator 本人或 admin。
+ *  写操作一律经统一更新队列：通用层 = 全业务屏障；业务层 = 单业务屏障 */
 export function envRoutes(deps: {
   env: EnvProvider;
   registry: BusinessRegistry;
+  updates: UpdateSubmitter;
 }): Route[] {
-  const { env, registry } = deps;
+  const { env, registry, updates } = deps;
   const log = logger.for({ module: "console-api" });
 
   function assertGlobalWritable(actor: User): void {
@@ -87,33 +102,45 @@ export function envRoutes(deps: {
     {
       method: "PUT",
       pattern: "/api/env/global",
-      handler: (req, res) => {
+      handler: async (req, res) => {
         const actor = req.actor as User;
         assertGlobalWritable(actor);
         const { bucket, key, value } = parseSetBody(req.body);
-        env.set(null, bucket, key, value);
+        const submission = await updates.submit({
+          kind: "env.global.set",
+          payload: { bucket, key, value },
+          business_ids: "all",
+          requested_by: actor.user_id,
+        });
         log.info("API 写通用环境配置", {
           operator_id: actor.user_id,
           bucket,
           key,
+          update_id: submission.update_id,
         });
-        sendNoContent(res);
+        respondSubmission(res, submission);
       },
     },
     {
       method: "DELETE",
       pattern: "/api/env/global",
-      handler: (req, res) => {
+      handler: async (req, res) => {
         const actor = req.actor as User;
         assertGlobalWritable(actor);
         const { bucket, key } = parseRemoveBody(req.body);
-        env.remove(null, bucket, key);
+        const submission = await updates.submit({
+          kind: "env.global.remove",
+          payload: { bucket, key },
+          business_ids: "all",
+          requested_by: actor.user_id,
+        });
         log.info("API 删通用环境配置", {
           operator_id: actor.user_id,
           bucket,
           key,
+          update_id: submission.update_id,
         });
-        sendNoContent(res);
+        respondSubmission(res, submission);
       },
     },
     {
@@ -130,37 +157,49 @@ export function envRoutes(deps: {
     {
       method: "PUT",
       pattern: "/api/env/businesses/:id",
-      handler: (req, res) => {
+      handler: async (req, res) => {
         const actor = req.actor as User;
         const businessId = req.params.id;
         assertBusinessWritable(actor, businessId);
         const { bucket, key, value } = parseSetBody(req.body);
-        env.set(businessId, bucket, key, value);
+        const submission = await updates.submit({
+          kind: "env.business.set",
+          payload: { business_id: businessId, bucket, key, value },
+          business_ids: [businessId],
+          requested_by: actor.user_id,
+        });
         log.info("API 写业务环境配置", {
           operator_id: actor.user_id,
           business_id: businessId,
           bucket,
           key,
+          update_id: submission.update_id,
         });
-        sendNoContent(res);
+        respondSubmission(res, submission);
       },
     },
     {
       method: "DELETE",
       pattern: "/api/env/businesses/:id",
-      handler: (req, res) => {
+      handler: async (req, res) => {
         const actor = req.actor as User;
         const businessId = req.params.id;
         assertBusinessWritable(actor, businessId);
         const { bucket, key } = parseRemoveBody(req.body);
-        env.remove(businessId, bucket, key);
+        const submission = await updates.submit({
+          kind: "env.business.remove",
+          payload: { business_id: businessId, bucket, key },
+          business_ids: [businessId],
+          requested_by: actor.user_id,
+        });
         log.info("API 删业务环境配置", {
           operator_id: actor.user_id,
           business_id: businessId,
           bucket,
           key,
+          update_id: submission.update_id,
         });
-        sendNoContent(res);
+        respondSubmission(res, submission);
       },
     },
   ];

@@ -4,7 +4,7 @@
 
 ## 1. 目标
 
-产出 `@asteriskzuo/agent-queue` 包：SQLite 持久化任务队列。**平台有两条队列——入口队列与出口队列，同一实现、两个实例**（构造时传不同表名）。
+产出 `@asteriskzuo/agent-queue` 包：SQLite 持久化任务队列。**平台事件面有两条队列——入口队列与出口队列，同一实现、两个实例**（构造时传不同表名）。2026-10-26 起本包新增第三类通用能力——**更新命令队列**（`createUpdateQueue`，管理面统一更新队列的持久化底座，见 §7）；平台因此共有三条队列：入口、出口、更新命令。
 
 ## 2. 背景知识（执行所需的最小上下文）
 
@@ -126,3 +126,12 @@ export function createTaskQueue(db: Database, table: string): TaskQueue;
 1. 包级与根级六项检查全绿；
 2. 只 import `@asteriskzuo/agent-contracts`、`@asteriskzuo/agent-database`、`node:*`；
 3. 导出签名与本文 §5 一致。
+
+## 8. 增补：更新命令队列（2026-10-26）
+
+管理面统一更新队列（UpdateCoordinator，归 app/server）的持久化底座，由本包提供 `createUpdateQueue(db): UpdateQueue`。与事件 TaskQueue 共用持久化/恢复纪律（落库才算收到、取出不删完结才标记、崩溃 recover），但任务对象不同——命令 ≠ EventEnvelope，不与事件队列混表混状态（命令无 dead 死信态，失败标 failed 不自动重试）。
+
+- 表：`business_update_commands`（命令主表，seq = rowid 作严格全局 FIFO 依据）+ `business_update_command_businesses`（命令与受影响业务的多对多关联）；迁移 module 名独立于事件队列实例。
+- 命令对象 `UpdateCommand`：`update_id`（"upd_" + ULID）、`seq`、`kind`（本包不解释，应用处理器归 app/server）、`payload`（JSON，可含 secret，禁止入日志）、`business_ids`（受影响业务范围：空数组 = 空影响集合，`"all"` = 全业务屏障）、`requested_by`、状态（pending/processing/done/failed）与时间戳。
+- 方法：`enqueue`（持久化 pending + 关联行）、`peek`（全局队首 pending）、`peekNextEmptyScope`（空影响豁免）、`begin`（进入应用窗口）、`complete`/`fail`、`recover`（processing → pending）、`get`、`failPendingFor`（业务删除后清理其 pending 命令）、`hasPendingKindFor`（拒新写判定）。
+- 应用时机判定（受影响业务是否空闲、严格 FIFO 不插队、空影响豁免）归 app/server 的 UpdateCoordinator，本包只做存取与状态迁移。完整契约见 `docs/specs/2026-10-26-business-pi-configuration-spec.md` §7/§9。

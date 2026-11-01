@@ -8,6 +8,17 @@ export { createAccountService } from "./accounts.js";
 export type { AccountService, Role, User } from "./accounts.js";
 export { ApiError, statusOf, toApiError } from "./errors.js";
 export type { ApiErrorCode } from "./errors.js";
+export { assertPlaceholderKeysExist } from "./placeholder-validation.js";
+export type {
+  UpdateCommandInput,
+  UpdateSubmission,
+  UpdateSubmitter,
+} from "./updates.js";
+export type {
+  BusinessPiConfigService,
+  BusinessPiConfigView,
+  PiValidateResult,
+} from "./routes-pi-config.js";
 export type * from "./dto.js";
 
 // 上游类型 type-only 再导出：console（T14）只依赖本包即可拿到全部 API 契约类型

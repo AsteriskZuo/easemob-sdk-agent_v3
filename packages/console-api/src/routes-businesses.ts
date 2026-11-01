@@ -2,6 +2,7 @@ import type { EventSource } from "@asteriskzuo/agent-contracts";
 import type { AssetRegistry } from "@asteriskzuo/agent-asset-registry";
 import { logger } from "@asteriskzuo/agent-logger";
 import type {
+  BusinessMatch,
   BusinessPatch,
   BusinessProfile,
   BusinessRegistry,
@@ -31,6 +32,7 @@ import {
   sendNoContent,
 } from "./http.js";
 import type { Route } from "./router.js";
+import type { UpdateSubmitter } from "./updates.js";
 
 // 与 @asteriskzuo/agent-contracts 的 EventSource 联合类型保持同步（contracts 未导出运行时列表）
 const EVENT_SOURCES: readonly EventSource[] = [
@@ -115,7 +117,7 @@ function optionalEventType(value: unknown, field: string): string {
 }
 
 /** 随建环境配置（POST /api/businesses 的 env 字段）解析为待写入条目；
- *  DTO 层校验：必须是 plain object、键非空、值字符串（键的空白合法性由 EnvProvider.set 兜底）。
+ *  DTO 层校验：必须是 plain object、键非空、值字符串（键的空白合法性由应用处理器落库时兜底）。
  *  缺省/两桶皆缺 → 空列表（= 现状行为） */
 function parseEnvEntries(
   value: unknown,
@@ -194,14 +196,16 @@ function parseQuotaOverride(
 }
 
 /** 业务路由：读不设限（登录即可）；写 = creator 本人或 admin。
- *  create/patch 落库前做配置期校验（binding-validation）：不涉及绑定字段的 patch 零校验零物化 */
+ *  create/patch 提交前做配置期校验（binding-validation）；写操作一律经统一更新队列：
+ *  创建 = 空影响集合（立即应用）；patch/删除/匹配行 = 单业务屏障，忙时 202 排队 */
 export function businessRoutes(deps: {
   registry: BusinessRegistry;
   assets: AssetRegistry; // 绑定校验：存在性/物化/清单键位检查
   env: EnvProvider; // 绑定校验：私有资产凭据解析（通用层安全桶）
   config: EffectiveConfigView; // 绑定校验：model/agent_kind 可选集合
+  updates: UpdateSubmitter; // 统一更新入口
 }): Route[] {
-  const { registry } = deps;
+  const { registry, updates } = deps;
   const log = logger.for({ module: "console-api" });
   return [
     {
@@ -214,7 +218,7 @@ export function businessRoutes(deps: {
     {
       method: "POST",
       pattern: "/api/businesses",
-      handler: (req, res) => {
+      handler: async (req, res) => {
         const actor = req.actor as User;
         const body = requirePlainObject(
           req.body,
@@ -274,12 +278,12 @@ export function businessRoutes(deps: {
         if (maxAgentCalls !== undefined) input.max_agent_calls = maxAgentCalls;
         const exitBindings = parseExitBindings(body.exit_bindings);
         if (exitBindings !== undefined) input.exit_bindings = exitBindings;
-        // 首个匹配行的入口配置提前解析（webhook 查重与落库复用同一解析结果）
+        // 首个匹配行的入口配置（应用处理器落库复用同一解析结果）
         const entryConfig =
           body.entry_config === undefined
             ? undefined
             : requirePlainObject(body.entry_config, "entry_config");
-        // 随建环境配置（可选）：解析为待写入条目；业务创建后逐条落该业务两桶
+        // 随建环境配置（可选）：解析为待写入条目；应用处理器创建业务后逐条落该业务两桶
         const envEntries = parseEnvEntries(body.env);
         // webhook 行端点 path 全平台唯一（候选行未落库，与全量既有行比对；冲突 → 400）
         if (source === "webhook") {
@@ -306,55 +310,26 @@ export function businessRoutes(deps: {
           agent_kind: input.agent_kind,
         });
 
-        const businessId = registry.create(input);
-        // 随建 env 写入 + 占位 key 存在性校验（fail fast）：业务 id 生成后方能落业务两桶；
-        // env 写入先于占位校验（刚写入的键对校验可见）。
-        // 任一步失败 → 回滚：删除本次写入的全部 env 键 + 删除已建业务，再抛错
-        const writtenEnvKeys: Array<{
-          bucket: "vars" | "secrets";
-          key: string;
-        }> = [];
-        try {
-          for (const entry of envEntries) {
-            deps.env.set(businessId, entry.bucket, entry.key, entry.value);
-            writtenEnvKeys.push(entry);
-          }
-          if (entryConfig !== undefined) {
-            assertPlaceholderKeysExist(
-              deps.env,
-              businessId,
-              entryConfig,
-              "entry_config",
-            );
-          }
-          for (const [index, binding] of (
-            input.exit_bindings ?? []
-          ).entries()) {
-            assertPlaceholderKeysExist(
-              deps.env,
-              businessId,
-              binding.config,
-              `exit_bindings[${index}].config`,
-            );
-          }
-        } catch (err) {
-          for (const entry of writtenEnvKeys) {
-            deps.env.remove(businessId, entry.bucket, entry.key);
-          }
-          registry.remove(businessId);
-          throw err;
-        }
-        // 首个匹配行的入口配置：CreateBusinessInput 不含 entry_config（既有契约不改动），
-        // 先建后删补 addMatch 落定（同一事务外两步，失败面仅留下无入口配置的匹配行）
-        if (entryConfig !== undefined) {
-          registry.removeMatch(businessId, source, eventType);
-          registry.addMatch(businessId, source, eventType, entryConfig);
-        }
+        // 创建 = 空影响集合命令：立即应用（豁免队首等待），结果 = 新业务资料
+        const submission = await updates.submit<BusinessProfile>({
+          kind: "business.create",
+          payload: {
+            input,
+            env_entries: envEntries,
+            ...(entryConfig !== undefined ? { entry_config: entryConfig } : {}),
+          },
+          business_ids: [],
+          requested_by: actor.user_id,
+        });
         log.info("API 创建业务", {
           operator_id: actor.user_id,
-          business_id: businessId,
+          update_id: submission.update_id,
         });
-        sendJson(res, 201, registry.getProfile(businessId));
+        if (submission.outcome === "applied") {
+          sendJson(res, 201, submission.result);
+        } else {
+          sendJson(res, 202, { accepted: true });
+        }
       },
     },
     {
@@ -377,7 +352,7 @@ export function businessRoutes(deps: {
     {
       method: "PATCH",
       pattern: "/api/businesses/:id",
-      handler: (req, res) => {
+      handler: async (req, res) => {
         const actor = req.actor as User;
         const businessId = req.params.id;
         const profile = assertWritable(registry, businessId, actor);
@@ -448,26 +423,40 @@ export function businessRoutes(deps: {
 
         // 配置期校验：patch 出现任一绑定字段 → 校验「既有 profile 与 patch 覆盖合并后」的生效绑定集合；
         // patch 不涉及绑定字段时零校验、零物化（改个 prompt 不应触发 git clone）。
-        // model/agent_kind 出现且非空 → 校验 ∈ 可选集合（与绑定无关）
+        // model/agent_kind 出现且非空 → 校验 ∈ 可选集合（与绑定无关）。
+        // existing 传既有绑定：已下架资产只拦本次新增绑定，已有绑定保留
         const touchesBinding =
           body.package_asset_id !== undefined ||
           body.entry_program !== undefined ||
           body.tool_asset_ids !== undefined ||
           body.skill_asset_ids !== undefined;
-        validateBusinessWrite(deps, actor, {
-          binding: touchesBinding
-            ? {
-                package_asset_id:
-                  patch.package_asset_id ?? profile.package_asset_id,
-                entry_program: patch.entry_program ?? profile.entry_program,
-                tool_asset_ids: patch.tool_asset_ids ?? profile.tool_asset_ids,
-                skill_asset_ids:
-                  patch.skill_asset_ids ?? profile.skill_asset_ids,
-              }
-            : undefined,
-          model: patch.model,
-          agent_kind: patch.agent_kind,
-        });
+        validateBusinessWrite(
+          deps,
+          actor,
+          {
+            binding: touchesBinding
+              ? {
+                  package_asset_id:
+                    patch.package_asset_id ?? profile.package_asset_id,
+                  entry_program: patch.entry_program ?? profile.entry_program,
+                  tool_asset_ids:
+                    patch.tool_asset_ids ?? profile.tool_asset_ids,
+                  skill_asset_ids:
+                    patch.skill_asset_ids ?? profile.skill_asset_ids,
+                }
+              : undefined,
+            model: patch.model,
+            agent_kind: patch.agent_kind,
+          },
+          {
+            existing: {
+              package_asset_id: profile.package_asset_id,
+              entry_program: profile.entry_program,
+              tool_asset_ids: profile.tool_asset_ids,
+              skill_asset_ids: profile.skill_asset_ids,
+            },
+          },
+        );
 
         // 占位 key 存在性校验（fail fast）：exit_bindings 出现在 patch 中才校验
         if (exitBindings !== undefined) {
@@ -481,33 +470,65 @@ export function businessRoutes(deps: {
           }
         }
 
-        registry.update(businessId, patch);
+        // 自定义 Pi 配置的业务：model 不可单独修改（与配置是不可拆分的组合），
+        // 必须走 pi-config 验证—确认流程（或先删除自定义配置恢复平台默认）
+        if (
+          patch.model !== undefined &&
+          registry.getPiModels(businessId) !== undefined
+        ) {
+          throw new ApiError(
+            "conflict",
+            "该业务使用自定义 Pi 配置：model 只能随 pi-config 验证—确认流程一并修改",
+          );
+        }
+
+        const submission = await updates.submit({
+          kind: "business.patch",
+          payload: { business_id: businessId, patch },
+          business_ids: [businessId],
+          requested_by: actor.user_id,
+        });
         log.info("API 更新业务", {
           operator_id: actor.user_id,
           business_id: businessId,
+          update_id: submission.update_id,
         });
-        sendNoContent(res);
+        if (submission.outcome === "applied") {
+          sendNoContent(res);
+        } else {
+          sendJson(res, 202, { accepted: true });
+        }
       },
     },
     {
       method: "DELETE",
       pattern: "/api/businesses/:id",
-      handler: (req, res) => {
+      handler: async (req, res) => {
         const actor = req.actor as User;
         const businessId = req.params.id;
         assertWritable(registry, businessId, actor);
-        registry.remove(businessId);
+        const submission = await updates.submit({
+          kind: "business.delete",
+          payload: { business_id: businessId },
+          business_ids: [businessId],
+          requested_by: actor.user_id,
+        });
         log.info("API 删除业务", {
           operator_id: actor.user_id,
           business_id: businessId,
+          update_id: submission.update_id,
         });
-        sendNoContent(res);
+        if (submission.outcome === "applied") {
+          sendNoContent(res);
+        } else {
+          sendJson(res, 202, { accepted: true });
+        }
       },
     },
     {
       method: "POST",
       pattern: "/api/businesses/:id/matches",
-      handler: (req, res) => {
+      handler: async (req, res) => {
         const actor = req.actor as User;
         const businessId = req.params.id;
         assertWritable(registry, businessId, actor);
@@ -534,20 +555,35 @@ export function businessRoutes(deps: {
             "entry_config",
           );
         }
-        registry.addMatch(businessId, source, eventType, entryConfig);
+        const submission = await updates.submit<BusinessMatch[]>({
+          kind: "business.match.add",
+          payload: {
+            business_id: businessId,
+            source,
+            event_type: eventType,
+            ...(entryConfig !== undefined ? { entry_config: entryConfig } : {}),
+          },
+          business_ids: [businessId],
+          requested_by: actor.user_id,
+        });
         log.info("API 新增匹配行", {
           operator_id: actor.user_id,
           business_id: businessId,
           source,
           event_type: eventType,
+          update_id: submission.update_id,
         });
-        sendJson(res, 201, registry.get(businessId));
+        if (submission.outcome === "applied") {
+          sendJson(res, 201, submission.result);
+        } else {
+          sendJson(res, 202, { accepted: true });
+        }
       },
     },
     {
       method: "DELETE",
       pattern: "/api/businesses/:id/matches",
-      handler: (req, res) => {
+      handler: async (req, res) => {
         const actor = req.actor as User;
         const businessId = req.params.id;
         assertWritable(registry, businessId, actor);
@@ -557,14 +593,24 @@ export function businessRoutes(deps: {
         ) as unknown as RemoveMatchBody;
         const source = assertEventSource(body.source, "source");
         const eventType = optionalEventType(body.event_type, "event_type");
-        registry.removeMatch(businessId, source, eventType);
+        const submission = await updates.submit({
+          kind: "business.match.remove",
+          payload: { business_id: businessId, source, event_type: eventType },
+          business_ids: [businessId],
+          requested_by: actor.user_id,
+        });
         log.info("API 删除匹配行", {
           operator_id: actor.user_id,
           business_id: businessId,
           source,
           event_type: eventType,
+          update_id: submission.update_id,
         });
-        sendNoContent(res);
+        if (submission.outcome === "applied") {
+          sendNoContent(res);
+        } else {
+          sendJson(res, 202, { accepted: true });
+        }
       },
     },
   ];

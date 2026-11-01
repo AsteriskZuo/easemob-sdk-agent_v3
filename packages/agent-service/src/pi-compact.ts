@@ -1,6 +1,5 @@
-import type { ChildProcess } from "node:child_process";
-import { spawn } from "node:child_process";
 import type { CategoryLogger } from "@asteriskzuo/agent-logger";
+import { ProcessError, runProcess } from "@asteriskzuo/agent-process-runner";
 import type { AgentServeContext, AgentServiceDeps } from "./index.js";
 import type { ServiceResponse } from "./socket-server.js";
 import { buildPiEnv, whitelistFlags } from "./pi-runner.js";
@@ -16,12 +15,12 @@ const OK_NULL: ServiceResponse = {
 
 /** compact op：pi 无 headless CLI 入口，走 --mode rpc 长驻进程：
  *  stdin 写一行 {"id":"c1","type":"compact"}，读 stdout 按行匹配
- *  {type:'response', command:'compact'}，成功后杀进程。
+ *  {type:'response', command:'compact'}，成功后 abort 收尾。
  *  通道无映射会话时 no-op（ok:true, output:null，不 spawn）。 */
 export async function runCompactOp(
   deps: AgentServiceDeps,
   ctx: AgentServeContext,
-  procs: Set<ChildProcess>,
+  inflight: Set<AbortController>,
   log: CategoryLogger,
 ): Promise<ServiceResponse> {
   const startedAt = Date.now();
@@ -55,68 +54,61 @@ export async function runCompactOp(
     ...whitelistFlags(),
   ];
 
-  const child = spawn(deps.pi_cli_path, args, {
-    cwd: ctx.workspace,
-    env: buildPiEnv(deps, ctx),
-    stdio: ["pipe", "pipe", "pipe"],
-  });
-  procs.add(child);
+  const controller = new AbortController();
+  inflight.add(controller);
+  let buffer = "";
+  /** 首个 compact 响应的判定结果；判定后立即 abort 长驻 RPC 进程，由 catch 分支回收返回 */
+  let outcome: ServiceResponse | null = null;
 
-  return new Promise<ServiceResponse>((resolve) => {
-    let settled = false;
-    let buffer = "";
-    const timer = setTimeout(() => {
-      finish(fail("agent_failed: compact timeout"));
-    }, COMPACT_TIMEOUT_MS);
-
-    function finish(resp: ServiceResponse): void {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      procs.delete(child);
-      try {
-        child.kill("SIGTERM"); // compact 已完成/失败，长驻 RPC 进程不再保留
-      } catch {
-        // 已退出，忽略
-      }
-      resolve(resp);
+  try {
+    await runProcess(deps.pi_cli_path, args, {
+      cwd: ctx.workspace,
+      env: { mode: "exact", values: buildPiEnv(deps, ctx) },
+      stdin: JSON.stringify({ id: "c1", type: "compact" }) + "\n",
+      timeout_ms: COMPACT_TIMEOUT_MS,
+      signal: controller.signal,
+      on_stdout: (chunk: Buffer) => {
+        if (outcome !== null) return;
+        buffer += chunk.toString("utf8");
+        let idx = buffer.indexOf("\n");
+        while (idx >= 0) {
+          const line = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 1);
+          idx = buffer.indexOf("\n");
+          let ev: unknown;
+          try {
+            ev = JSON.parse(line);
+          } catch {
+            continue;
+          }
+          if (typeof ev !== "object" || ev === null) continue;
+          const e = ev as Record<string, unknown>;
+          if (e.type === "response" && e.command === "compact") {
+            // 成功路径保持迁移前行为：OK_NULL 不经 done() 埋点；失败路径经 fail() 埋点
+            outcome =
+              e.success === true
+                ? OK_NULL
+                : fail(
+                    `agent_failed: compact 失败${e.error !== undefined ? `: ${String(e.error)}` : ""}`,
+                  );
+            controller.abort();
+            return;
+          }
+        }
+      },
+    });
+    // 长驻进程自行退出（exit 0）且未回响应
+    return fail("agent_failed: compact 进程退出 code=0");
+  } catch (e) {
+    // abort 是判定完成后的主动收尾，返回已判定的结果
+    if (outcome !== null) return outcome;
+    if (e instanceof ProcessError) {
+      if (e.kind === "timeout") return fail("agent_failed: compact timeout");
+      if (e.kind === "spawn_failed") return fail(`agent_failed: ${e.message}`);
+      return fail(`agent_failed: compact 进程退出 code=${e.code}`);
     }
-
-    child.stdout.on("data", (chunk: Buffer) => {
-      if (settled) return;
-      buffer += chunk.toString("utf8");
-      let idx = buffer.indexOf("\n");
-      while (idx >= 0) {
-        const line = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + 1);
-        idx = buffer.indexOf("\n");
-        let ev: unknown;
-        try {
-          ev = JSON.parse(line);
-        } catch {
-          continue;
-        }
-        if (typeof ev !== "object" || ev === null) continue;
-        const e = ev as Record<string, unknown>;
-        if (e.type === "response" && e.command === "compact") {
-          finish(
-            e.success === true
-              ? OK_NULL
-              : fail(
-                  `agent_failed: compact 失败${e.error !== undefined ? `: ${String(e.error)}` : ""}`,
-                ),
-          );
-          return;
-        }
-      }
-    });
-    child.on("error", (err) => {
-      if (!settled) finish(fail(`agent_failed: ${err.message}`));
-    });
-    child.on("close", (code) => {
-      if (!settled) finish(fail(`agent_failed: compact 进程退出 code=${code}`));
-    });
-
-    child.stdin.write(JSON.stringify({ id: "c1", type: "compact" }) + "\n");
-  });
+    throw e;
+  } finally {
+    inflight.delete(controller);
+  }
 }

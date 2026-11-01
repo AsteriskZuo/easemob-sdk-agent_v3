@@ -768,3 +768,79 @@ describe("addMatch entry_config", () => {
     db2.close();
   });
 });
+
+describe("业务自定义 Pi 配置（pi_models 专用读写）", () => {
+  it("setPiModels 写入后 getPiModels 读回；getProfile/list 不泄漏原始配置", () => {
+    const db = openDatabase(join(tmpDir, "pi-models.db"));
+    const registry = createBusinessRegistry(db);
+    const id = registry.create({
+      business_name: "自定义 Pi 业务",
+      creator_id: "user-1",
+      source: "jira",
+      event_type: "issue.created",
+    });
+    expect(registry.getPiModels(id)).toBeUndefined();
+
+    const config = {
+      providers: {
+        deepseek: {
+          baseUrl: "https://api.deepseek.com",
+          api: "openai-completions",
+          apiKey: "sk-secret-pi-key",
+        },
+      },
+    };
+    registry.setPiModels(id, config, "deepseek/deepseek-chat");
+    expect(registry.getPiModels(id)).toEqual(config);
+    expect(registry.getProfile(id)?.model).toBe("deepseek/deepseek-chat");
+
+    // 读面不泄漏：getProfile/list 均无 pi_models 字段
+    const profile = registry.getProfile(id) as Record<string, unknown>;
+    expect("pi_models" in profile).toBe(false);
+    const listed = registry.list().find((b) => b.business_id === id) as Record<
+      string,
+      unknown
+    >;
+    expect("pi_models" in listed).toBe(false);
+    db.close();
+  });
+
+  it("setPiModels 持久化：close 重开后读出一致；config=null 删除回全局模型", () => {
+    const dbPath = join(tmpDir, "pi-models-persist.db");
+    const db1 = openDatabase(dbPath);
+    const r1 = createBusinessRegistry(db1);
+    const id = r1.create({
+      business_name: "持久化业务",
+      creator_id: "user-1",
+      source: "jira",
+      event_type: "issue.created",
+    });
+    r1.setPiModels(
+      id,
+      { providers: { openai: { apiKey: "sk-x" } } },
+      "openai/gpt-5.4",
+    );
+    db1.close();
+
+    const db2 = openDatabase(dbPath);
+    const r2 = createBusinessRegistry(db2);
+    expect(r2.getPiModels(id)).toEqual({
+      providers: { openai: { apiKey: "sk-x" } },
+    });
+    expect(r2.getProfile(id)?.model).toBe("openai/gpt-5.4");
+    // 删除自定义：config=null + 合法全局模型
+    r2.setPiModels(id, null, "qwen/qwen-plus");
+    expect(r2.getPiModels(id)).toBeUndefined();
+    expect(r2.getProfile(id)?.model).toBe("qwen/qwen-plus");
+    db2.close();
+  });
+
+  it("setPiModels 业务不存在抛错", () => {
+    const db = openDatabase(join(tmpDir, "pi-models-404.db"));
+    const registry = createBusinessRegistry(db);
+    expect(() =>
+      registry.setPiModels("b_nope", null, "qwen/qwen-plus"),
+    ).toThrow(/业务不存在/);
+    db.close();
+  });
+});

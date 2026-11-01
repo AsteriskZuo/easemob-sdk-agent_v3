@@ -16,7 +16,7 @@
 - **唯一来源 = git 仓库**。登记时可给分支/tag/commit，平台用 `git ls-remote` 把分支/tag **解析成 commit 存定**（钉版本）。没有上传模式、没有本地内容 hash、没有母本存储。
 - **私有仓库凭据**：资产可声明 `is_private` + `credential_key`（key 的名字，值在操作者的安全桶里）。**凭据按操作者维度由调用方解析**，register / materialize 以可选参数接收凭据值；本包只在 git 子进程内临时注入（不落盘、不进日志、错误信息脱敏），不接触安全桶。托管平台无关（GitHub / Gitee / 内网 git 均走 git 协议）。使用者之间互不相干——谁触发物化就用谁的凭据。
 - **asset_id** = (属主 + url + kind + 子路径) 的紧凑编码（**不含 commit**，T26 起）：版本升级（updateRef）asset_id 不变，业务绑定不断；同一 (url, kind, 子路径) 不同属主 = 不同资产行，各自管理；同（属主+url+kind+子路径）重复登记 = 幂等返回（版本不切换，升级走 updateRef）。
-- **共享标记**：仅 tool/skill 可有，`shared` 缺省 false，**设置后不可修改**；**共享资产禁止版本更新**（updateRef 抛 `shared_immutable`，T26 起）——共享资产可能被他人业务引用，静默换版本会让别人莫名出问题，要发新版本只能下架后重新登记。绑定规则（自己的 + 他人共享的）与 admin 只读全部，都是调用方（控制台）的过滤逻辑，本包只存字段。
+- **共享标记**：仅 tool/skill 可有，`shared` 缺省 false，**设置后不可修改**；**共享资产禁止版本更新**（updateRef 抛 `shared_immutable`，T26 起）——共享资产可能被他人业务引用，静默换版本会让别人莫名出问题，要发新版本只能以不同 url/subpath 重新登记新资产。绑定规则（自己的 + 他人共享的）与 admin 只读全部，都是调用方（控制台）的过滤逻辑，本包只存字段。
 - **清单机械校验**（物化时执行）：
   - package/tool：资产根下 `agent-package.json` 存在且合法；`name` 非空；`programs` 每条路径在资产内真实存在且是文件；
   - `requires` 是 **package 专属**字段（名字级依赖声明）：package 清单里可选、形状合法即可；**tool 清单出现 `requires` 字段即校验失败**（工具是叶子组件，组合归包的胶水代码；防误配——静默忽略会让作者误以为声明生效）；
@@ -53,7 +53,7 @@ export function migrate(db: Database, module: string, migrations: readonly strin
 - 绑定规则与权限判定（"自己的 + 他人共享的"、admin 只读——归控制台层过滤，本包只存 `owner_id`/`shared` 字段）；
 - 绑定配置期的重名检查与 requires 覆盖检查（归控制台业务流程；本包只提供数据与解析函数）；
 - 资产内容的执行或加载（归 WorkflowRunner / AgentService）；
-- 资产的版本更新（T26 已补 `updateRef`）与下架（下架接口随控制台任务已做）；
+- 资产的版本更新（T26 已补 `updateRef`）、上架/下架开关与物理删除（`setEnabled`/`remove` 随管理面任务已补，见 §5.10）；
 - 安全桶的存取与 credential_key → 凭据值的解析（归调用方 / EnvProvider；本包只以可选参数接收凭据值并临时注入 git 进程，不落盘、不进日志）；
 - 缓存清理策略（cache 随时可清，缺失时 materialize 自动补拉）。
 
@@ -106,6 +106,7 @@ export interface AssetMeta {
   shared: boolean;
   is_private: boolean;
   credential_key?: string;  // 仅 is_private 时有值
+  enabled: boolean;         // 上架/下架开关（2026-10-26 起）：false = 已下架；新登记默认 true，迁移既有为 true
   created_at: string;       // ISO 时间戳
   modified_at: string;      // 最近版本更新时间（register 时 = created_at；updateRef 成功时刷新）
 }
@@ -139,8 +140,8 @@ export interface AssetRegistry {
    *  opts.credential：调用方从操作者安全桶解析出的凭据值（is_private 资产的 ls-remote 需要，见 §5.3/§5.6） */
   register(input: AssetInput, opts?: { credential?: string }): AssetMeta;
 
-  /** 列表：按 kind / owner_id / shared 过滤（均可缺省 = 不过滤）；权限过滤归调用方 */
-  list(filter: { kind?: AssetKind; owner_id?: string; shared?: boolean }): AssetMeta[];
+  /** 列表：按 kind / owner_id / shared / enabled 过滤（均可缺省 = 不过滤）；权限过滤归调用方 */
+  list(filter: { kind?: AssetKind; owner_id?: string; shared?: boolean; enabled?: boolean }): AssetMeta[];
 
   /** 取用：内部先 materialize 再按 kind 校验解析；未登记抛 `asset_not_found` */
   get(asset_id: string, opts?: { credential?: string }): AssetObject;
@@ -155,6 +156,15 @@ export interface AssetRegistry {
    *  物化/校验失败 → 回滚 commit 到旧值（旧缓存已删，下次取用懒重建）。
    *  opts.credential 同 register */
   updateRef(asset_id: string, ref: string, opts?: { credential?: string }): AssetMeta;
+
+  /** 上架/下架开关（2026-10-26 起，幂等）：只改 enabled 标记。
+   *  不删登记行、不改 asset_id/commit、不解除业务绑定、不清物化缓存；重新上架后既有绑定自动恢复可用。
+   *  下架后绑定该资产的业务运行时 fail-fast（ContextLoader 抛 `asset_disabled: <asset_id>`，归 runtime 侧） */
+  setEnabled(asset_id: string, enabled: boolean): AssetMeta;
+
+  /** 删除（物理删除，T13 增补）：删登记行 + 清物化缓存目录；不存在幂等不报错。
+   *  与 enabled 开关是两个独立管理操作；是否有在役引用可删由调用方（管理 API）判定 */
+  remove(asset_id: string): void;
 }
 
 /** 工厂：db 为全平台唯一数据访问口；cache_root 为物化根（由装配方给，如 {workspace}/platform/cache/assets） */
@@ -220,6 +230,12 @@ CREATE TABLE assets (
 );
 ```
 
+v2（2026-10-26 起，下架 ≠ 删除：下架改为 enabled 开关，`remove` 保留为显式物理删除）：
+
+```sql
+ALTER TABLE assets ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1;  -- 0 = 已下架 | 1 = 已上架（新登记与既有数据默认上架）
+```
+
 ### 5.6 register 行为
 
 - 入参校验：`url`/`ref`/`owner_id` 非空；`kind` 合法；`subpath`（若有）为相对路径、不含 `..` 段；`kind='package'` 且 `shared === true` → `invalid_input: <原因>`；`is_private === true` 且 `credential_key` 为空 → `invalid_input: is_private 需要 credential_key`；`is_private` 缺省/false 时 `credential_key` 归一为 undefined（传入也不存）；
@@ -267,10 +283,19 @@ export function resolveResource(
 ### 5.9 updateRef 行为（T26）
 
 - 未登记 → `asset_not_found: <asset_id>`；`ref` 空 → `invalid_input`；
-- `shared = 1`（tool/skill 共享资产）→ `shared_immutable: 共享资产不可更新版本（<asset_id>）；如需新版本请下架后重新登记`（package 无共享属性，恒可更新）；
+- `shared = 1`（tool/skill 共享资产）→ `shared_immutable: 共享资产不可更新版本（<asset_id>）；如需新版本请以不同 url/subpath 重新登记新资产`（package 无共享属性，恒可更新）；
 - 私有资产未传 `opts.credential` → `credential_required: <credential_key>`（ls-remote 需要）；
 - `resolveRef(url, ref, opts?.credential)` → commit；与当前 commit 相同 → 幂等返回，不动缓存；
 - 否则：UPDATE 行（commit、modified_at 刷新）→ 删缓存目录 → `materialize` + `validateAsset`；任一步失败 → UPDATE 回滚 commit 到旧值、删残留缓存后原样抛错（旧版本缓存下次取用按 §5.7 懒重建，登记行始终指向可物化的版本）。
+
+### 5.10 setEnabled / remove 行为（2026-10-26 起）
+
+下架 ≠ 删除。下架是 `enabled` 开关，删除是物理移除，两个独立管理操作：
+
+- `setEnabled(asset_id, enabled)`：未登记 → `asset_not_found: <asset_id>`；幂等（同值不 UPDATE）；只改 enabled 标记——登记行、asset_id、commit、业务绑定、物化缓存全部保留；重新上架后既有绑定自动恢复可用。下架的运行时效果（ContextLoader fail-fast `asset_disabled`）与绑定校验规则（已下架资产只拒绝新增绑定、已存在绑定保留）归 console-api / runtime 侧实现；
+- `remove(asset_id)`（T13 增补，语义重申）：删登记行 + 清物化缓存目录；不存在幂等不报错。在役引用检查归调用方（管理 API 对有引用的删除返回 409）；
+- 登记失败时 register 内部回滚的物理删除是私有清理，不作为管理下架或删除入口；
+- 重复登记已存在且 disabled 的资产：幂等返回已有 meta（不自动上架、不借登记更换 ref），与 §5.6 幂等规则一致。
 
 ## 6. 测试清单
 
@@ -312,6 +337,7 @@ export function resolveResource(
 3. **名解析无优先级、无限定写法**：名唯一性由控制台在绑定配置期机械查重保证（asset-model §6），运行时按名唯一命中；纯函数按传入顺序首个命中只是确定性兜底，不是优先级机制。
 4. **skill 集合无清单文件**：`SKILL.md` 目录扫描即可机械判定，不发明新格式；技能名 = 目录名（与 pi 的 `--skill <路径>` 注入形态一致）。
 5. **package/tool 共用清单契约，但 requires 是 package 专属**：同一清单文件、同一套字段校验，只差 kind 与消费路径；`requires`（名字级依赖声明）仅 package 可有——工具是叶子组件（机械能力、零 token），需要组合时由包的胶水代码编排；tool 清单出现 requires 即 `validation_failed`（防误配，也好过引入传递依赖解析与循环防判的复杂度）。`shared` 对 package 无意义（传 true 直接报错，防误配）。
-6. **`asset_id` 不含 commit（T26 改）**：原设计 hash 含 commit，版本升级 = 新资产行、asset_id 变化 → 业务绑定全断，升级路径只能「下架重建 + 重绑」，痛苦且易错。改为 (owner+url+kind+subpath) 后 `updateRef` 原地换版本、绑定不断；代价是 register 幂等不再响应新 ref（版本不切换），升级语义集中到 `updateRef` 一处，更直白。`modified_at` 随 updateRef 刷新（不再是恒等 created_at）。
-7. **共享资产禁止版本更新（T26）**：共享 tool/skill 可能被他人业务引用，属主静默换版本会让别人莫名出问题；要发新版本只能下架重建（产生新 asset_id，引用方显式改绑，感知明确）。package 无共享属性（只有属主自己用），恒可更新。
+6. **`asset_id` 不含 commit（T26 改）**：原设计 hash 含 commit，版本升级 = 新资产行、asset_id 变化 → 业务绑定全断，升级路径只能「删除重建 + 重绑」，痛苦且易错。改为 (owner+url+kind+subpath) 后 `updateRef` 原地换版本、绑定不断；代价是 register 幂等不再响应新 ref（版本不切换），升级语义集中到 `updateRef` 一处，更直白。`modified_at` 随 updateRef 刷新（不再是恒等 created_at）。
+7. **共享资产禁止版本更新（T26）**：共享 tool/skill 可能被他人业务引用，属主静默换版本会让别人莫名出问题；要发新版本只能以不同 url/subpath 重新登记新资产（产生新 asset_id，引用方显式改绑，感知明确）。package 无共享属性（只有属主自己用），恒可更新。
+8. **下架 ≠ 删除（2026-10-26 起）**：原「下架」= `remove()` 物理删除，误伤面大（登记、绑定、缓存全没）。改为 `enabled` 开关承载「下架/上架」（保留一切、重新上架即恢复、运行时 fail-fast），`remove` 保留为显式物理删除（管理 API 侧对在役引用 409）。两个操作都经统一更新队列、在受影响业务空闲后生效（见 `docs/specs/2026-10-26-business-pi-configuration-spec.md` §9）。
 7. **凭据按操作者维度传入、只存名字不存值**：资产行的 `credential_key` 只是 key 名，值由调用方从**操作者**安全桶解析后作可选参数传入（谁触发物化用谁的凭据，使用者之间互不相干）——本包因此不依赖配置模块、不接触安全桶（deps 仍只有 database）。注入采用 `GIT_CONFIG_*` 环境变量传 `http.<url>.extraheader` 认证头 + 子进程环境白名单 + 错误脱敏：凭据不落盘（clone 落盘的 origin url 是无凭据原文）、不入库、不进日志、不出现在命令行参数。ssh 形式 url 不支持注入（统一走 https，减少机制分叉）。

@@ -23,7 +23,10 @@ import { businessRoutes } from "./routes-businesses.js";
 import { configRoutes } from "./routes-config.js";
 import { envRoutes } from "./routes-env.js";
 import { monitoringRoutes } from "./routes-monitoring.js";
+import { piConfigRoutes } from "./routes-pi-config.js";
+import type { BusinessPiConfigService } from "./routes-pi-config.js";
 import { userRoutes } from "./routes-users.js";
+import type { UpdateSubmitter } from "./updates.js";
 
 /** console-api 对外唯一工厂。deps 全部来自装配层（app/server bootstrap） */
 export interface ConsoleApiDeps {
@@ -31,12 +34,16 @@ export interface ConsoleApiDeps {
   db: Database;
   /** 业务注册表（业务 CRUD + 匹配行 + 出口绑定） */
   registry: BusinessRegistry;
-  /** 资产注册表（登记/列表/详情/下架） */
+  /** 资产注册表（登记/列表/详情/删除） */
   assets: AssetRegistry;
   /** 两桶环境配置（通用层/业务层读写 + 私有资产凭据解析） */
   env: EnvProvider;
   /** 出口工具菜单（GET /api/exit-tools） */
   exits: ExitRegistry;
+  /** 统一更新提交口（全部运行时管理写入口的唯一通道；应用处理器归 app/server） */
+  updates: UpdateSubmitter;
+  /** 业务 Pi 配置服务（脱敏读取/在线验证/确认保存/删除；实现归 app/server） */
+  piConfig: BusinessPiConfigService;
   /** 入口队列（监控只读） */
   entryQueue: TaskQueue;
   /** 出口队列（监控只读） */
@@ -81,13 +88,24 @@ export function createConsoleApi(
       assets: deps.assets,
       env: deps.env,
       config: deps.config,
+      updates: deps.updates,
     }),
-    ...assetRoutes({ assets: deps.assets, env: deps.env }),
-    ...envRoutes({ env: deps.env, registry: deps.registry }),
+    ...assetRoutes({
+      assets: deps.assets,
+      env: deps.env,
+      registry: deps.registry,
+      updates: deps.updates,
+    }),
+    ...envRoutes({
+      env: deps.env,
+      registry: deps.registry,
+      updates: deps.updates,
+    }),
+    ...piConfigRoutes({ registry: deps.registry, piConfig: deps.piConfig }),
     ...configRoutes({
       config: deps.config,
       exits: deps.exits,
-      assets: deps.assets,
+      updates: deps.updates,
     }),
     ...monitoringRoutes({
       entryQueue: deps.entryQueue,

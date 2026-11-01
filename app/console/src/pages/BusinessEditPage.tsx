@@ -38,6 +38,8 @@ import MatchEditor, {
   toMatchBody,
 } from "../components/MatchEditor";
 import type { MatchRow } from "../components/MatchEditor";
+import EffectivenessNote from "../components/EffectivenessNote";
+import PiConfigSection from "../components/PiConfigSection";
 
 /** 表单字段（antd Form 承载的部分；匹配行与出口配置走独立 state） */
 interface BusinessFormValues {
@@ -221,13 +223,16 @@ export default function BusinessEditPage() {
   const [entryPrograms, setEntryPrograms] = useState<string[]>([]);
   // 可选集合由 server 解析 AGENT_PI_MODELS 经 /api/config 提供——平台与 console 均不内置模型名
   const [models, setModels] = useState<string[]>([]);
+  // 编辑页大模型配置模式（PiConfigSection 回报）：false = 自定义模式/已配置自定义，主保存 PATCH 不携带 model
+  // （自定义配置业务的 model 由 pi-config 写操作维护，PATCH 单独改会被服务端 409）
+  const [piIncludeModel, setPiIncludeModel] = useState(true);
   const [agents, setAgents] = useState<string[]>([]);
   // 入口适配器自描述（/api/config 的 entry_adapters）：MatchEditor 事件文档与 entry_config 表单数据源
   const [entryAdapters, setEntryAdapters] = useState<EntryAdapterView[]>([]);
   // 现有业务列表：source=internal 的「上游业务」下拉数据源
   const [businesses, setBusinesses] = useState<BusinessProfile[]>([]);
-  // 编辑态失效侦测：profile 原值不在可选集合（AGENT_PI_MODELS 后来改了）时保留显示并标黄
-  const watchedModel = Form.useWatch("model", form);
+  // 编辑态失效侦测：profile 原值不在可选集合时保留显示并标黄
+  // （model 的失效提示在 PiConfigSection 内处理，这里只留 agent_kind）
   const watchedAgentKind = Form.useWatch("agent_kind", form);
 
   const reportError = useCallback(
@@ -536,11 +541,12 @@ export default function BusinessEditPage() {
       }
 
       // 编辑：PATCH 资料字段（超时/配额清除 = null）+ 匹配行增删 diff + 出口绑定整体覆盖
+      // model 仅平台默认模式携带（自定义配置业务的 model 由 pi-config 流程维护，PATCH 单独改会被 409）
       const patch: PatchBusinessBody = {
         business_name: values.business_name,
         on_failure: values.on_failure,
         prompt: values.prompt ?? "",
-        model: values.model,
+        ...(piIncludeModel ? { model: values.model } : {}),
         agent_kind: values.agent_kind,
         package_asset_id: values.package_asset_id,
         entry_program: values.entry_program,
@@ -665,29 +671,29 @@ export default function BusinessEditPage() {
               options={agents.map((a) => ({ value: a, label: a }))}
             />
           </Form.Item>
-          <Form.Item
-            name="model"
-            label="大模型"
-            tooltip="是什么：本业务大模型调用使用的模型，可选项来自服务端 AGENT_PI_MODELS（provider/id 形式）。何时用：创建时必选，按业务质量与成本需要选择。配错后果：不在可选列表时保存被拒绝；运行期模型失效 = agent 调用失败。"
-            rules={[{ required: true, message: "请选择模型" }]}
-            extra={
-              isEdit &&
-              watchedModel !== undefined &&
-              watchedModel !== "" &&
-              models.length > 0 &&
-              !models.includes(watchedModel) ? (
-                <span style={{ color: "#faad14" }}>
-                  该模型已不在可选列表（AGENT_PI_MODELS 已变更并重启）
-                </span>
-              ) : undefined
-            }
-          >
-            <Select
-              aria-label="大模型"
-              placeholder="请选择模型"
-              options={models.map((m) => ({ value: m, label: m }))}
+          {/* 编辑页：平台默认/业务自定义双模式（自定义走 pi-config 验证-确认流程）；
+              创建页：仅平台默认，沿用全局 models 下拉 */}
+          {isEdit && id !== undefined ? (
+            <PiConfigSection
+              businessId={id}
+              form={form}
+              globalModels={models}
+              onIncludeModelChange={setPiIncludeModel}
             />
-          </Form.Item>
+          ) : (
+            <Form.Item
+              name="model"
+              label="大模型"
+              tooltip="是什么：本业务大模型调用使用的模型，可选项来自服务端 AGENT_PI_MODELS（provider/id 形式）。何时用：创建时必选，按业务质量与成本需要选择。配错后果：不在可选列表时保存被拒绝；运行期模型失效 = agent 调用失败。业务创建后可在编辑页改为业务自定义配置。"
+              rules={[{ required: true, message: "请选择模型" }]}
+            >
+              <Select
+                aria-label="大模型"
+                placeholder="请选择模型"
+                options={models.map((m) => ({ value: m, label: m }))}
+              />
+            </Form.Item>
+          )}
           <Form.Item
             name="prompt"
             label="提示词总纲"
@@ -1057,6 +1063,9 @@ export default function BusinessEditPage() {
           />
         </Card>
       )}
+
+      {/* 编辑模式的全部资料/环境修改经统一更新队列生效（不展示队列状态，只给统一说明） */}
+      {isEdit && <EffectivenessNote />}
 
       {/* 唯一保存按钮固定页面最底部（编辑模式在 key-value 卡片之下） */}
       <Button

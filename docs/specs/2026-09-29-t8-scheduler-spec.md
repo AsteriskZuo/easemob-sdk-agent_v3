@@ -8,7 +8,7 @@
 
 ## 2. 背景知识（执行所需的最小上下文）
 
-- 平台有两条任务队列（入口队列 entry_tasks / 出口队列 exit_tasks，同为 `@asteriskzuo/agent-queue` 的 TaskQueue 实例）。外部事件入入口队列；业务执行完结后派生事件**无脑投两个队列**，各循环自行过滤（无关注者/无出口绑定即丢弃）。
+- 平台事件面有两条任务队列（入口队列 entry_tasks / 出口队列 exit_tasks，同为 `@asteriskzuo/agent-queue` 的 TaskQueue 实例；2026-10-26 起管理面另有更新命令队列，不在本规格范围）。外部事件入入口队列；业务执行完结后派生事件**无脑投两个队列**，各循环自行过滤（无关注者/无出口绑定即丢弃）。
 - 同通道严格串行、跨通道自然并行。业务通道 id = `source__session_id__business_id`；出口通道 id = `exit__<destination_id>`。用 `@asteriskzuo/agent-contracts` 的 `buildBusinessChannelId` / `buildExitChannelId` 构造。
 - 链内并行：一个事件的多个关注者（入口 = BusinessMatch，出口 = ExitBinding）各挂各的通道。
 - 失败处理第一阶段只做日志留痕，唯一例外：**出口投递有界重试**（指数退避、次数上限、原地重试、耗尽死信）。

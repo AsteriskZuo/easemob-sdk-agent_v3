@@ -19,6 +19,24 @@ jest.setTimeout(60000);
 let tmpDir: string;
 let piCliPath: string;
 let handle: ServerHandle | null = null;
+/** 本地假 npm registry（测试不触外网；慢网络下真实 registry 会拖垮自检 3s 超时）：一律 200 */
+let registryServer: ReturnType<typeof createServer>;
+let registryUrl: string;
+
+beforeAll(async () => {
+  registryServer = createServer((req, res) => {
+    res.writeHead(200);
+    res.end();
+  });
+  await new Promise<void>((resolve) =>
+    registryServer.listen(0, "127.0.0.1", resolve),
+  );
+  registryUrl = `http://127.0.0.1:${(registryServer.address() as AddressInfo).port}/`;
+});
+
+afterAll(async () => {
+  await new Promise<void>((resolve) => registryServer.close(() => resolve()));
+});
 
 beforeEach(() => {
   tmpDir = mkdtempSync(join(tmpdir(), "agent-server-console-test-"));
@@ -30,6 +48,7 @@ beforeEach(() => {
   writeFileSync(
     join(platformDir, "config.json"),
     JSON.stringify({
+      AGENT_NPM_REGISTRY: registryUrl,
       AGENT_PI_MODELS: {
         providers: {
           "test-provider": {

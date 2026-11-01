@@ -336,3 +336,54 @@ describe("错误路径", () => {
     );
   });
 });
+
+describe("业务自定义 Pi 目录与资产开关", () => {
+  it("piResolver 返回目录 → RunContext.pi_agent_dir；无 resolver → undefined", () => {
+    const ids = registerAssets();
+    const businessId = createBusiness(ids);
+    const withPi = createContextLoader({
+      registry,
+      assets,
+      env,
+      defaults: DEFAULTS,
+      piResolver: {
+        resolvePiAgentDir: (id) => join(tmpDir, "pi", id, "agent"),
+      },
+    });
+    const ctx = withPi.load(businessId, `jira__s__${businessId}`);
+    expect(ctx.pi_agent_dir).toBe(join(tmpDir, "pi", businessId, "agent"));
+    expect(
+      newLoader().load(businessId, `jira__s__${businessId}`).pi_agent_dir,
+    ).toBeUndefined();
+  });
+
+  it("piResolver 抛错 → load 失败（不回退全局）", () => {
+    const ids = registerAssets();
+    const businessId = createBusiness(ids);
+    const failing = createContextLoader({
+      registry,
+      assets,
+      env,
+      defaults: DEFAULTS,
+      piResolver: {
+        resolvePiAgentDir: () => {
+          throw new Error("业务 models.json 生成失败: x");
+        },
+      },
+    });
+    expect(() => failing.load(businessId, `jira__s__${businessId}`)).toThrow(
+      /业务 models\.json 生成失败/,
+    );
+  });
+
+  it("绑定资产已下架 → asset_disabled；重新上架后恢复", () => {
+    const ids = registerAssets();
+    const businessId = createBusiness(ids);
+    assets.setEnabled(ids.tool, false);
+    expect(() => newLoader().load(businessId, `jira__s__x`)).toThrow(
+      `asset_disabled: ${ids.tool}`,
+    );
+    assets.setEnabled(ids.tool, true);
+    expect(() => newLoader().load(businessId, `jira__s__x`)).not.toThrow();
+  });
+});

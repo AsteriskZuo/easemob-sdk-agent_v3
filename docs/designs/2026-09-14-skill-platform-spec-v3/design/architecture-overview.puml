@@ -93,7 +93,7 @@ entries -[hidden]right- exits
 
 note bottom of infra
   全体模块只经 logger 全局外观记日志、只经 env 包读环境变量（装配根统一解析）；
-  两条队列是 platform.db 中的表，此处为表达「一个循环配一个队列」单独画出；
+  两条事件队列是 platform.db 中的表，此处为表达「一个循环配一个队列」单独画出（管理面更新命令队列未画出）；
   通道池管顺序（同通道串行、跨通道并行），并发上限另由闸门 Semaphore 控制
   （入口 task_concurrency 保护 LLM 执行进程 / 出口 result_concurrency 管投递）
 end note

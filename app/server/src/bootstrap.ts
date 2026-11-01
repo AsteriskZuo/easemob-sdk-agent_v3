@@ -16,10 +16,11 @@ import { ENTRY_ADAPTERS } from "@asteriskzuo/agent-entry-adapters";
 import type { EntryAdapter } from "@asteriskzuo/agent-entry-adapters";
 import { createExitRegistry } from "@asteriskzuo/agent-exit-tools";
 import { initLogger, logger } from "@asteriskzuo/agent-logger";
-import { createTaskQueue } from "@asteriskzuo/agent-queue";
+import { createTaskQueue, createUpdateQueue } from "@asteriskzuo/agent-queue";
 import type { TaskQueue } from "@asteriskzuo/agent-queue";
 import { createBusinessRegistry } from "@asteriskzuo/agent-registry";
 import type { BusinessRegistry } from "@asteriskzuo/agent-registry";
+import { findAssetReferencers } from "@asteriskzuo/agent-registry";
 import {
   createContextLoader,
   createEnvProvider,
@@ -38,7 +39,13 @@ import { resolveServerConfig } from "./config.js";
 import type { ServerConfig } from "./config.js";
 import { createExitDriver } from "./exit-driver.js";
 import { loadModelList, preparePiModels } from "./models.js";
+import { prepareBusinessPiModels } from "./models.js";
 import { runSelfCheck } from "./self-check.js";
+import { createBusinessPiConfigService } from "./pi-config-service.js";
+import type { BusinessPiConfigService } from "./pi-config-service.js";
+import { createUpdateCoordinator } from "./updates/coordinator.js";
+import type { UpdateCoordinator } from "./updates/coordinator.js";
+import { buildUpdateHandlers } from "./updates/handlers.js";
 
 /** 装配产物：T13 管理 API 与 T18 入口适配器复用的全部实例 */
 export interface AssembledContext {
@@ -60,6 +67,8 @@ export interface AssembledContext {
   entryLoop: SchedulerLoop;
   /** 出口事件循环 */
   exitLoop: SchedulerLoop;
+  /** 统一更新协调器（全部运行时管理写入口；也是入口循环的 RunGate） */
+  updates: UpdateCoordinator;
 }
 
 /** 运行中的平台句柄 */
@@ -97,6 +106,8 @@ export async function bootstrap(overrides?: {
   let db: Database | null = null;
   let entryLoop: SchedulerLoop | null = null;
   let exitLoop: SchedulerLoop | null = null;
+  let updates: UpdateCoordinator | null = null;
+  let piConfigService: BusinessPiConfigService | null = null;
   let consoleApi: ConsoleApi | null = null;
   const startedAdapters: EntryAdapter[] = [];
   let context: AssembledContext | null = null;
@@ -137,6 +148,42 @@ export async function bootstrap(overrides?: {
       npm_registry: config.npm_registry,
     });
     const envProvider = createEnvProvider(db);
+    // 统一更新协调器：全部运行时管理写入口；queue 包负责持久化/FIFO/崩溃恢复，
+    // 协调器负责闲时判断与应用屏障。共享资产命令应用前重算引用方（新增引用方也纳入屏障）
+    const updateQueue = createUpdateQueue(db);
+    const updatesCoordinator = createUpdateCoordinator({
+      queue: updateQueue,
+      handlers: buildUpdateHandlers({
+        registry,
+        env: envProvider,
+        assets,
+      }),
+      resolveScope: (cmd) => {
+        if (cmd.business_ids === "all") return "all";
+        if (
+          cmd.kind === "asset.update" ||
+          cmd.kind === "asset.enabled.set" ||
+          cmd.kind === "asset.remove"
+        ) {
+          const assetId = (cmd.payload as { asset_id?: unknown }).asset_id;
+          if (typeof assetId === "string") {
+            return findAssetReferencers(registry, assetId);
+          }
+        }
+        return cmd.business_ids;
+      },
+    });
+    updates = updatesCoordinator;
+    // 业务 Pi 配置服务：在线验证（真实探针）→ 确认 → 经统一更新队列生效；
+    // 验证目录在业务 cache/pi/validations 下，创建时清理重启残留
+    piConfigService = createBusinessPiConfigService({
+      registry,
+      updates: updatesCoordinator,
+      workspace: config.workspace,
+      pi_cli_path: config.pi_cli_path,
+      pi_env: config.pi_env,
+      globalModels: models,
+    });
     const loader = createContextLoader({
       registry,
       assets,
@@ -144,6 +191,18 @@ export async function bootstrap(overrides?: {
       defaults: {
         task_timeout_minutes: config.task_timeout_minutes,
         max_agent_calls: config.max_agent_calls,
+      },
+      // 业务自定义 Pi 配置：存在时每次 run 从当前生效值重新原子生成派生目录；
+      // 生成失败则该 run 失败（ContextLoader 抛错），不消费旧文件、不回退全局
+      piResolver: {
+        resolvePiAgentDir(businessId: string): string | undefined {
+          const piModels = registry.getPiModels(businessId);
+          if (piModels === undefined) return undefined;
+          return prepareBusinessPiModels(
+            join(config.workspace, "businesses", businessId, "cache", "pi"),
+            piModels,
+          );
+        },
       },
     });
     const runner = createWorkflowRunner({ workspaceRoot: config.workspace });
@@ -174,6 +233,7 @@ export async function bootstrap(overrides?: {
       channels: entryChannels,
       config: platformConfig,
       driver: lifecycle,
+      runGate: updatesCoordinator,
     });
     exitLoop = createExitLoop({
       queue: exitQueue,
@@ -183,13 +243,15 @@ export async function bootstrap(overrides?: {
       driver: exitDriver,
     });
 
-    // 6. 崩溃恢复：processing 残留重置回 pending（start 前的装配纪律）
+    // 6. 崩溃恢复：processing 残留重置回 pending（start 前的装配纪律）。
+    //    更新队列 recover 必须先于循环/适配器/管理 API 启动——重启后先按队列补应用，再开放执行
     const recoveredEntry = entryQueue.recover();
     const recoveredExit = exitQueue.recover();
     log.info("队列崩溃恢复", {
       entry_recovered: recoveredEntry,
       exit_recovered: recoveredExit,
     });
+    await updatesCoordinator.recover();
 
     // 7. 启动两个循环
     entryLoop.start();
@@ -256,6 +318,8 @@ export async function bootstrap(overrides?: {
         assets,
         env: envProvider,
         exits,
+        updates: updatesCoordinator,
+        piConfig: piConfigService,
         entryQueue,
         exitQueue,
         lifecycle: lifecycleStore,
@@ -292,6 +356,7 @@ export async function bootstrap(overrides?: {
       assets,
       entryLoop,
       exitLoop,
+      updates: updatesCoordinator,
     };
   } catch (err) {
     log.error("平台启动失败", { error: errorMessage(err) });
@@ -320,6 +385,20 @@ export async function bootstrap(overrides?: {
     if (exitLoop) {
       try {
         await exitLoop.stop();
+      } catch {
+        // 同上
+      }
+    }
+    if (updates) {
+      try {
+        await updates.stop();
+      } catch {
+        // 同上
+      }
+    }
+    if (piConfigService) {
+      try {
+        piConfigService.close();
       } catch {
         // 同上
       }
@@ -360,6 +439,10 @@ export async function bootstrap(overrides?: {
       }
       await assembled.entryLoop.stop();
       await assembled.exitLoop.stop();
+      // 更新协调器随循环停止后停：进行中的应用窗口落定，未应用命令保留到下次启动
+      await assembled.updates.stop();
+      // 取消在飞验证探针、清理未确认验证记录与目录
+      piConfigService.close();
       assembled.db.close();
       log.info("平台已停止");
     })();

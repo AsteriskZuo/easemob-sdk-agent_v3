@@ -60,7 +60,7 @@ easemob-agent（monorepo：packages/* 模块 + app/* 进程）
 
 > 注：设计期曾列「标识生成 IdGen / 时钟 Clock」两个基础设施模块，落地时已收敛——id 由 contracts 纯函数承担、时间戳统一 `new Date().toISOString()`，不再单独立模块（§4.7 同步修订）。
 
-说明：**出口与入口对称**（已定决策）——出口 = 出口事件循环 + 出口工具群（内置投递器模块，不是 skill）。业务结果无脑扇出到两个队列：入口队列由关注业务消化（订阅匹配），出口队列由产出方业务的出口绑定消化（归属匹配，不过 LLM、毫秒级）。注意区分两类「触达能力」：**结果投递**归出口工具（平台内置模块）；**执行内调用**（如审查过程中读写 Jira）归工具资产（git 仓库登记，`sdk.run` 按名调用，见 `design/asset-model.md`）。
+说明：**出口与入口对称**（已定决策）——出口 = 出口事件循环 + 出口工具群（内置投递器模块，不是 skill）。业务结果无脑扇出到两个队列：入口队列由关注业务消化（订阅匹配），出口队列由产出方业务的出口绑定消化（归属匹配，不过 LLM、毫秒级）。注意区分两类「触达能力」：**结果投递**归出口工具（平台内置模块）；**执行内调用**（如审查过程中读写 Jira）归工具资产（git 仓库登记，`sdk.run` 按名调用，见 `design/asset-model.md`）。事件面之外还有第三条队列（2026-10-26 起）：**更新命令队列**——业务资料/env/资产/业务 Pi 配置等管理写入统一经它排队，在受影响业务空闲后生效（见 `docs/specs/2026-10-26-business-pi-configuration-spec.md` §9）。
 
 模块明细：
 
@@ -155,7 +155,7 @@ interface WorkflowRunner {
   run(job: {
     program: string;           // 业务流程程序入口（业务工作区内）
     event: Event;              // 触发信封
-    env: EnvConfig;            // 按业务隔离注入（secrets 不落盘不进日志）
+    env: EnvConfig;            // 按业务隔离注入（secrets 只写不读、掩码回显、不进日志；存 platform.db）
     workspace: string;         // run 隔离目录 businesses/{business_id}/runs/{source}/{session_id}/{run_id}/，作为 cwd
     endpoint: ServiceEndpoint; // 注入环境变量，SDK 据此连 agent 服务
     timeout_minutes: number;   // 业务配置优先，缺省取全局 task_timeout_minutes（60）
@@ -242,7 +242,7 @@ interface AssetMeta {
 
 ### 4.5 环境配置 EnvProvider
 
-业务级 key-value 配置，**只有两桶**：普通桶（vars）与安全桶（secrets）——区别只在存储与回显（安全桶只写不读明文、掩码显示、不落盘不进日志），使用方式完全相同：包/工具在文档里声明需要的 key，业务创建者按 key 填，代码经 `sdk.config()` / `sdk.secret(name)` 取用。github / jira 等账号凭证本质也是 key-value（仓库地址进普通桶、token 进安全桶），不设第三类。**业务级优先于通用级**（与超时同一优先级规则）。
+业务级 key-value 配置，**只有两桶**：普通桶（vars）与安全桶（secrets）——区别只在存储与回显（安全桶只写不读明文、掩码回显、不进日志；落 platform.db），使用方式完全相同：包/工具在文档里声明需要的 key，业务创建者按 key 填，代码经 `sdk.config()` / `sdk.secret(name)` 取用。github / jira 等账号凭证本质也是 key-value（仓库地址进普通桶、token 进安全桶），不设第三类。**业务级优先于通用级**（与超时同一优先级规则）。
 
 ```ts
 interface EnvProvider {
@@ -267,6 +267,8 @@ interface EnvProvider {
 ### 4.7 基础设施与工具类
 
 被所有模块依赖，不反向依赖任何业务模块。它们存在的理由：**消除"各模块各自实现"的散点**——SQL 写法、id 格式、时间格式一旦散落各处就难以维护（与 session_id 单点定义同一思路）。
+
+> **2026-10-26 增补**：子进程创建也收敛为单一实现——`packages/process-runner`（`runProcess`：数组参数、shell:false、结构化错误、超时/取消/输出上限、POSIX 进程组 SIGTERM→SIGKILL 清理）。agent-service、workflow-runner、pi-probe 与 `@asteriskzuo/agent-sdk` 的生产进程创建全部复用它，不保留第二套 spawn；process-runner 以公共形态发布（SDK 在 dependencies 声明其公共版本），发布顺序 process-runner → SDK，业务包从 npm 装 SDK 时同时获得该依赖。另有 `packages/pi-probe`（独立包）：业务 Pi 配置的在线验证探针——一次性最小调用验证 models.json 真实可用，归控制台验证—确认流程使用。
 
 > **2026-10-04 落地修订**：Database 已按本接口实现（`packages/database`）；**IdGen / Clock 未单独立模块**——id 生成收敛为 contracts 纯函数（`newUlid()` / `newEventId()`，Crockford base32 ULID + node:crypto），时间戳统一 `new Date().toISOString()`。设计意图（单点消除散点）不变，落地形态从两个接口模块简化为纯函数 + 一行约定。
 
@@ -370,6 +372,7 @@ easemob-sdk-agent_v3/
 | 数据 | 属主模块 | 说明 |
 |------|---------|------|
 | 任务（tasks） | TaskQueue ×2 | 入口队列 / 出口队列各一张（或一张表加队列标识，实现定）；状态机 pending/processing/done/dead |
+| 更新命令（business_update_commands） | UpdateQueue（2026-10-26 起） | 管理面统一更新队列：命令主表 + 业务范围关联表；状态机 pending/processing/done/failed；应用时机判定归 app/server 的 UpdateCoordinator（受影响业务空闲后才应用，严格全局 FIFO） |
 | 通道（channels） | ChannelPool | 两个循环共用一张表，channel_id 前缀区分域（业务通道三维 / 出口通道 `exit__`）；创建即落库，完成只做状态变更 |
 | 业务配置（businesses） | BusinessRegistry | 含 business_id（不可改）、business_name（可改）、creator_id、匹配字段、依赖、on_failure、**出口绑定**（business_id + 工具 kind + 配置） |
 | 通道映射（channels_sessions） | ChannelStore | 业务通道 channel_id ↔ agent 会话 id 一张表（出口通道不在此表） |

@@ -58,7 +58,7 @@
 | 失败传播 | 本业务失败时是否仍扇出结果（默认**不扇出** = 下游天然不触发、出口无投递；扇出则派生事件带失败状态，由下游门禁验收） | 否 |
 | 通用配置 | 平台级默认值；业务配置可与通用配置重合，**业务配置优先级更高**。首条落地项：run 超时（默认 60 分钟） | 否 |
 | key-value（普通桶） | 业务级普通 key-value（如 jira 站点地址、github 仓库地址），运行时注入 | 否 |
-| key-value（安全桶） | 业务级安全 key-value（如 jira token、github token）：只写不读明文、掩码回显、运行时注入、不落盘不进日志。github / jira 等账号凭证本质也是 key-value，统一在此配置，包/工具按 key 取用 | 否 |
+| key-value（安全桶） | 业务级安全 key-value（如 jira token、github token）：只写不读明文、掩码回显、运行时注入、不进日志（落 platform.db）。github / jira 等账号凭证本质也是 key-value，统一在此配置，包/工具按 key 取用 | 否 |
 
 **要点：**
 
@@ -85,7 +85,7 @@
 |----|-----------|---------|--------------------------|---------|
 | **配置** | 人写给平台的输入：环境变量 + 可选配置文件兜底（优先级：env > 文件 > 代码默认值；格式 JSON） | `platform/config.json`（可选，含 `AGENT_PI_MODELS`） | —（业务配置存 platform.db） | 人工维护；真实配置可能含 secret，不进 git，脱敏示例可进 git |
 | **数据** | 持久状态，删了影响正确性或用户可感知：平台侧 = 注册表/队列/通道/设置/账号/资产登记记录/身份目录（SQLite）；业务侧 = 业务级持久状态（`sdk.dataDir()`，如去重记录） | `platform/data/platform.db` | `data/{source}/{session_id}/` | 平台自管（部分表 TTL 如队列 purge），备份即文件拷贝 |
-| **缓存** | 可随时重建的物：资产物化（git clone）、Pi 受管派生配置、agent 会话（会话清了丢多轮上下文，不丢正确性） | `platform/cache/` | `cache/` | 停 server 可清，启动或按需重建；派生 models.json 仍含 secret，不进 git/日志/API |
+| **缓存** | 可随时重建的物：资产物化（git clone）、Pi 受管派生配置（平台级 + 业务级）、agent 会话（会话清了丢多轮上下文，不丢正确性） | `platform/cache/` | `cache/` | 停 server 可清，启动或按需重建；派生 models.json 仍含 secret，不进 git/日志/API（业务级派生只随业务 Pi 配置写操作原子同步，非缓存清理目标） |
 | **临时** | 每次 run 的隔离工作区与产物 | —（平台无 runs） | `runs/` | TTL 清理（不早于任务记录保留期） |
 | **日志** | 排查追踪：平台三日志 + 业务日志（见 `design/logging.md`） | `platform/logs/` | `logs/` | 轮转可删（logrotate），不备份 |
 
@@ -96,7 +96,7 @@
 ├── platform/                                         # ══ 平台 ══
 │   ├── config.json                                   # 配置：部署输入（环境变量优先；真实文件不进 git）
 │   ├── data/
-│   │   └── platform.db                               # 数据：全部 sqlite 表（含资产登记记录）
+│   │   └── platform.db                               # 数据：全部 sqlite 表（含资产登记记录、更新命令队列表、业务 Pi 配置 pi_models 列）
 │   ├── cache/
 │   │   ├── assets/{asset_id}/                        # 缓存：资产物化（git clone，可重拉）
 │   │   └── pi/agent/models.json                      # 缓存：AGENT_PI_MODELS 的受管派生文件（启动同步，不人工编辑）
@@ -104,6 +104,7 @@
 └── businesses/{business_id}/                         # ══ 每个业务 ══
     ├── data/{source}/{session_id}/                   # 数据：业务持久状态（sdk.dataDir()，如去重记录）
     ├── cache/agent-sessions/{source}/{session_id}/   # 缓存：pi 会话存储（--session-dir 指向）
+    ├── cache/pi/agent/models.json                    # 缓存：业务自定义 Pi 配置的受管派生文件（2026-10-26 起；仅配置了自定义的业务存在，0700/0600，验证-确认后原子同步）
     ├── runs/{source}/{session_id}/{run_id}/          # 临时：run 隔离工作区
     └── logs/{source}/{session_id}/{run_id}.log       # 日志：业务 run 日志
 ```
@@ -157,7 +158,7 @@
 
 ## 11. MVP 范围
 
-做：账号体系（admin + 普通成员）、资产登记与管理（包/工具/skill：git 登记、列表、下架；共享标记登记时定）、业务创建与配置（§4 资料模块，含叹号提示）、关注与依赖配置、出口工具勾选与配置、定时触发、并发监控与上限设置（两道闸门）、任务监控（业务标记 + 干预）、Portainer 资源监控、agent=pi（内核注册表驱动）/ 模型列表=AGENT_PI_MODELS 驱动（启动生成派生 models.json，管理 API 只提供 provider/id，平台代码不内置模型名）。页面范围见 §12。
+做：账号体系（admin + 普通成员）、资产登记与管理（包/工具/skill：git 登记、列表、上架/下架开关、删除；共享标记登记时定）、业务创建与配置（§4 资料模块，含叹号提示）、关注与依赖配置、出口工具勾选与配置、定时触发、并发监控与上限设置（两道闸门）、任务监控（业务标记 + 干预）、Portainer 资源监控、agent=pi（内核注册表驱动）/ 模型列表=AGENT_PI_MODELS 驱动（启动生成派生 models.json，管理 API 只提供 provider/id，平台代码不内置模型名；2026-10-26 起业务可在编辑页配置自定义大模型——完整 models.json + 在线验证 + 确认保存，经统一更新队列生效）。全部管理写入经统一更新队列：页面不展示队列状态，只显示统一生效说明。页面范围见 §12。
 
 不做：定时通知出口类型、拖拽编排、二维表图形化、跨业务联合分析、多 API Key 管理、平台级共享连接、统计搜索页（§12，后续增加；结果缺省统计随该页一起落地）。
 
@@ -173,7 +174,7 @@
 | 1 | 监控仪表盘（首页） | 全部登录用户 | 实时并发数（两个循环各自的通道并发情况）；任务监控：业务标记（创建/进行中/成功/失败/超时）与维护性干预（终止、重试） | `TaskQueue` ×2 / `ChannelPool` / `Lifecycle`（业务标记投影） | MVP |
 | 2 | 统计搜索 | 全部登录用户 | 任务状态与结果数据的统计和检索：缺省按日期统计（成功/失败/超时次数 + token 调用量、耗时），按 event_id / lifecycle_id / channel_id / correlation_id 检索 | `Lifecycle`（业务标记与统计属性）/ `Logger`（检索） | 后续增加 |
 | 3 | 业务管理 | 全部登录用户 | 业务列表（注册表视图）；创建/编辑业务 = §4 资料集合的填写与维护（含出口工具勾选与配置） | `BusinessRegistry` / `AssetRegistry` / `ExitRegistry` / `EnvProvider` / `ConfigStore` | MVP |
-| 4 | 资产管理 | 全部登录用户 | 包 / 工具 / skill 三族资产的登记（git url + 分支/tag/commit + 子路径；工具/skill 定共享标记）、列表、下架；成员管理自己的，admin 只读查看全部 | `AssetRegistry` | MVP |
+| 4 | 资产管理 | 全部登录用户 | 包 / 工具 / skill 三族资产的登记（git url + 分支/tag/commit + 子路径；工具/skill 定共享标记）、列表（含已上架/已下架状态）、上架/下架、删除；成员管理自己的，admin 只读查看全部 | `AssetRegistry` | MVP |
 | 5 | 通用配置 | 所有用户全部可读，admin可写 | 全局设置（超时、hop 上限、业务/出口通道并发数等，仅 admin 写）；通用层 key-value 两桶（安全桶只显示键名与掩码，不明文回显）；**资产缓存清理按钮**（admin，confirm 弹窗说明后果：登记行不动、下次 run 触发重新物化构建、可能耗时分钟级；调 `POST /api/cache/clear`） | `ConfigStore` / `EnvProvider` / `AssetRegistry` | MVP |
 | 6 | 用户管理 | admin | 建号、停用/启用 | `AccountService` | MVP |
 

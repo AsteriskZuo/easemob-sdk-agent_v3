@@ -1,9 +1,9 @@
-import { spawn } from "node:child_process";
 import { accessSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { newUlid, assertSafeSegment } from "@asteriskzuo/agent-contracts";
 import type { EventEnvelope } from "@asteriskzuo/agent-contracts";
 import { createFileSink, logger } from "@asteriskzuo/agent-logger";
+import { ProcessError, runProcess } from "@asteriskzuo/agent-process-runner";
 import {
   classifyStderrLine,
   encodeStdinEnvelope,
@@ -33,9 +33,9 @@ export interface RunOutcome {
 
 /** 流程执行器：分钟级长调用 */
 export interface WorkflowRunner {
-  /** 执行一次 run：建目录 → spawn → 注入 → 收结果 → 打标。
+  /** 执行一次 run：建目录 → 经 process-runner 执行 → 注入 → 收结果 → 打标。
    *  业务失败/异常/超时都返回 RunOutcome，不向调用方抛业务错误；
-   *  只有平台自身错误（目录不可建、program 不存在、段非法）才抛错 */
+   *  只有平台自身错误（目录不可建、program 不存在、段非法、spawn 失败）才抛错 */
   run(req: RunRequest): Promise<RunOutcome>;
 }
 
@@ -164,162 +164,133 @@ export function createWorkflowRunner(
       dataDir,
     };
 
-    return new Promise<RunOutcome>((resolve, reject) => {
-      // env 清空：平台环境变量不泄漏给业务进程，secrets 只走 stdin
-      const child = spawn(nodePath, [req.program], {
-        cwd: workspace,
-        env: {},
-        stdio: ["pipe", "pipe", "pipe"],
-      });
+    let stdoutBuf = "";
+    let stderrBuf = "";
+    let firstResult: StdoutResult | null = null;
 
-      let stdoutBytes = 0;
-      let stdoutBuf = "";
-      let stderrBuf = "";
-      let firstResult: StdoutResult | null = null;
-      let outputExceeded = false;
-      let timedOut = false;
-      let killing = false;
-      let killTimer: NodeJS.Timeout | null = null;
-
-      const writeStderrLine = (line: string): void => {
-        try {
-          const classified = classifyStderrLine(line);
-          if (classified.kind === "structured") {
-            bizSink(
-              classified.level,
-              classified.fields !== undefined
-                ? {
-                    message: classified.message,
-                    fields: nestJsonStrings(classified.fields),
-                  }
-                : { message: classified.message },
-            );
-          } else {
-            bizSink("info", { message: classified.text });
-          }
-        } catch {
-          // 日志管道自身永不失败
-        }
-      };
-
-      const scanStdoutLines = (flush: boolean): void => {
-        let idx: number;
-        while ((idx = stdoutBuf.indexOf("\n")) >= 0) {
-          const line = stdoutBuf.slice(0, idx);
-          stdoutBuf = stdoutBuf.slice(idx + 1);
-          if (!firstResult) {
-            const r = parseStdoutResult(line);
-            if (r) firstResult = r;
-          }
-        }
-        if (flush && stdoutBuf.trim().length > 0 && !firstResult) {
-          const r = parseStdoutResult(stdoutBuf);
-          if (r) firstResult = r;
-          stdoutBuf = "";
-        }
-      };
-
-      const killChild = (): void => {
-        if (killing) return;
-        killing = true;
-        child.kill("SIGTERM");
-        killTimer = setTimeout(() => child.kill("SIGKILL"), killGraceMs);
-      };
-
-      // wall-clock 超时：到点 SIGTERM，grace 后 SIGKILL
-      const timeoutMs = req.quota.timeout_minutes * 60_000;
-      const timer = setTimeout(() => {
-        timedOut = true;
-        killChild();
-      }, timeoutMs);
-
-      child.stdout.on("data", (chunk: Buffer) => {
-        stdoutBytes += chunk.length;
-        stdoutBuf += chunk.toString("utf8");
-        scanStdoutLines(false);
-        // 超限即杀即判，不等结果（防线三）
-        if (stdoutBytes > maxOutputBytes && !outputExceeded) {
-          outputExceeded = true;
-          killChild();
-        }
-      });
-
-      child.stderr.on("data", (chunk: Buffer) => {
-        stderrBuf += chunk.toString("utf8");
-        let idx: number;
-        while ((idx = stderrBuf.indexOf("\n")) >= 0) {
-          const line = stderrBuf.slice(0, idx);
-          stderrBuf = stderrBuf.slice(idx + 1);
-          writeStderrLine(line);
-        }
-      });
-
-      child.on("error", (err) => {
-        clearTimeout(timer);
-        if (killTimer) clearTimeout(killTimer);
-        reject(new Error(`spawn 失败: ${req.program}: ${err.message}`));
-      });
-
-      // 进程收尾：await 退出后才返回（不留僵尸）；判定优先级见 spec §5.1（fail-closed）
-      child.on("close", (code, signal) => {
-        clearTimeout(timer);
-        if (killTimer) clearTimeout(killTimer);
-        scanStdoutLines(true);
-        if (stderrBuf.trim().length > 0) writeStderrLine(stderrBuf);
-        const durationMs = Date.now() - startedAt;
-        if (outputExceeded) {
-          resolve({
-            status: "failed",
-            output: undefined,
-            reason: `output too large (> ${maxOutputBytes} bytes, duration_ms=${durationMs})`,
-          });
-        } else if (firstResult) {
-          if (firstResult.ok) {
-            resolve({ status: "success", output: firstResult.output });
-          } else {
-            resolve({
-              status: "failed",
-              output: undefined,
-              reason: `${firstResult.reason} (duration_ms=${durationMs})`,
-            });
-          }
-        } else if (timedOut) {
-          resolve({
-            status: "timeout",
-            output: undefined,
-            reason: `timeout after ${req.quota.timeout_minutes} minutes (duration_ms=${durationMs})`,
-          });
-        } else if (code !== 0) {
-          resolve({
-            status: "failed",
-            output: undefined,
-            reason: `exit code ${code}${signal ? ` signal ${signal}` : ""} (duration_ms=${durationMs})`,
-          });
+    const writeStderrLine = (line: string): void => {
+      try {
+        const classified = classifyStderrLine(line);
+        if (classified.kind === "structured") {
+          bizSink(
+            classified.level,
+            classified.fields !== undefined
+              ? {
+                  message: classified.message,
+                  fields: nestJsonStrings(classified.fields),
+                }
+              : { message: classified.message },
+          );
         } else {
-          resolve({
-            status: "failed",
-            output: undefined,
-            reason: `missing result (duration_ms=${durationMs})`,
-          });
+          bizSink("info", { message: classified.text });
         }
-      });
+      } catch {
+        // 日志管道自身永不失败
+      }
+    };
 
-      child.stdin.on("error", () => {
-        // EPIPE：子进程早退，吞掉（退出码走 close 判定）
-      });
-      const encodedEnvelope = encodeStdinEnvelope(envelope);
-      // 临时调试：紧挨 stdin 写入，记录实际交给业务进程的信封
-      bizSink("info", {
-        message: "临时调试：Runner 实际写入业务进程的 StdinEnvelope",
-        fields: {
-          ...envelope,
-          secrets: debugSecrets,
-          endpoint: debugEndpoint,
+    const scanStdoutLines = (flush: boolean): void => {
+      let idx: number;
+      while ((idx = stdoutBuf.indexOf("\n")) >= 0) {
+        const line = stdoutBuf.slice(0, idx);
+        stdoutBuf = stdoutBuf.slice(idx + 1);
+        if (!firstResult) {
+          const r = parseStdoutResult(line);
+          if (r) firstResult = r;
+        }
+      }
+      if (flush && stdoutBuf.trim().length > 0 && !firstResult) {
+        const r = parseStdoutResult(stdoutBuf);
+        if (r) firstResult = r;
+        stdoutBuf = "";
+      }
+    };
+
+    const flushStderrTail = (): void => {
+      if (stderrBuf.trim().length > 0) writeStderrLine(stderrBuf);
+    };
+
+    // firstResult 只在回调闭包内被赋值；经函数读取，避免 CFA 把它窄化成 null/never
+    const readFirstResult = (): StdoutResult | null => firstResult;
+
+    const outcomeFromFirst = (durationMs: number): RunOutcome => {
+      const fr = readFirstResult();
+      if (fr !== null) {
+        if (fr.ok) return { status: "success", output: fr.output };
+        return {
+          status: "failed",
+          output: undefined,
+          reason: `${fr.reason} (duration_ms=${durationMs})`,
+        };
+      }
+      return {
+        status: "failed",
+        output: undefined,
+        reason: `missing result (duration_ms=${durationMs})`,
+      };
+    };
+
+    const timeoutMs = req.quota.timeout_minutes * 60_000;
+    // env 清空（exact 空表）：平台环境变量不泄漏给业务进程，secrets 只走 stdin
+    try {
+      await runProcess(nodePath, [req.program], {
+        cwd: workspace,
+        env: { mode: "exact", values: {} },
+        stdin: encodeStdinEnvelope(envelope),
+        timeout_ms: timeoutMs,
+        kill_grace_ms: killGraceMs,
+        max_output_bytes: maxOutputBytes,
+        on_stdout: (chunk) => {
+          stdoutBuf += chunk.toString("utf8");
+          scanStdoutLines(false);
+        },
+        on_stderr: (chunk) => {
+          stderrBuf += chunk.toString("utf8");
+          let idx: number;
+          while ((idx = stderrBuf.indexOf("\n")) >= 0) {
+            const line = stderrBuf.slice(0, idx);
+            stderrBuf = stderrBuf.slice(idx + 1);
+            writeStderrLine(line);
+          }
         },
       });
-      child.stdin.write(encodedEnvelope);
-      child.stdin.end();
-    });
+      // exit 0：收尾 flush 后按结果判定
+      scanStdoutLines(true);
+      flushStderrTail();
+      return outcomeFromFirst(Date.now() - startedAt);
+    } catch (e) {
+      scanStdoutLines(true);
+      flushStderrTail();
+      const durationMs = Date.now() - startedAt;
+      if (!(e instanceof ProcessError)) throw e;
+      // spawn 失败 = 平台自身错误 → 抛错（保持 "spawn 失败:" 前缀）
+      if (e.kind === "spawn_failed") {
+        throw new Error(`spawn 失败: ${req.program}: ${e.message}`);
+      }
+      // 判定优先级与迁移前一致（fail-closed）：output_limit > 已有结果 > timeout > 退出码
+      if (e.kind === "output_limit") {
+        return {
+          status: "failed",
+          output: undefined,
+          reason: `output too large (> ${maxOutputBytes} bytes, duration_ms=${durationMs})`,
+        };
+      }
+      if (readFirstResult() !== null) {
+        return outcomeFromFirst(durationMs);
+      }
+      if (e.kind === "timeout") {
+        return {
+          status: "timeout",
+          output: undefined,
+          reason: `timeout after ${req.quota.timeout_minutes} minutes (duration_ms=${durationMs})`,
+        };
+      }
+      return {
+        status: "failed",
+        output: undefined,
+        reason: `exit code ${e.code}${e.signal ? ` signal ${e.signal}` : ""} (duration_ms=${durationMs})`,
+      };
+    }
   };
 
   return { run };

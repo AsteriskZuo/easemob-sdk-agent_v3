@@ -31,8 +31,10 @@
 不做：
 
 - 不增加“完全外置、平台只读”的 Pi 配置模式。
-- 不支持热更新；修改模型配置后重启生效。
-- 不把模型配置迁入 SQLite、控制台可写设置或业务两桶。
+- 全局平台模型配置不支持热更新；修改 `AGENT_PI_MODELS` 后重启生效。
+- 全局平台模型配置不迁入 SQLite、控制台可写设置或业务两桶。
+
+> **2026-10-26 修订**：上两条仅约束**全局平台兜底配置**。业务级自定义 Pi 配置（registry `pi_models` 列存储、控制台在线验证—确认、经统一更新队列生效不重启、派生 `businesses/{id}/cache/pi/agent/models.json`）是独立契约，以 `docs/specs/2026-10-26-business-pi-configuration-spec.md` 为准；本规格的启动校验与派生流程不变，未配置自定义的业务仍走本规格的全局兜底。
 - 不改变 Pi 子进程 `PATH/HOME` 白名单，不扩展 Docker、沙箱或 OS 级隔离。
 - 不自动复制、删除或改写 `auth.json`、`settings.json` 等其他 Pi 文件；受管目录应是专用目录，避免已有凭据产生额外优先级。
 - 不修改真实 workspace 的 `platform/config.json`、`.pi/` 凭据或业务数据。

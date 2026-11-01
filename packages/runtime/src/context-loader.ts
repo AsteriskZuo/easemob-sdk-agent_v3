@@ -18,9 +18,18 @@ export interface RunContext {
   prompt: string; // 总纲（可空串，agent-service 原样传）
   skills: SkillRef[]; // 白名单全集：绑定 skill 集合的技能并集（name + 物化绝对路径）
   model: string;
+  /** 业务自定义 Pi 配置的派生 agent 目录（cache/pi/agent）；未配置 = undefined（走全局目录）。只带目录，不带原始 JSON */
+  pi_agent_dir?: string;
   vars: Record<string, string>;
   secrets: Record<string, string>;
   quota: { timeout_minutes: number; max_agent_calls: number }; // 已解析（业务优先于全局默认）
+}
+
+/** 业务自定义 Pi 配置的运行时解析器（平台装配根注入）：读当前生效配置并原子生成派生目录 */
+export interface BusinessPiRuntimeResolver {
+  /** 存在业务配置：原子生成 businesses/{business_id}/cache/pi/agent/models.json 并返回该目录；
+   *  不存在返回 undefined（走全局目录）；生成失败抛错（该 run 失败，不消费旧文件、不回退全局） */
+  resolvePiAgentDir(business_id: string): string | undefined;
 }
 
 export interface ContextLoader {
@@ -37,6 +46,7 @@ export function createContextLoader(deps: {
   assets: AssetRegistry; // 物化闭包与名解析（get / materialize / resolveResource）
   env: EnvProvider; // 两桶配置（先取：凭据解析与注入都要用）
   defaults: { task_timeout_minutes: number; max_agent_calls: number }; // 全局默认（装配根注入）
+  piResolver?: BusinessPiRuntimeResolver; // 业务自定义 Pi 配置解析（缺省 = 无业务配置能力，走全局目录）
 }): ContextLoader {
   return {
     load(business_id: string, channel_id: string): RunContext {
@@ -71,6 +81,14 @@ export function createContextLoader(deps: {
         ...profile.tool_asset_ids,
         ...profile.skill_asset_ids,
       ];
+      // 上架/下架开关（fail-fast，不进入业务程序）：任一绑定资产已下架 → asset_disabled。
+      // 未登记的资产由下方 assets.get 抛 asset_not_found（既有行为）
+      for (const id of assetIds) {
+        const meta = metas.get(id);
+        if (meta !== undefined && !meta.enabled) {
+          throw new Error(`asset_disabled: ${id}`);
+        }
+      }
       const objects = assetIds.map((id) =>
         deps.assets.get(id, credentialFor(id)),
       );
@@ -119,6 +137,8 @@ export function createContextLoader(deps: {
       }
 
       // 5. quota：业务资料覆盖值 ?? 全局默认
+      // 业务自定义 Pi 配置：每次 run 从当前生效值重新原子生成派生目录（失败即 run 失败，不回退全局）
+      const piAgentDir = deps.piResolver?.resolvePiAgentDir(business_id);
       return {
         business_id,
         channel_id,
@@ -127,6 +147,7 @@ export function createContextLoader(deps: {
         prompt: profile.prompt,
         skills: [...skillByName.values()],
         model: profile.model,
+        ...(piAgentDir !== undefined ? { pi_agent_dir: piAgentDir } : {}),
         vars,
         secrets,
         quota: {

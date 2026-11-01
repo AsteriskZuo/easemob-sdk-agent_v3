@@ -36,6 +36,11 @@ export function validateBusinessWrite(
     model?: string;
     agent_kind?: string;
   },
+  opts?: {
+    /** patch 场景的既有生效绑定（patch 前的 profile 值）；用于区分"本次新增"与"已有"绑定——
+     *  已下架资产只拒绝本次新增绑定，已有绑定保留且不阻断其他字段的保存 */
+    existing?: EffectiveBinding;
+  },
 ): void {
   const { config } = deps;
   const problems: string[] = [];
@@ -62,7 +67,7 @@ export function validateBusinessWrite(
 
   const binding = write.binding;
   if (binding !== undefined) {
-    collectBindingProblems(deps, actor, binding, problems);
+    collectBindingProblems(deps, actor, binding, problems, opts?.existing);
   }
 
   if (problems.length > 0) {
@@ -106,11 +111,20 @@ function collectBindingProblems(
   actor: User,
   binding: EffectiveBinding,
   problems: string[],
+  existing?: EffectiveBinding,
 ): void {
   const { assets, env } = deps;
 
   // asset-registry 无「按 id 取 meta」读口，控制台规模下 list({}) 全量查找可接受（同 routes-assets）
   const metas = new Map(assets.list({}).map((meta) => [meta.asset_id, meta]));
+  // 既有生效绑定集合（patch 场景）：已下架资产对已有绑定放行，只拦本次新增
+  const existingIds = new Set<string>([
+    ...(existing?.package_asset_id !== undefined
+      ? [existing.package_asset_id]
+      : []),
+    ...(existing?.tool_asset_ids ?? []),
+    ...(existing?.skill_asset_ids ?? []),
+  ]);
   const bound: Array<{
     role: "package" | "tool" | "skill";
     asset_id: string;
@@ -130,6 +144,13 @@ function collectBindingProblems(
     const meta = metas.get(item.asset_id);
     if (meta === undefined) {
       problems.push(`资产不存在: ${item.asset_id}`);
+      continue;
+    }
+    // 下架开关：只拒绝本次新增的绑定（既有绑定保留，重新上架即恢复）
+    if (!meta.enabled && !existingIds.has(item.asset_id)) {
+      problems.push(
+        `资产已下架: ${item.asset_id}（如需使用请先重新上架；已有绑定不受此限制）`,
+      );
       continue;
     }
     // 绑定权限：包不共享（owner 必须是操作者本人）；tool/skill 须自有或共享。
