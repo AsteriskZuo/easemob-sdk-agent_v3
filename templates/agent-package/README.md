@@ -13,7 +13,7 @@
 
 1. 拷贝本目录到你的仓库；
 2. 改 `agent-package.json` 与 `package.json` 的 `name`；
-3. 安装依赖：`npm install`（yarn/pnpm 亦可，模板不锁定包管理器）。`@asteriskzuo/agent-sdk` 是普通 npm 依赖，默认引用 npm 正式版 `^0.1.0`；仅离线开发兜底时改为 `file:<平台仓>/packages/sdk`（平台仓 `scripts/verify-template.sh` 的模板验收脚本就是这样改写的）；
+3. 安装依赖：`npm install`（yarn/pnpm 亦可，模板不锁定包管理器）。`@asteriskzuo/agent-sdk` 是普通 npm 依赖，默认引用 npm 正式版 `^0.1.0`；仅离线开发兜底时改为 `file:<平台仓>/packages/sdk`（平台仓 `scripts/verify-template.sh` 的模板验收脚本就是这样改写的）。**用未发版的本地 SDK 调试业务包**的三种方式（软链/tgz/file:）与还原方法见 `local-sdk-verification.md`；
 4. 写 `src/` 业务代码（新增子程序 = 在 `programs` 加条目；引用外部工具/skill = 在 `requires` 加名字）；
 5. 六条检查全绿：`npm run build` / `npm test` / `npm run typecheck` / `npm run lint` / `npm run format:check` / `npm run circular`；
 6. 推送 git → 控制台登记为包资产 → 创建业务时绑定（同时绑定 requires 声明的工具与 skill）。
