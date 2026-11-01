@@ -22,15 +22,19 @@ pi 内核由 app/server 的 npm 依赖提供，无需在宿主单独安装。
 ```bash
 yarn install
 
-# 平台工作目录（只能来自环境变量）
+# 平台工作目录（必填、只能来自环境变量；也可在每条命令前行内指定，见下文示例）
 export AGENT_WORKSPACE=/path/to/workspace
+
+# 配置文件：从模板拷贝后编辑（模板含全部键与默认值；replace-with-* 占位必须替换为真实值或整键删除；__ 前缀为逐键说明，解析器自动忽略）
+mkdir -p "$AGENT_WORKSPACE/platform"
+cp templates/config.json.example "$AGENT_WORKSPACE/platform/config.json"
 
 # 首启注入控制台 admin（仅首个用户创建时需要，成对出现）
 export AGENT_ADMIN_USERNAME=admin
 export AGENT_ADMIN_PASSWORD=your-initial-password
 ```
 
-启动前在 `{workspace}/platform/config.json` 配置 `AGENT_PI_MODELS`（结构见下文和 `templates/models.json.example`）。server 启动时会在默认受管目录 `{workspace}/platform/cache/pi/agent` 自动生成 Pi 的 `models.json`，无需手工复制。
+配置文件中 `AGENT_PI_MODELS` 为必填项（结构见下文与 `templates/models.json.example`），其余键均有默认值、按需覆盖。注意 `AGENT_WORKSPACE` 不能写进 config.json——它只从环境变量解析，写进文件会被静默忽略。server 启动时会在默认受管目录 `{workspace}/platform/cache/pi/agent` 自动生成 Pi 的 `models.json`，无需手工复制。
 
 从旧版升级时，把原 `models.json` 的 `{ "providers": ... }` 整体作为 `AGENT_PI_MODELS` 的值一次性迁入 `platform/config.json`，并删除不再需要的 `AGENT_PI_AGENT_DIR` 覆盖项以使用默认目录；此后不要同时手工维护两份配置。
 
@@ -42,7 +46,9 @@ export AGENT_ADMIN_PASSWORD=your-initial-password
 
 ```bash
 yarn build
-AGENT_CONSOLE_STATIC_DIR=$(pwd)/app/console/dist yarn workspace @asteriskzuo/agent-server start
+AGENT_WORKSPACE=$(pwd)/.easemob-agent-workspace \
+AGENT_CONSOLE_STATIC_DIR=$(pwd)/app/console/dist \
+  yarn workspace @asteriskzuo/agent-server start
 # 浏览器访问 http://localhost:6100
 ```
 
@@ -54,9 +60,9 @@ AGENT_CONSOLE_STATIC_DIR=$(pwd)/app/console/dist yarn workspace @asteriskzuo/age
 
 ```bash
 # 终端 1：server 源码模式（纯 API，不托管静态文件）
-yarn workspace @asteriskzuo/agent-server dev
+AGENT_WORKSPACE=$(pwd)/.easemob-agent-workspace yarn workspace @asteriskzuo/agent-server dev
 
-# 终端 2：console 源码模式（/api 自动代理到 localhost:6100）
+# 终端 2：console 源码模式（/api 自动代理到 localhost:6100；console 不读任何环境变量）
 yarn workspace @asteriskzuo/agent-console dev
 ```
 
@@ -70,7 +76,7 @@ yarn workspace @asteriskzuo/agent-console dev
 | `platform/cache/` | 资产物化、默认 Pi 受管目录及派生 `models.json` | 安全，启动或按需重建；派生文件也含密钥，不得进 git 或日志 |
 | `platform/logs/` | 平台三日志 | 安全 |
 | `businesses/` | 各业务的数据/缓存/runs/日志 | 安全（业务级持久状态随之丢失，如去重记录） |
-| `platform/config.json` | 人工维护的部署配置，可能含模型 API Key | 别删（除非连配置一起重置）；真实文件不进 git |
+| `platform/config.json` | 人工维护的部署配置，可能含模型 API Key | 别删（除非连配置一起重置）；真实文件不进 git，误删可用 `templates/config.json.example` 重建 |
 
 完整重置：**除 `platform/config.json` 外，工作区其余内容可整体删除**。若把 `AGENT_PI_AGENT_DIR` 显式指到 workspace 外，该目录不属于此重置范围——
 
@@ -82,17 +88,17 @@ rm -rf "$AGENT_WORKSPACE/platform/data" "$AGENT_WORKSPACE/platform/cache" "$AGEN
 
 **所有配置项都归 server；console 不需要任何环境变量**（浏览器 SPA 运行时不读 env；开发模式的 API 代理目标写在 `app/console/vite.config.ts`，生产模式由 server 托管静态文件）。
 
-来源优先级：**环境变量 > `{workspace}/platform/config.json` 同名键 > 代码默认值**（config.json 与环境变量同名、含 `AGENT_` 前缀）。`AGENT_PI_MODELS` 在文件中是 object，在环境变量中是同结构 JSON 字符串；env 整体覆盖文件值，不做深合并。
+来源优先级：**环境变量 > `{workspace}/platform/config.json` 同名键 > 代码默认值**（config.json 与环境变量同名、含 `AGENT_` 前缀）。`AGENT_PI_MODELS` 在文件中是 object，在环境变量中是同结构 JSON 字符串；env 整体覆盖文件值，不做深合并。config.json 允许放 `__` 前缀的说明键（解析器一律忽略）——`templates/config.json.example` 即用此方式逐键注释（如 `__AGENT_LOG_LEVEL` 说明该键可选与否与用途）。
 
 ### 启动与 Pi 模型配置
 
 | 变量 | 来源 | 说明 |
 |------|------|------|
 | `AGENT_WORKSPACE` | **只能环境变量** | 平台工作目录（数据五类分根的根）；config.json 栖身于 workspace，故不能来自文件 |
-| `AGENT_PI_MODELS` | env 或 config.json | 必填；完整 provider/model/apiKey 配置，至少一个模型。每次启动校验并同步受管 `models.json`，修改后重启生效 |
+| `AGENT_PI_MODELS` | env 或 config.json | 必填；完整 provider/model/apiKey 配置，至少一个模型。每次启动校验并同步受管 `models.json`，修改后重启生效。这是全局平台兜底；业务另可在控制台配置自定义大模型（在线验证—确认保存、脱敏回显、经统一更新队列生效不重启，见 `docs/specs/2026-10-26-business-pi-configuration-spec.md`） |
 | `PATH` / `HOME` | 只能环境变量 | pi 子进程基础环境（pi_env 固定组）；正常 shell 天然存在，一般无需显式设置 |
 
-`config.json` 示例（密钥必须使用真实值，示例不得原样用于生产）。`apiKey` 应使用字面量——Pi 子进程环境只有 PATH/HOME，不能依赖 `$ENV_VAR` 插值读取厂商密钥：
+完整键清单与默认值模板见 `templates/config.json.example`（拷贝后替换占位即用）；这里仅示例必填的 `AGENT_PI_MODELS`（密钥必须使用真实值，示例不得原样用于生产）。`apiKey` 应使用字面量——Pi 子进程环境只有 PATH/HOME，不能依赖 `$ENV_VAR` 插值读取厂商密钥：
 
 ```json
 {
@@ -131,6 +137,15 @@ rm -rf "$AGENT_WORKSPACE/platform/data" "$AGENT_WORKSPACE/platform/cache" "$AGEN
 | `AGENT_LOG_LEVEL` | `info` | 系统日志级别（error/warn/info/debug） |
 | `AGENT_LOG_ENABLED` | `true` | 日志总开关 |
 
+### 入口与物化（均有默认值，env 或 config.json 均可）
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `AGENT_ENTRY_WEBHOOK_ENABLED` | `true` | webhook 入口适配器开关（关闭 = 不创建不启动，完全不检查其配置） |
+| `AGENT_ENTRY_JIRA_POLLING_ENABLED` | `false` | jira 轮询入口开关（内部测试与无外网 webhook 场景的拉取入口） |
+| `AGENT_WEBHOOK_PORT` | `6200` | webhook 入口适配器监听端口 |
+| `AGENT_NPM_REGISTRY` | 官方 registry | 资产物化 `npm ci` 与初始化脚本子进程的 registry（启动自检验可达） |
+
 ### 可选增强
 
 | 变量 | 默认 | 说明 |
@@ -162,8 +177,10 @@ rm -rf "$AGENT_WORKSPACE/platform/data" "$AGENT_WORKSPACE/platform/cache" "$AGEN
 │   ├── runtime/        # Lifecycle 四步时序 + 上下文组装 + 两桶环境配置
 │   ├── asset-registry/ # 资产注册表（包/工具/skill：git 登记/物化/校验）
 │   ├── exit-tools/     # 出口工具群（企微×2/邮件/webhook/jira/confluence/github）
-│   ├── agent-service/  # agent 调用服务（unix socket + spawn pi + 配额 + 审计）
-│   ├── workflow-runner/# 业务子进程运行时（spawn + socket 协议平台侧）
+│   ├── agent-service/  # agent 调用服务（unix socket + pi 子进程 + 配额 + 审计）
+│   ├── workflow-runner/# 业务子进程运行时（socket 协议平台侧）
+│   ├── process-runner/ # 子进程创建唯一实现（超时/取消/输出上限/进程组清理；公共发布，SDK 依赖它）
+│   ├── pi-probe/       # 业务 Pi 配置在线验证探针（一次性最小真实调用）
 │   ├── sdk/            # @asteriskzuo/agent-sdk（业务程序唯一 SDK）
 │   └── console-api/    # 管理 API（HTTP + 账号体系 + 全部管理路由）
 ├── app/
@@ -171,8 +188,9 @@ rm -rf "$AGENT_WORKSPACE/platform/data" "$AGENT_WORKSPACE/platform/cache" "$AGEN
 │   └── console/        # 控制台 SPA（React + Vite + antd）
 ├── templates/
 │   ├── agent-package/      # 业务包模板（拷贝即用）
+│   ├── config.json.example # {workspace}/platform/config.json 完整模板（全部键 + 默认值 + 占位）
 │   └── models.json.example # AGENT_PI_MODELS 值的结构示例（不是手工复制目标）
-├── workspace/              # 本地开发建议的 AGENT_WORKSPACE 指向（gitignore；注意：变量无默认值、必填，这只是约定俗成的本地目录）
+├── .easemob-agent-workspace/ # 本地开发约定俗成的 AGENT_WORKSPACE 指向（gitignore；变量必填、无默认值，上文示例命令即指向它）
 └── docs/               # 设计/规格/计划/进度（见 docs/README.md）
 ```
 

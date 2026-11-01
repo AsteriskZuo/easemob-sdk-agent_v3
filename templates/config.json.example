@@ -1,0 +1,67 @@
+{
+  "AGENT_PI_MODELS": {
+    "providers": {
+      "your-provider-name": {
+        "baseUrl": "https://your-provider.example.com/v1",
+        "api": "openai-completions",
+        "apiKey": "在这里填入你的-apiKey",
+        "models": [{ "id": "your-model-id" }]
+      }
+    }
+  },
+  "__AGENT_PI_MODELS": "必选。完整大模型配置（object，至少一个 provider 一个模型）；apiKey 必须填字面量真实值（Pi 子进程环境只有 PATH/HOME，不支持 $ENV_VAR 插值）；结构详解见 templates/models.json.example",
+
+  "AGENT_CONSOLE_PORT": 6100,
+  "__AGENT_CONSOLE_PORT": "可选。管理 API / 控制台端口，默认 6100",
+
+  "AGENT_WEBHOOK_PORT": 6200,
+  "__AGENT_WEBHOOK_PORT": "可选。webhook 入口适配器监听端口，默认 6200",
+
+  "AGENT_ENTRY_WEBHOOK_ENABLED": true,
+  "__AGENT_ENTRY_WEBHOOK_ENABLED": "可选。webhook 入口开关，默认 true；关闭 = 不创建不启动该适配器",
+
+  "AGENT_ENTRY_JIRA_POLLING_ENABLED": false,
+  "__AGENT_ENTRY_JIRA_POLLING_ENABLED": "可选。jira 轮询入口开关，默认 false；内部测试与无外网 webhook 场景的拉取入口",
+
+  "AGENT_NPM_REGISTRY": "https://registry.npmjs.org/",
+  "__AGENT_NPM_REGISTRY": "可选。资产物化 npm ci 与初始化脚本子进程使用的 registry，默认官方 registry；启动自检验可达",
+
+  "AGENT_HOP_LIMIT": 8,
+  "__AGENT_HOP_LIMIT": "可选。派生事件 hop 上限（防循环订阅），默认 8",
+
+  "AGENT_TASK_CONCURRENCY": 4,
+  "__AGENT_TASK_CONCURRENCY": "可选。入口业务并发闸门，默认 4",
+
+  "AGENT_RESULT_CONCURRENCY": 16,
+  "__AGENT_RESULT_CONCURRENCY": "可选。出口投递并发闸门，默认 16",
+
+  "AGENT_TASK_TIMEOUT_MINUTES": 60,
+  "__AGENT_TASK_TIMEOUT_MINUTES": "可选。单次业务执行超时（分钟），默认 60；业务可在控制台覆盖",
+
+  "AGENT_MAX_AGENT_CALLS": 20,
+  "__AGENT_MAX_AGENT_CALLS": "可选。单次执行的大模型调用配额，默认 20；业务可在控制台覆盖",
+
+  "AGENT_LOG_LEVEL": "info",
+  "__AGENT_LOG_LEVEL": "可选。系统日志级别，默认 info；取值 error/warn/info/debug",
+
+  "AGENT_LOG_ENABLED": true,
+  "__AGENT_LOG_ENABLED": "可选。日志总开关，默认 true",
+
+  "AGENT_CONSOLE_STATIC_DIR": "replace-with-absolute-path-to-console-dist-or-delete-this-key",
+  "__AGENT_CONSOLE_STATIC_DIR": "可选。控制台静态产物目录（vite build 输出的绝对路径），设置后 server 同进程托管控制台；不设置 = 纯 API 模式，此时请删除本键",
+
+  "AGENT_PI_CLI_PATH": "replace-with-absolute-path-to-pi-binary-or-delete-this-key",
+  "__AGENT_PI_CLI_PATH": "可选。pi 可执行文件绝对路径；推荐删除本键，使用 npm 依赖自动解析（版本由 yarn.lock 锁定）",
+
+  "AGENT_PI_AGENT_DIR": "replace-with-absolute-path-to-pi-agent-dir-or-delete-this-key",
+  "__AGENT_PI_AGENT_DIR": "可选。pi 配置目录；推荐删除本键，使用默认 {workspace}/platform/cache/pi/agent（启动会覆盖其中 models.json，勿指向个人共用的 ~/.pi/agent）",
+
+  "AGENT_ADMIN_USERNAME": "replace-with-your-admin-username-or-delete-this-key-pair",
+  "__AGENT_ADMIN_USERNAME": "可选但与 AGENT_ADMIN_PASSWORD 成对。首启创建控制台 admin（users 表为空时生效，平台唯一建号入口）；只留一个 = 启动配置报错；不建号请整对删除",
+
+  "AGENT_ADMIN_PASSWORD": "replace-with-a-strong-password-or-delete-this-key-pair",
+  "__AGENT_ADMIN_PASSWORD": "可选但与 AGENT_ADMIN_USERNAME 成对。控制台管理员初始化密码，请使用强密码；不建号请整对删除",
+
+  "__AGENT_WORKSPACE": "说明项（本文件不含此键）。平台工作目录，必传但只能设为环境变量；config.json 栖身于 workspace（鸡生蛋问题），写进本文件无效——解析器只读环境变量，写进来会被静默忽略",
+  "__PATH_HOME": "说明项（本文件不含这两个键）。pi 子进程基础环境 PATH / HOME，只能来自环境变量；正常 shell 天然存在，一般无需显式设置"
+}
