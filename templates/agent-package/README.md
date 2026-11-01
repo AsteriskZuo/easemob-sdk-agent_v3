@@ -28,7 +28,7 @@
   2. stdout 一段 JSON 出（`sdk.return` / `sdk.fail`，只认第一次）；
   3. 失败语义机械（任何一步失败 = 整体失败，不重跑）；
   4. 日志走 `sdk.log`（stderr，平台采集、secrets 源头脱敏）。
-- **skills 注入**：`sdk.agent({ skills: [...] })` 按名引用（可多个、可跨 skill 集合），名字必须在业务绑定的 skill 集合内——平台白名单校验后逐个 `--skill` 注入；没有运行时注册接口。
+- **skills 注入**：`sdk.agent({ skills: [...] })` 按名引用（可多个、可跨 skill 集合），名字必须在业务绑定的 skill 集合内——平台白名单校验后把各 skill 的 SKILL.md 经 `--append-system-prompt` 全量内联进系统提示词；没有运行时注册接口。
 - **工具调用**：`sdk.run('jira-fetch', {...})` 按名调用本包或业务绑定工具资产的子程序，同一入一出契约（契约递归同构）。
 - **业务不做投递**：结果由平台扇出（下游关注 + 出口绑定投递）。
 

@@ -164,7 +164,7 @@ interface PromptObject {
 interface SkillObject {
   skill_id: string;           // 所属 skill 资产的 asset_id + 资产内路径（名解析规则见 asset-model §6）
   name: string;               // sdk.agent 请求里的引用名（白名单校验键；= 集合内目录名）
-  path: string;               // 物化后的 skill 目录绝对路径：agent 调用时经 --skill 白名单注入（机制见 asset-model §10）
+  path: string;               // 物化后的 skill 目录绝对路径：agent 调用时取其下 SKILL.md 经 --append-system-prompt 内联注入（机制见 asset-model §10）
 }
 
 /** agent 内核最小视图（pi 为唯一内核，见 design/lifecycle.md §5） */

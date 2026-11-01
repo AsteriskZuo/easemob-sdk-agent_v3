@@ -13,7 +13,7 @@ import { runCompactOp } from "./pi-compact.js";
 export interface SkillRef {
   /** 白名单校验的键（sdk.agent 请求里的名） */
   name: string;
-  /** 物化后的 skill 绝对路径（--skill 注入） */
+  /** 物化后的 skill 目录绝对路径（注入时取其下 SKILL.md，经 --append-system-prompt 内联） */
   path: string;
 }
 

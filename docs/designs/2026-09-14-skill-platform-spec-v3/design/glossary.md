@@ -154,7 +154,7 @@
 
 一句话：大模型调用的唯一通道，平台侧模块。
 
-精确义：`sdk.agent()` 的另一端——每 run 一个本地 socket + 一次性 token；平台 spawn pi 子进程执行（pi 是唯一内核），注入提示词总纲、按业务白名单校验 skill 并经 `--no-skills` + `--skill` 注入、经 `-e` + `--no-extensions` 注入平台审计 extension（请求体落盘；不支持业务 extension）、按通道映射恢复会话、按 run 计配额。契约与 hooks 纪律的唯一定义处：`design/business-workflow.md` §4。
+精确义：`sdk.agent()` 的另一端——每 run 一个本地 socket + 一次性 token；平台 spawn pi 子进程执行（pi 是唯一内核），注入提示词总纲、按业务白名单校验 skill 并经 `--no-skills` + 逐个 `--append-system-prompt <目录>/SKILL.md` 内联注入、经 `-e` + `--no-extensions` 注入平台审计 extension（请求体落盘；不支持业务 extension）、按通道映射恢复会话、按 run 计配额。契约与 hooks 纪律的唯一定义处：`design/business-workflow.md` §4。
 
 要点：模型可选集合来自必需的 `AGENT_PI_MODELS`；server 每次启动严格校验并原子生成/同步平台专用受管 `{pi_agent_dir}/models.json`（含 secret，目录 `0700`、文件 `0600`）。模型凭据不进入业务进程或 Pi 子进程环境变量，`/api/config` 只回显 `provider/id`；修改全局源配置后重启生效，不热更新。2026-10-26 起业务可有自定义大模型配置（控制台验证—确认、经统一更新队列生效、脱敏回显），未配置的业务走本词条的全局兜底。
 
@@ -224,7 +224,7 @@
 
 一句话：给大模型的能力单元——可复用的提示词组件，独立资产。
 
-精确义：skill 资产 = 一个 **skill 集合**：资产根下每个含 SKILL.md 的直接子目录是一个 skill，**技能名 = 目录名**；SKILL.md 遵循公开 skill 规范（frontmatter + 正文），不为本平台做任何适配。业务代码经 `sdk.agent({ skills: [...] })` 按名引用（可多个、可跨集合），平台白名单校验（绑定集合的技能并集）后逐个 `--skill` 注入 pi 子进程（机制见 `design/asset-model.md` §10）。skill 是纯提示词能力——**不可附带 pi extension**（业务侧无会话内代码，守卫在会话外业务程序内）。
+精确义：skill 资产 = 一个 **skill 集合**：资产根下每个含 SKILL.md 的直接子目录是一个 skill，**技能名 = 目录名**；SKILL.md 遵循公开 skill 规范（frontmatter + 正文），不为本平台做任何适配。业务代码经 `sdk.agent({ skills: [...] })` 按名引用（可多个、可跨集合），平台白名单校验（绑定集合的技能并集）后把各 SKILL.md 经 `--append-system-prompt` 全量内联注入 pi 子进程的系统提示词（机制见 `design/asset-model.md` §10）。skill 是纯提示词能力——**不可附带 pi extension**（业务侧无会话内代码，守卫在会话外业务程序内）。
 
 要点：**没有 `sdk.skill` 运行时注册接口**——skill 是静态资产，运行时动态注册会绕过校验与白名单，不支持；**包内不内嵌 skill**（想单仓开发：同仓注册两次，根 = 包、`skills/` 子路径 = skill 集合）；共享标记创建时定、不可改。
 

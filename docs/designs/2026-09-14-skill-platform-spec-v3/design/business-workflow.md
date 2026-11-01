@@ -61,7 +61,7 @@ interface Sdk {
   secret(name: string): string;
 
   /** 调大模型服务（经 socket 到平台 agent 调用服务执行；配额在此强制）。
-   *  skills 为本次注入的 skill 名（可多个、可跨 skill 集合，服务端逐个 --skill 注入）；
+   *  skills 为本次注入的 skill 名（可多个、可跨 skill 集合，服务端把各 SKILL.md 经 --append-system-prompt 内联注入）；
    *  每个都必须在业务绑定的 skill 集合内（平台校验）；提示词总纲与模型由平台按业务资料注入。
    *  mode 默认 'channel'：沿用/恢复当前通道的 agent 会话（多轮业务的每轮调用都是它）；
    *  'fresh'：独立会话、不写通道映射（单 run 内初审→复审这类额外调用，上下文不串味） */
@@ -149,7 +149,7 @@ sdk.return(restored);
 | 通道 | 每个 run 一个本地 unix socket + 一次性 token，启动时注入；token 随 run 结束失效；socket 协议同样带 `contract_version` |
 | 执行 | 平台 spawn pi 子进程（决策已定，pi 是唯一内核）；cwd = run 工作目录 |
 | 提示词总纲 | 平台按业务资料自动注入，业务代码无需传入 |
-| skill 与审计 | `skills` 可多个、可跨 skill 集合；每个都必须在业务绑定的 skill 集合内（白名单校验），按名解析为物化路径后经 `--no-skills` + 逐个 `--skill` 注入；平台审计 extension 经 `-e` + `--no-extensions` 注入（不支持业务 extension，机制见 `design/asset-model.md` §10） |
+| skill 与审计 | `skills` 可多个、可跨 skill 集合；每个都必须在业务绑定的 skill 集合内（白名单校验），按名解析为物化目录后经 `--no-skills` + 逐个 `--append-system-prompt <目录>/SKILL.md` 内联注入；平台审计 extension 经 `-e` + `--no-extensions` 注入（不支持业务 extension，机制见 `design/asset-model.md` §10） |
 | 会话连续性 | 平台按通道映射恢复/绑定 agent 会话（`design/channel-model.md`），业务代码无感；单 run 多次调用时，`mode: 'channel'` 的调用共享通道会话，`'fresh'` 各自独立 |
 | 配额 | 按 run 计：agent 调用次数上限 + wall-clock 超时（默认 60 分钟，业务可配）——超限强杀，防失控循环 |
 | 埋点 | token 用量、耗时、成本统一上报控制台 |

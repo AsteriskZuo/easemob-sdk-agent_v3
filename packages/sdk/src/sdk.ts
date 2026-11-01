@@ -14,7 +14,7 @@ export interface RunInput {
 
 /** agent() 的调用参数 */
 export interface AgentCall {
-  skills: string[]; // 本次调用注入的 skill 名（可多个、可跨程序包，服务端逐个 --skill 注入）；均须在本业务 skill 组内（服务端白名单校验）
+  skills: string[]; // 本次调用注入的 skill 名（可多个、可跨程序包，服务端把各 skill 的 SKILL.md 经 --append-system-prompt 内联注入）；均须在本业务 skill 组内（服务端白名单校验）
   input: unknown; // 给大模型的内容（业务保证已脱敏）
   mode?: "channel" | "fresh"; // 缺省 'channel'：沿用/恢复当前通道会话；'fresh'：独立会话不写映射
 }

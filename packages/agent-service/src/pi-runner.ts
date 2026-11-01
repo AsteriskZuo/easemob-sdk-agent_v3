@@ -125,13 +125,19 @@ export async function runAgentOp(
     return fail("input_too_large");
   }
 
-  // skill 白名单：逐个按 name 校验 ∈ ctx.skills，通过后取物化路径注入
+  // skill 白名单：逐个按 name 校验 ∈ ctx.skills，通过后把物化目录下的 SKILL.md
+  // 以 --append-system-prompt 内联进系统提示词（pi 原生 --skill 是渐进披露：
+  // 只注入目录、靠 read 工具按需加载，--no-tools 下内容根本到不了模型——已实证）。
+  // fail-fast 存在性校验：pi 对不存在路径会把路径串按字面文本追加（静默降级），
+  // 宁可该次调用失败也不消费残缺提示词。
   const byName = new Map(ctx.skills.map((s) => [s.name, s.path]));
-  const skillPaths: string[] = [];
+  const skillFiles: string[] = [];
   for (const name of req.skills) {
-    const path = byName.get(name);
-    if (path === undefined) return fail(`skill_not_allowed: ${name}`);
-    skillPaths.push(path);
+    const dir = byName.get(name);
+    if (dir === undefined) return fail(`skill_not_allowed: ${name}`);
+    const file = join(dir, "SKILL.md");
+    if (!existsSync(file)) return fail(`skill_missing: ${name}`);
+    skillFiles.push(file);
   }
 
   // 会话：channel 模式恢复/绑定（pi 对不存在的 --session-id 会创建，先绑安全）；fresh 每次新 id 不写映射
@@ -162,7 +168,7 @@ export async function runAgentOp(
     "--model",
     ctx.model,
     "--no-skills",
-    ...skillPaths.flatMap((p) => ["--skill", p]),
+    ...skillFiles.flatMap((f) => ["--append-system-prompt", f]),
     "--no-extensions",
     "-e",
     resolveAuditExtensionPath(),

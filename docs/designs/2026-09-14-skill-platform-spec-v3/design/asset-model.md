@@ -306,7 +306,9 @@ clone → validateAssetShape（清单形状校验，§5.1）
 
 ## 10. skill 在会话内的角色（注入机制与审计）
 
-**注入机制（pi 实证）**：`sdk.agent({ skills: ['名', ...] })` 时，平台把每个 skill 名解析为物化后的资产内路径（§6 名解析，可多个、可跨集合），起 pi 子进程时一律带 `--no-skills`（关闭 cwd/用户目录的 skill 自动发现）+ 逐个 `--skill <路径>` 白名单注入（pi 的 `--skill` 可多次指定，路径各自独立）——与 extension 的 `-e` + `--no-extensions` 同一条纪律。`--no-skills` 不可省：pi 子进程 cwd 是 run 工作区，不关闭自动发现，业务往工作区丢 skill 目录即绕过白名单。skill 内容由 pi 自行渐进加载，**按需注入为默认**（不占满上下文窗口）。
+**注入机制（pi 实证，2026-11-01 修订）**：`sdk.agent({ skills: ['名', ...] })` 时，平台把每个 skill 名解析为物化后的资产内目录（§6 名解析，可多个、可跨集合），起 pi 子进程时一律带 `--no-skills`（关闭 cwd/用户目录的 skill 自动发现）+ 逐个 `--append-system-prompt <目录>/SKILL.md` 把 SKILL.md 全文内联进系统提示词（pi 的 `--append-system-prompt` 可多次指定，各 skill 独立成段）——防自动发现的纪律与 extension 的 `-e` + `--no-extensions` 同源。`--no-skills` 不可省：pi 子进程 cwd 是 run 工作区，不关闭自动发现，业务往工作区丢 skill 目录即绕过白名单。
+
+修订缘由：此前用 pi 原生 `--skill <路径>` 注入，但 pi 的 skill 机制是渐进披露——系统提示词只注入技能目录（name/description/路径）且仅当启用 read/bash 工具时才注入，模型需用 read 工具自行加载 SKILL.md；平台 `--no-tools`（纯推理、零工具面）下两个条件都不满足，skill 内容从未到达模型（2026-11-01 审计日志实证：请求体 0 字节 skill 内容，模型自编输出结构、编造 skillVersion）。平台 skill 是单次调用必用的审查标准，无"按需加载"诉求，全量内联与工具面解耦。防静默降级：pi 对不存在的 `--append-system-prompt` 路径会把路径串按字面文本追加，pi-runner 先校验 SKILL.md 存在，缺失即该次调用失败（`skill_missing`）。
 
 业务侧**没有 `sdk.skill` 注册接口**：skill 是静态资产（登记在册、初始化物化、路径平台已知），按名引用即可；运行时动态注册 skill 会绕过校验与白名单，不支持。
 

@@ -11,7 +11,7 @@ export interface ServiceRequest {
   contract_version: "v1";
   token: string; // per-run 一次性 token，run 结束失效
   op: "agent" | "compact" | "clear";
-  skills?: string[]; // op='agent' 必填（可多个、可跨程序包；均须在本业务 skill 组内，服务端白名单校验，逐个 --skill 注入）
+  skills?: string[]; // op='agent' 必填（可多个、可跨程序包；均须在本业务 skill 组内，服务端白名单校验，SKILL.md 经 --append-system-prompt 内联注入）
   input?: unknown; // op='agent' 必填
   mode?: "channel" | "fresh"; // op='agent' 可选，缺省 'channel'
 }

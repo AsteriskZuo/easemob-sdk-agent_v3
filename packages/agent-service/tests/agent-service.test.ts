@@ -5,6 +5,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
 import net from "node:net";
 import { tmpdir } from "node:os";
@@ -136,14 +137,21 @@ describe("AgentService", () => {
     const sessionDir = join(root, "sessions");
     mkdirSync(workspace, { recursive: true });
     mkdirSync(sessionDir, { recursive: true });
+    // skill 物化目录 fixture：注入取其下 SKILL.md（pi-runner 对缺失 fail-fast）
+    const skillDir = (name: string): string => {
+      const dir = join(root, "skills", name);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, "SKILL.md"), `# ${name} fixture\n`);
+      return dir;
+    };
     return {
       run_id: `run-${Math.random().toString(36).slice(2, 10)}`,
       channel_id: "ch-1",
       workspace,
       prompt: "提示词总纲",
       skills: [
-        { name: "s1", path: "/skills/s1" },
-        { name: "s2", path: "/skills/s2" },
+        { name: "s1", path: skillDir("s1") },
+        { name: "s2", path: skillDir("s2") },
       ],
       model: "test:model",
       session_dir: sessionDir,
@@ -255,9 +263,13 @@ describe("AgentService", () => {
     expect(argv[0]).toBe("-p");
     expect(argvValue(argv, "--mode")).toBe("json");
     expect(argv).toContain("--no-skills");
-    // 只请求了 s1：恰好一个 --skill 且是 s1 的物化路径
-    expect(argv.filter((a) => a === "--skill").length).toBe(1);
-    expect(argvValue(argv, "--skill")).toBe("/skills/s1");
+    // 只请求了 s1：恰好一个 --append-system-prompt 且指向 s1 物化目录下的 SKILL.md；
+    // 不再走 pi 原生 --skill（渐进披露在 --no-tools 下失效）
+    expect(argv).not.toContain("--skill");
+    expect(argv.filter((a) => a === "--append-system-prompt").length).toBe(1);
+    expect(argvValue(argv, "--append-system-prompt")).toBe(
+      join(ctx.skills[0].path, "SKILL.md"),
+    );
     // -e 仅平台审计 extension 一个
     expect(argv.filter((a) => a === "-e").length).toBe(1);
     expect(argvValue(argv, "-e")).toMatch(/extensions\/audit\.js$/);
@@ -516,5 +528,20 @@ describe("AgentService", () => {
     expect(lines.length).toBe(2);
     // 定时器有少量误差，断言留 10ms 余量
     expect(lines[1].ts - lines[0].ts).toBeGreaterThanOrEqual(90);
+  });
+
+  it("12. skill 物化目录缺 SKILL.md → skill_missing 且未 spawn（防静默降级）", async () => {
+    const mapping = makeMapping();
+    const ctx = makeCtx();
+    rmSync(join(ctx.skills[0].path, "SKILL.md"));
+    const handle = await serve(makeDeps(mapping), ctx);
+
+    const resp = await call(handle.endpoint, {
+      op: "agent",
+      skills: ["s1"],
+      input: "x",
+    });
+    expect(resp).toMatchObject({ ok: false, error: "skill_missing: s1" });
+    expect(readCapture(capture).length).toBe(0);
   });
 });

@@ -25,7 +25,7 @@
 ### 不做
 
 - 不建 skill 框架、注册机制或发现协议；只用 Kimi Code CLI 既有的项目级 skill 扫描目录约定。
-- 不改运行时 skill 机制（资产扫描、白名单、`--skill` 注入链路全部不动）。
+- 不改运行时 skill 机制（资产扫描、白名单、注入链路全部不动）。*注：注入形态于 2026-11-01 另行修订（`--skill` → `--append-system-prompt <目录>/SKILL.md`，缘由见 `design/asset-model.md` §10），与本规格交付物无关。*
 - 不做 debug CLI/脚本。同一串确定性操作（查库→找 run→看日志）重复满三次后再评估是否脚本化，届时另行立项。
 - 不把排障 skill 注册进 `agent-package.json` 的 `requires.skills`，不让它进入业务运行时。
 - 不为"未来可能的其他业务"预写业务排障 skill；jira-ticket-review 是唯一实例，兼作后续业务的编写模板。
@@ -42,12 +42,12 @@
 
 1. 资产登记：git url + ref + subpath，物化时整仓 clone 到 `platform/cache/assets/{asset_id}/`，资产根 = 克隆内 `subpath` 目录（`packages/asset-registry/src/asset-registry.ts:312-339`）。
 2. skill 资产清单：`validateSkill` 只扫描**资产根的直接子目录**，含 `SKILL.md` 者即一个技能，技能名 = 目录名（`packages/asset-registry/src/validate.ts:148-171`）。jira-ticket-review 业务的 skill 资产根 = 业务仓 `skills/` 子目录。
-3. 运行时白名单：ContextLoader 取业务绑定 skill 资产清单的并集（`packages/runtime/src/context-loader.ts:128-148`），pi-runner 逐个校验请求技能名 ∈ 白名单后才 `--skill <物化路径>` 注入（`packages/agent-service/src/pi-runner.ts:128-131`）。
+3. 运行时白名单：ContextLoader 取业务绑定 skill 资产清单的并集（`packages/runtime/src/context-loader.ts:128-148`），pi-runner 逐个校验请求技能名 ∈ 白名单后取其物化目录下 SKILL.md 经 `--append-system-prompt` 内联注入（`packages/agent-service/src/pi-runner.ts:128-141`）。
 
 隔离结论：排障 skill 放在业务仓 `.agents/skills/` 下，**不在 skill 资产根（`skills/`）内**，因此：
 
 - 不会被 `validateSkill` 扫描进资产清单；
-- 不会进入运行时白名单，不可能被 `--skill` 注入审查 run；
+- 不会进入运行时白名单，不可能被注入审查 run；
 - 会随 git clone 进入资产快照（无害冗余字节，不为此加排除机制）。
 
 平台侧同理：平台仓 `.agents/skills/` 不是任何资产的 subpath，与运行时完全无关。
