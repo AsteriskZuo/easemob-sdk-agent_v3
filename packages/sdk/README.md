@@ -493,7 +493,7 @@ git clone → 清单形状校验 → npm ci（有 package.json 时，必须同�
 
 - 全部平台契约（stdin 信封、stdout 结果、事件信封、socket 协议）带 `contract_version`，当前恒为 `"v1"`；版本路由靠它——v2 到来时按值区分，新旧业务并存；
 - 信封校验**忽略不识别字段**（向后兼容规则）：平台新增信封字段不破坏旧业务；
-- SDK 按 npm 语义化版本发布，业务在 `package.json` 钉版本（模板默认 `^0.1.0`）；SDK 升级不改变契约版本——契约变更才会动 `contract_version`；
+- SDK 按 npm 语义化版本发布，业务在 `package.json` 钉版本（模板默认 `^0.2.0`）；SDK 升级不改变契约版本——契约变更才会动 `contract_version`；
 - 资产的版本 = 登记的 commit：更新资产 = 登记新 commit = 新资产行，使用旧版本的业务不受打断。
 
 ---
