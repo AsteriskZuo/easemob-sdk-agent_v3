@@ -18,7 +18,6 @@ import type { ServerConfig } from "../src/index.js";
 let tmpDir: string;
 let workspace: string;
 let piCliPath: string;
-let piAgentDir: string;
 /** 只读目录用例用：结束后须恢复可写才能 rm */
 let readonlyDir: string | null = null;
 
@@ -57,22 +56,6 @@ beforeEach(() => {
   piCliPath = join(tmpDir, "fake-pi");
   writeFileSync(piCliPath, "#!/bin/sh\nexit 0\n");
   chmodSync(piCliPath, 0o755);
-  // fixture pi_agent_dir：含合法 models.json（伪造占位内容；自检要求可解析且非空）
-  piAgentDir = join(tmpDir, "pi-agent-dir");
-  mkdirSync(piAgentDir, { recursive: true });
-  writeFileSync(
-    join(piAgentDir, "models.json"),
-    JSON.stringify({
-      providers: {
-        "test-provider": {
-          baseUrl: "https://test-provider.example.com/v1",
-          api: "openai-completions",
-          apiKey: "sk-fake-placeholder",
-          models: [{ id: "model-a" }],
-        },
-      },
-    }),
-  );
 });
 
 afterEach(() => {
@@ -94,18 +77,8 @@ function makeConfig(over: Partial<ServerConfig> = {}): ServerConfig {
     task_timeout_minutes: 60,
     max_agent_calls: 20,
     pi_cli_path: piCliPath,
-    pi_agent_dir: piAgentDir,
-    pi_models: {
-      providers: {
-        "test-provider": {
-          baseUrl: "https://test-provider.example.com/v1",
-          api: "openai-completions",
-          apiKey: "sk-fake-placeholder",
-          models: [{ id: "model-a" }],
-        },
-      },
-    },
     pi_env: { PATH: "/usr/bin", HOME: "/home/tester" },
+    http_timeout_ms: 30_000,
     npm_registry: registryUrl,
     ...over,
   };
@@ -135,30 +108,6 @@ describe("runSelfCheck", () => {
     ).rejects.toThrow(notExec);
   });
 
-  it("pi_agent_dir 缺 models.json → 抛错", async () => {
-    const emptyDir = join(tmpDir, "empty-agent-dir");
-    mkdirSync(emptyDir);
-    await expect(
-      runSelfCheck(makeConfig({ pi_agent_dir: emptyDir })),
-    ).rejects.toThrow(/models\.json/);
-  });
-
-  it("models.json 存在但无可用模型（空 providers / 全部空 models）→ 抛错", async () => {
-    const badDir = join(tmpDir, "bad-models-dir");
-    mkdirSync(badDir);
-    writeFileSync(join(badDir, "models.json"), "{}");
-    await expect(
-      runSelfCheck(makeConfig({ pi_agent_dir: badDir })),
-    ).rejects.toThrow(/models\.json 不可用/);
-    writeFileSync(
-      join(badDir, "models.json"),
-      JSON.stringify({ providers: { p: { models: [] } } }),
-    );
-    await expect(
-      runSelfCheck(makeConfig({ pi_agent_dir: badDir })),
-    ).rejects.toThrow(/models\.json 不可用/);
-  });
-
   it("workspace 不可写（只读目录）→ 抛错", async () => {
     mkdirSync(workspace, { recursive: true });
     chmodSync(workspace, 0o555);
@@ -170,18 +119,16 @@ describe("runSelfCheck", () => {
 
   it("多项同时失败 → message 列出全部失败项", async () => {
     const missingPi = join(tmpDir, "no-such-pi");
-    const emptyDir = join(tmpDir, "empty-agent-dir");
-    mkdirSync(emptyDir);
     let message = "";
     try {
       await runSelfCheck(
-        makeConfig({ pi_cli_path: missingPi, pi_agent_dir: emptyDir }),
+        makeConfig({ pi_cli_path: missingPi, npm_registry: closedPortUrl }),
       );
     } catch (err) {
       message = (err as Error).message;
     }
     expect(message).toContain(missingPi);
-    expect(message).toContain("models.json");
+    expect(message).toContain("npm registry 不可达");
   });
 
   it("npm registry 不可达 → 拒启动且 message 含地址", async () => {

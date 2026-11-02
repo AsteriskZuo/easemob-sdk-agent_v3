@@ -20,8 +20,6 @@ const CONFIG_LABELS: Record<keyof EffectiveConfigView, string> = {
   task_timeout_minutes: "run 超时全局默认（分钟）",
   max_agent_calls: "agent 调用配额全局默认",
   pi_cli_path: "pi 可执行文件路径",
-  pi_agent_dir: "pi agent 目录",
-  models: "可选大模型（AGENT_PI_MODELS 驱动）",
   agents: "可选 agent 内核",
   entry_adapters: "入口适配器",
 };

@@ -122,9 +122,31 @@ function installBusinessMocks(overrides?: { emptyPackages?: boolean }) {
       return {
         status: 200,
         body: {
-          models: ["qwen/qwen3.8-max", "moonshot/k2"],
           agents: ["pi"],
           entry_adapters: ENTRY_ADAPTERS,
+        },
+      };
+    }
+    // 编辑页大模型配置区（PiConfigSection）数据源：已配置（脱敏回显）
+    if (
+      (path === "/api/businesses/biz-1/pi-config" ||
+        path === "/api/businesses/biz-new/pi-config") &&
+      method === "GET"
+    ) {
+      return {
+        status: 200,
+        body: {
+          configured: true,
+          model: "qwen/qwen3.8-max",
+          config: {
+            providers: {
+              qwen: {
+                baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                apiKey: "******",
+                models: [{ id: "qwen3.8-max" }],
+              },
+            },
+          },
         },
       };
     }
@@ -181,7 +203,7 @@ function installBusinessMocks(overrides?: { emptyPackages?: boolean }) {
   });
 }
 
-/** 填齐创建表单必填项（名称/包/入口程序/大模型/首个匹配行事件类型） */
+/** 填齐创建表单必填项（名称/包/入口程序/首个匹配行事件类型） */
 async function fillRequiredFields(
   user: ReturnType<typeof userEvent.setup>,
   name: string,
@@ -191,8 +213,6 @@ async function fillRequiredFields(
   await selectOption(user, "包绑定", "pkg-1");
   // 入口程序 → main
   await selectOption(user, "入口程序", "main");
-  // 大模型必选（无默认选中，可选项来自 /api/config）
-  await selectOption(user, "大模型", "qwen/qwen3.8-max");
   await user.type(screen.getByLabelText("匹配行 1 事件类型"), "review.request");
 }
 
@@ -203,7 +223,7 @@ beforeEach(() => {
 });
 
 describe("业务表单", () => {
-  it("① 创建提交映射：表单值 → CreateBusinessBody（首个匹配行/agent/model/资产绑定/超时覆盖）", async () => {
+  it("① 创建提交映射：表单值 → CreateBusinessBody（首个匹配行/agent/资产绑定/超时覆盖；model 不随创建携带）", async () => {
     const calls = installBusinessMocks();
     renderApp("/businesses/new");
     const user = setupUser();
@@ -228,7 +248,6 @@ describe("业务表单", () => {
       event_type: "review.request",
       on_failure: false,
       prompt: "",
-      model: "qwen/qwen3.8-max",
       agent_kind: "pi",
       package_asset_id: "pkg-1",
       entry_program: "main",
@@ -367,50 +386,30 @@ describe("业务表单", () => {
     ).toBeNull();
   });
 
-  it("⑥ agent/大模型下拉由 /api/config 驱动（可选集合来自 AGENT_PI_MODELS，无硬编码项）", async () => {
+  it("⑥ agent 下拉由 /api/config 驱动（无硬编码项）", async () => {
     installBusinessMocks();
     renderApp("/businesses/new");
     const user = setupUser();
 
     // 先等路由页渲染完（auth 加载是异步的，同步查询会撞上加载态 spinner）
     await screen.findByLabelText("业务名称");
-    // 打开大模型下拉：两个 mock 模型都在，裸的 qwen3.8max 硬编码项不存在
-    // （antd Select 的 aria-label 会命中多个节点，取 INPUT 同 selectOption 的做法）
-    const candidates = screen.getAllByLabelText("大模型");
+    // 打开 Agent 下拉：mock 的 pi 在
+    const candidates = screen.getAllByLabelText("Agent");
     const combobox =
       candidates.find((el) => el.tagName === "INPUT") ?? candidates[0];
     await user.click(combobox);
-    expect(await screen.findAllByText("qwen/qwen3.8-max")).not.toHaveLength(0);
-    expect(await screen.findAllByText("moonshot/k2")).not.toHaveLength(0);
-    expect(screen.queryAllByText("qwen3.8max")).toHaveLength(0);
+    expect(await screen.findAllByText("pi")).not.toHaveLength(0);
   });
 
-  it("⑦ 大模型未选 → 表单校验拦截，不提交", async () => {
-    const calls = installBusinessMocks();
+  it("⑦ 创建页无模型选择：显示「创建后配置」警告，不出现大模型下拉", async () => {
+    installBusinessMocks();
     renderApp("/businesses/new");
-    const user = setupUser();
 
-    // 填齐除大模型外的必填项
-    await user.type(await screen.findByLabelText("业务名称"), "缺模型业务");
-    await selectOption(user, "包绑定", "pkg-1");
-    await selectOption(user, "入口程序", "main");
-    await user.type(
-      screen.getByLabelText("匹配行 1 事件类型"),
-      "review.request",
-    );
-
-    await user.click(screen.getByRole("button", { name: "创建业务" }));
-
-    // 校验错误出现在表单错误区（与 Select 占位文案区分：必须在 explain-error 内）
-    await waitFor(() => {
-      const hits = screen.queryAllByText("请选择模型");
-      expect(
-        hits.some((el) => el.closest(".ant-form-item-explain-error") !== null),
-      ).toBe(true);
-    });
-    expect(
-      calls.some((c) => c.method === "POST" && c.path === "/api/businesses"),
-    ).toBe(false);
+    await screen.findByLabelText("业务名称");
+    // 警告：业务创建后才能配置大模型
+    expect(await screen.findByText("大模型：创建后配置")).toBeTruthy();
+    // 创建页没有大模型下拉（model 不再随创建携带）
+    expect(screen.queryByLabelText("大模型")).toBeNull();
   });
 
   it("⑧ 空资产引导：包/工具/skill 下拉为空时给出去资产管理登记的引导", async () => {

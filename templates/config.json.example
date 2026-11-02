@@ -1,18 +1,9 @@
 {
-  "AGENT_PI_MODELS": {
-    "providers": {
-      "your-provider-name": {
-        "baseUrl": "https://your-provider.example.com/v1",
-        "api": "openai-completions",
-        "apiKey": "在这里填入你的-apiKey",
-        "models": [{ "id": "your-model-id" }]
-      }
-    }
-  },
-  "__AGENT_PI_MODELS": "必选。完整大模型配置（object，至少一个 provider 一个模型）；apiKey 必须填字面量真实值（Pi 子进程环境只有 PATH/HOME，不支持 $ENV_VAR 插值）；结构详解见 templates/models.json.example",
-
   "AGENT_CONSOLE_PORT": 6100,
   "__AGENT_CONSOLE_PORT": "可选。管理 API / 控制台端口，默认 6100",
+
+  "AGENT_HTTP_TIMEOUT_MS": 30000,
+  "__AGENT_HTTP_TIMEOUT_MS": "可选。平台 HTTP 服务（管理 API 与 webhook 入口）统一超时（毫秒），默认 30000，合法范围 1000–300000；requestTimeout/socket 超时 = 该值，headersTimeout 取其一半",
 
   "AGENT_WEBHOOK_PORT": 6200,
   "__AGENT_WEBHOOK_PORT": "可选。webhook 入口适配器监听端口，默认 6200",
@@ -52,9 +43,6 @@
 
   "AGENT_PI_CLI_PATH": "replace-with-absolute-path-to-pi-binary-or-delete-this-key",
   "__AGENT_PI_CLI_PATH": "可选。pi 可执行文件绝对路径；推荐删除本键，使用 npm 依赖自动解析（版本由 yarn.lock 锁定）",
-
-  "AGENT_PI_AGENT_DIR": "replace-with-absolute-path-to-pi-agent-dir-or-delete-this-key",
-  "__AGENT_PI_AGENT_DIR": "可选。pi 配置目录；推荐删除本键，使用默认 {workspace}/platform/cache/pi/agent（启动会覆盖其中 models.json，勿指向个人共用的 ~/.pi/agent）",
 
   "AGENT_ADMIN_USERNAME": "replace-with-your-admin-username-or-delete-this-key-pair",
   "__AGENT_ADMIN_USERNAME": "可选但与 AGENT_ADMIN_PASSWORD 成对。首启创建控制台 admin（users 表为空时生效，平台唯一建号入口）；只留一个 = 启动配置报错；不建号请整对删除",

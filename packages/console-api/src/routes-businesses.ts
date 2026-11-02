@@ -224,6 +224,13 @@ export function businessRoutes(deps: {
           req.body,
           "body",
         ) as unknown as CreateBusinessBody;
+        // model 只读化：一律禁止携带（由大模型配置验证—确认流程派生，spec 2026-11-01 §9.5）
+        if ((req.body as Record<string, unknown>).model !== undefined) {
+          throw new ApiError(
+            "invalid_input",
+            "model 由大模型配置派生，不可直接设置（创建后请在编辑页大模型配置区完成配置与在线验证）",
+          );
+        }
         // API 层只强校验 business_name 非空、source 合法（event_type 可选：缺省/空串 = 通配，其余按 registry 缺省）
         const source = assertEventSource(body.source, "source");
         const eventType = optionalEventType(body.event_type, "event_type");
@@ -240,8 +247,6 @@ export function businessRoutes(deps: {
         if (onFailure !== undefined) input.on_failure = onFailure;
         const prompt = optionalString(body.prompt, "prompt");
         if (prompt !== undefined) input.prompt = prompt;
-        const model = optionalString(body.model, "model");
-        if (model !== undefined) input.model = model;
         const agentKind = optionalString(body.agent_kind, "agent_kind");
         if (agentKind !== undefined) input.agent_kind = agentKind;
         const packageAssetId = optionalString(
@@ -306,7 +311,6 @@ export function businessRoutes(deps: {
                 skill_asset_ids: input.skill_asset_ids ?? [],
               }
             : undefined,
-          model: input.model,
           agent_kind: input.agent_kind,
         });
 
@@ -384,8 +388,13 @@ export function businessRoutes(deps: {
         }
         const prompt = optionalString(body.prompt, "prompt");
         if (prompt !== undefined) patch.prompt = prompt;
-        const model = optionalString(body.model, "model");
-        if (model !== undefined) patch.model = model;
+        // model 只读化：一律禁止携带（由大模型配置验证—确认流程派生，spec 2026-11-01 §9.5）
+        if ((req.body as Record<string, unknown>).model !== undefined) {
+          throw new ApiError(
+            "invalid_input",
+            "model 由大模型配置派生，不可直接设置（请使用大模型配置区的在线验证—确认流程）",
+          );
+        }
         const agentKind = optionalString(body.agent_kind, "agent_kind");
         if (agentKind !== undefined) patch.agent_kind = agentKind;
         const packageAssetId = optionalString(
@@ -423,7 +432,7 @@ export function businessRoutes(deps: {
 
         // 配置期校验：patch 出现任一绑定字段 → 校验「既有 profile 与 patch 覆盖合并后」的生效绑定集合；
         // patch 不涉及绑定字段时零校验、零物化（改个 prompt 不应触发 git clone）。
-        // model/agent_kind 出现且非空 → 校验 ∈ 可选集合（与绑定无关）。
+        // agent_kind 出现且非空 → 校验 ∈ 可选集合（与绑定无关）。
         // existing 传既有绑定：已下架资产只拦本次新增绑定，已有绑定保留
         const touchesBinding =
           body.package_asset_id !== undefined ||
@@ -445,7 +454,6 @@ export function businessRoutes(deps: {
                     patch.skill_asset_ids ?? profile.skill_asset_ids,
                 }
               : undefined,
-            model: patch.model,
             agent_kind: patch.agent_kind,
           },
           {
@@ -468,18 +476,6 @@ export function businessRoutes(deps: {
               `exit_bindings[${index}].config`,
             );
           }
-        }
-
-        // 自定义 Pi 配置的业务：model 不可单独修改（与配置是不可拆分的组合），
-        // 必须走 pi-config 验证—确认流程（或先删除自定义配置恢复平台默认）
-        if (
-          patch.model !== undefined &&
-          registry.getPiModels(businessId) !== undefined
-        ) {
-          throw new ApiError(
-            "conflict",
-            "该业务使用自定义 Pi 配置：model 只能随 pi-config 验证—确认流程一并修改",
-          );
         }
 
         const submission = await updates.submit({

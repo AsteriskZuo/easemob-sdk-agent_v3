@@ -213,8 +213,9 @@ export function buildUpdateHandlers(
       return { cleared: true };
     },
 
-    // 业务自定义 Pi 配置：配置与 model 在同一 registry 写操作中更新（spec §5.2）。
-    // payload.config 已在确认前通过真实探针验证；此处只负责原子写入
+    // 业务自定义 Pi 配置：配置与 model 在同一 registry 写操作中更新。
+    // payload.config 已在确认前通过全部模型的真实探针验证；model 为服务端派生的默认模型
+    // （第一个 provider 的第一个模型）；此处只负责原子写入
     "pi.set": (payload) => {
       const p = payload as {
         business_id: string;
@@ -225,9 +226,11 @@ export function buildUpdateHandlers(
       return null;
     },
 
+    // 删除自定义配置：不再需要替代模型（全局配置概念已消失），
+    // 生效后业务回到未配置状态（model=''，agent 调用将被拒绝 model_not_configured）
     "pi.remove": (payload) => {
-      const p = payload as { business_id: string; model: string };
-      registry.setPiModels(p.business_id, null, p.model);
+      const p = payload as { business_id: string };
+      registry.setPiModels(p.business_id, null, "");
       return null;
     },
   };

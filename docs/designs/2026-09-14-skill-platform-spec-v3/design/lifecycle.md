@@ -35,7 +35,7 @@
 大模型调用的唯一通道。完整契约（socket 通道、pi 子进程执行、总纲注入、skill 白名单、会话连续性、配额、审计、hooks 三条纪律）见 `design/business-workflow.md` §4；本文只保留平台侧纪律：
 
 - **pi 是唯一内核**（决策见 `docs/decisions/2026-09-27-agent-kernel-and-execution-mode.md`）；codex-cli 不支持——hook 语义差异大、审计无法闭环，适配代价不值得；
-- **模型配置是部署/业务配置而非代码耦合**：可选集合由必需的 `AGENT_PI_MODELS` 决定；server 每次启动严格校验并原子生成/同步平台专用受管 `{pi_agent_dir}/models.json`，再解析 `provider/id` 经管理 API 供控制台选择（见 `design/console-design.md` §4），平台代码不内置具体模型名；修改全局源配置后重启生效，不热更新。2026-10-26 起业务可有自定义大模型配置：控制台在线验证（真实探针）—确认保存，经统一更新队列生效、不重启，运行时使用业务专属派生目录（见 `docs/specs/2026-10-26-business-pi-configuration-spec.md`）；
+- **模型配置是业务配置而非代码耦合**：可选集合 = 业务级大模型配置（2026-11-01 起去全局化，无全局兜底，全局 `AGENT_PI_MODELS` 已移除）；控制台在线验证（真实探针异步遍历）—确认保存，经统一更新队列闲时生效、不重启，运行时使用业务专属派生目录 `businesses/{id}/cache/pi/agent/`，平台代码不内置具体模型名（见 `design/console-design.md` §4、`docs/specs/2026-11-01-business-multi-model-spec.md`）；业务程序可经 `sdk.agent(..., { model })` 选择模型、`sdk.models()` 枚举集合；
 - 调用统一埋点：token 用量、耗时、成本上报控制台。
 
 ## 6. 资源事实

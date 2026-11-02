@@ -96,7 +96,6 @@ function installBusinessMocks(overrides?: {
       return {
         status: 200,
         body: {
-          models: ["qwen/qwen3.8-max", "moonshot/k2"],
           agents: ["pi"],
           entry_adapters: ENTRY_ADAPTERS,
         },
@@ -131,6 +130,10 @@ function installBusinessMocks(overrides?: {
     if (path === "/api/businesses/biz-new" && method === "GET") {
       return { status: 200, body: BIZ_DETAIL };
     }
+    // 创建后跳编辑页：大模型配置区数据源（未配置）
+    if (path === "/api/businesses/biz-new/pi-config" && method === "GET") {
+      return { status: 200, body: { configured: false, model: "" } };
+    }
     if (path.startsWith("/api/env/businesses/") && method === "GET") {
       return { status: 200, body: { vars: {}, secret_keys: [] } };
     }
@@ -141,7 +144,7 @@ function installBusinessMocks(overrides?: {
   });
 }
 
-/** 填齐创建表单必填项（名称/包/入口程序/大模型）；事件类型留空与否由调用方决定 */
+/** 填齐创建表单必填项（名称/包/入口程序）；事件类型留空与否由调用方决定 */
 async function fillRequiredFields(
   user: ReturnType<typeof userEvent.setup>,
   name: string,
@@ -151,7 +154,6 @@ async function fillRequiredFields(
   });
   await selectOption(user, "包绑定", "pkg-1");
   await selectOption(user, "入口程序", "main");
-  await selectOption(user, "大模型", "qwen/qwen3.8-max");
 }
 
 /** 等防抖（500ms）落盘后的草稿 JSON */

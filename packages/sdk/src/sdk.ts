@@ -17,6 +17,21 @@ export interface AgentCall {
   skills: string[]; // 本次调用注入的 skill 名（可多个、可跨程序包，服务端把各 skill 的 SKILL.md 经 --append-system-prompt 内联注入）；均须在本业务 skill 组内（服务端白名单校验）
   input: unknown; // 给大模型的内容（业务保证已脱敏）
   mode?: "channel" | "fresh"; // 缺省 'channel'：沿用/恢复当前通道会话；'fresh'：独立会话不写映射
+  /** 本次调用使用的模型（provider/id）。缺省 = 业务默认模型（生效配置第一个 provider 的第一个模型）。
+   *  必须在本业务生效配置的枚举集合内，否则服务端回 model_not_allowed（可用 sdk.models() 枚举）。
+   *  链式重试建议配 mode: "fresh"（每次独立会话，互不串味）。 */
+  model?: string;
+}
+
+/** sdk.models() 返回的生效配置枚举（只读视图；绝不包含 apiKey/baseUrl 等敏感字段） */
+export interface ModelsInfo {
+  /** 业务默认模型（provider/id）；未配置大模型 = "" */
+  default: string;
+  /** 按配置声明顺序排列；未配置大模型 = 空数组 */
+  providers: Array<{
+    name: string; // provider 名
+    models: string[]; // 该 provider 的模型 id 列表（按声明顺序）
+  }>;
 }
 
 function requireEndpoint(env: StdinEnvelope): ServiceEndpoint {
@@ -77,15 +92,34 @@ export const sdk = {
     if (call.skills.length === 0) {
       throw new Error("skills 至少一个（均须在本业务 skill 组内）");
     }
+    if (call.model !== undefined && call.model.trim() === "") {
+      throw new Error(
+        "model 必须是非空字符串（provider/id；缺省 = 业务默认模型）",
+      );
+    }
     const endpoint = requireEndpoint(readStdinEnvelope());
     return callService(endpoint, {
-      contract_version: "v1",
+      contract_version: "v2",
       token: endpoint.token,
       op: "agent",
       skills: call.skills,
       input: call.input,
       mode: call.mode ?? "channel",
+      ...(call.model !== undefined ? { model: call.model } : {}),
     });
+  },
+
+  /** 枚举本 run 生效大模型配置（provider/模型 id；绝不包含敏感字段）。
+   *  未配置大模型 → { default: "", providers: [] }（空枚举不是错误；此时 agent 调用会失败 model_not_configured）。
+   *  链式兜底的主入口：自行决定尝试几轮、什么顺序、失败换谁。仅流程主程序可调（同 sdk.agent） */
+  async models(): Promise<ModelsInfo> {
+    const endpoint = requireEndpoint(readStdinEnvelope());
+    const output = await callService(endpoint, {
+      contract_version: "v2",
+      token: endpoint.token,
+      op: "models",
+    });
+    return output as ModelsInfo;
   },
 
   /** 当前通道的 agent 会话操作（多轮业务的 /compact、/clear 类命令用；识别命令归业务） */
@@ -94,7 +128,7 @@ export const sdk = {
     async compact(): Promise<void> {
       const endpoint = requireEndpoint(readStdinEnvelope());
       await callService(endpoint, {
-        contract_version: "v1",
+        contract_version: "v2",
         token: endpoint.token,
         op: "compact",
       });
@@ -103,7 +137,7 @@ export const sdk = {
     async clear(): Promise<void> {
       const endpoint = requireEndpoint(readStdinEnvelope());
       await callService(endpoint, {
-        contract_version: "v1",
+        contract_version: "v2",
         token: endpoint.token,
         op: "clear",
       });

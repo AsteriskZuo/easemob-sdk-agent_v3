@@ -49,7 +49,6 @@ interface BusinessFormValues {
   tool_asset_ids?: string[];
   skill_asset_ids?: string[];
   agent_kind: string;
-  model: string;
   prompt?: string;
   on_failure: boolean;
   timeout_minutes?: number | null;
@@ -64,7 +63,7 @@ const CREATE_DRAFT_KEY = "business-create-draft-v1";
 
 /** 创建页草稿：表单全量状态（antd Form 字段 + 匹配行 + 出口勾选/配置文本 + 随建环境配置行） */
 interface CreateDraft {
-  /** antd Form 承载的字段（业务名/agent/model/资产绑定/超时覆盖等） */
+  /** antd Form 承载的字段（业务名/agent/资产绑定/超时覆盖等） */
   form: Partial<BusinessFormValues>;
   /** 匹配行 */
   matches: MatchRow[];
@@ -221,18 +220,12 @@ export default function BusinessEditPage() {
   const [tools, setTools] = useState<AssetMeta[]>([]);
   const [skills, setSkills] = useState<AssetMeta[]>([]);
   const [entryPrograms, setEntryPrograms] = useState<string[]>([]);
-  // 可选集合由 server 解析 AGENT_PI_MODELS 经 /api/config 提供——平台与 console 均不内置模型名
-  const [models, setModels] = useState<string[]>([]);
-  // 编辑页大模型配置模式（PiConfigSection 回报）：false = 自定义模式/已配置自定义，主保存 PATCH 不携带 model
-  // （自定义配置业务的 model 由 pi-config 写操作维护，PATCH 单独改会被服务端 409）
-  const [piIncludeModel, setPiIncludeModel] = useState(true);
   const [agents, setAgents] = useState<string[]>([]);
   // 入口适配器自描述（/api/config 的 entry_adapters）：MatchEditor 事件文档与 entry_config 表单数据源
   const [entryAdapters, setEntryAdapters] = useState<EntryAdapterView[]>([]);
   // 现有业务列表：source=internal 的「上游业务」下拉数据源
   const [businesses, setBusinesses] = useState<BusinessProfile[]>([]);
   // 编辑态失效侦测：profile 原值不在可选集合时保留显示并标黄
-  // （model 的失效提示在 PiConfigSection 内处理，这里只留 agent_kind）
   const watchedAgentKind = Form.useWatch("agent_kind", form);
 
   const reportError = useCallback(
@@ -332,7 +325,7 @@ export default function BusinessEditPage() {
     setEnvSecrets([]);
   }, [form]);
 
-  // 初始加载：出口工具菜单 + 三类资产下拉数据源 + 可选模型/内核（AGENT_PI_MODELS 驱动）
+  // 初始加载：出口工具菜单 + 三类资产下拉数据源 + 可选内核/入口适配器清单
   useEffect(() => {
     apiFetch<ExitToolMenuItem[]>("/api/exit-tools")
       .then(setExitTools)
@@ -348,17 +341,16 @@ export default function BusinessEditPage() {
       .catch((err: unknown) => reportError(err, "加载 skill 资产失败"));
     apiFetch<EffectiveConfigView>("/api/config")
       .then((config) => {
-        setModels(config.models);
         setAgents(config.agents);
         setEntryAdapters(config.entry_adapters);
-        // 创建模式 agent 默认选中第一个可选项（模型无部署无关的合理默认，必须用户显式选）
+        // 创建模式 agent 默认选中第一个可选项
         if (!isEdit && config.agents.length > 0) {
           if (form.getFieldValue("agent_kind") === undefined) {
             form.setFieldValue("agent_kind", config.agents[0]);
           }
         }
       })
-      .catch((err: unknown) => reportError(err, "加载可选模型列表失败"));
+      .catch((err: unknown) => reportError(err, "加载平台配置失败"));
     // 现有业务列表：internal 入口引导的「上游业务」下拉
     apiFetch<BusinessProfile[]>("/api/businesses")
       .then(setBusinesses)
@@ -380,7 +372,6 @@ export default function BusinessEditPage() {
           tool_asset_ids: profile.tool_asset_ids,
           skill_asset_ids: profile.skill_asset_ids,
           agent_kind: profile.agent_kind,
-          model: profile.model,
           prompt: profile.prompt,
           on_failure: profile.on_failure,
           timeout_minutes: profile.timeout_minutes ?? null,
@@ -505,7 +496,6 @@ export default function BusinessEditPage() {
             : {}),
           on_failure: values.on_failure,
           prompt: values.prompt ?? "",
-          model: values.model,
           agent_kind: values.agent_kind,
           package_asset_id: values.package_asset_id,
           entry_program: values.entry_program,
@@ -541,12 +531,11 @@ export default function BusinessEditPage() {
       }
 
       // 编辑：PATCH 资料字段（超时/配额清除 = null）+ 匹配行增删 diff + 出口绑定整体覆盖
-      // model 仅平台默认模式携带（自定义配置业务的 model 由 pi-config 流程维护，PATCH 单独改会被 409）
+      // （model 只读派生，不随 PATCH——由大模型配置区的验证-确认流程维护）
       const patch: PatchBusinessBody = {
         business_name: values.business_name,
         on_failure: values.on_failure,
         prompt: values.prompt ?? "",
-        ...(piIncludeModel ? { model: values.model } : {}),
         agent_kind: values.agent_kind,
         package_asset_id: values.package_asset_id,
         entry_program: values.entry_program,
@@ -671,28 +660,18 @@ export default function BusinessEditPage() {
               options={agents.map((a) => ({ value: a, label: a }))}
             />
           </Form.Item>
-          {/* 编辑页：平台默认/业务自定义双模式（自定义走 pi-config 验证-确认流程）；
-              创建页：仅平台默认，沿用全局 models 下拉 */}
+          {/* 大模型配置（业务自定义 models.json 是唯一模型来源）：
+              编辑页 = 完整配置区（在线验证-确认流程）；创建页 = 警告（业务创建后才能在编辑页配置） */}
           {isEdit && id !== undefined ? (
-            <PiConfigSection
-              businessId={id}
-              form={form}
-              globalModels={models}
-              onIncludeModelChange={setPiIncludeModel}
-            />
+            <PiConfigSection businessId={id} />
           ) : (
-            <Form.Item
-              name="model"
-              label="大模型"
-              tooltip="是什么：本业务大模型调用使用的模型，可选项来自服务端 AGENT_PI_MODELS（provider/id 形式）。何时用：创建时必选，按业务质量与成本需要选择。配错后果：不在可选列表时保存被拒绝；运行期模型失效 = agent 调用失败。业务创建后可在编辑页改为业务自定义配置。"
-              rules={[{ required: true, message: "请选择模型" }]}
-            >
-              <Select
-                aria-label="大模型"
-                placeholder="请选择模型"
-                options={models.map((m) => ({ value: m, label: m }))}
-              />
-            </Form.Item>
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: 24 }}
+              message="大模型：创建后配置"
+              description="业务创建后才能配置大模型：创建后请在编辑页的大模型配置区完成 models.json 配置并在线验证。未配置的业务无法使用大模型推理（sdk.agent 调用将失败）；不使用大模型的纯程序业务可忽略。"
+            />
           )}
           <Form.Item
             name="prompt"

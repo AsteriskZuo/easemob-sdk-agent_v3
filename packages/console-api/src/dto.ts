@@ -70,8 +70,6 @@ export interface CreateBusinessBody {
   on_failure?: boolean;
   /** 提示词总纲，缺省 '' */
   prompt?: string;
-  /** 大模型选择：provider/id 形式；缺省 '' = 未选择（console 表单必选，API 不强制但做合法性校验，见绑定校验） */
-  model?: string;
   /** agent 内核，缺省 'pi' */
   agent_kind?: string;
   /** 绑定的包资产 id */
@@ -100,8 +98,6 @@ export interface PatchBusinessBody {
   exit_bindings?: Array<{ tool: string; config: Record<string, string> }>;
   /** 提示词总纲 */
   prompt?: string;
-  /** 大模型选择 */
-  model?: string;
   /** agent 内核 */
   agent_kind?: string;
   /** 包资产绑定 */
@@ -302,12 +298,42 @@ export interface EffectiveConfigView {
   max_agent_calls: number;
   /** pi 可执行文件绝对路径（非机密，原样回显） */
   pi_cli_path: string;
-  /** PI_CODING_AGENT_DIR（非机密，原样回显） */
-  pi_agent_dir: string;
-  /** 可选大模型列表（provider/id 形式）：server 校验 AGENT_PI_MODELS 并生成派生 models.json 后提取；不回显密钥 */
-  models: string[];
   /** 可选 agent 内核列表（MVP 恒 ['pi']） */
   agents: string[];
   /** 入口适配器清单（自描述 + 当前开关状态）：console 入口区据此渲染 eventDoc 与 entry_config 表单 */
   entry_adapters: EntryAdapterView[];
 }
+
+/** 单个模型的在线验证结果（错误详情已脱敏；spec 2026-11-01 §10.2） */
+export interface PiModelValidationItem {
+  /** provider/id */
+  model: string;
+  ok: boolean;
+  /** 到首个真实生成事件的耗时；失败为到失败的耗时 */
+  duration_ms: number;
+  /** 失败原因（脱敏；含 failure_kind 语义） */
+  error?: string;
+}
+
+/** 在线验证进度/结果（GET /api/businesses/:id/pi-config/validate/{validation_id} 的 200 响应） */
+export type PiValidationStatus =
+  | {
+      status: "running";
+      /** 待验证模型总数（声明顺序） */
+      total: number;
+      /** 已完成结果前缀（声明顺序） */
+      results: PiModelValidationItem[];
+    }
+  | {
+      status: "done";
+      /** 全部通过才有确认资格（confirm 只接受 all_passed=true 的 validation_id） */
+      all_passed: boolean;
+      results: PiModelValidationItem[];
+      /** all_passed=true 时存在：派生的默认模型（第一个 provider 的第一个模型） */
+      default_model?: string;
+    }
+  | {
+      /** 进程级故障（非单模型失败；错误已脱敏） */
+      status: "failed";
+      error: string;
+    };

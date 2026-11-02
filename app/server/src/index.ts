@@ -4,14 +4,10 @@ export { resolveServerConfig } from "./config.js";
 export type { ServerConfig } from "./config.js";
 export { runSelfCheck } from "./self-check.js";
 export {
-  loadModelList,
-  preparePiModels,
-  validatePiModelsConfig,
-} from "./models.js";
-export type {
-  PiModelDefinition,
-  PiModelsConfig,
-  PiProviderDefinition,
+  deriveDefaultModel,
+  enumerateModels,
+  prepareBusinessPiModels,
+  validateBusinessPiModels,
 } from "./models.js";
 export type {
   EntryAdapter,

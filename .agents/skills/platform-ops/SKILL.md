@@ -15,15 +15,15 @@ whenToUse: 当需要排查业务未按预期处理事件、工单轮询成功但
 
 workspace 根由环境变量 `AGENT_WORKSPACE` 指定；本机开发一般是 `<平台仓>/.easemob-agent-workspace`，下文记作 `{WS}`。
 
-| 路径 | 内容 |
-|---|---|
-| `{WS}/platform/config.json` | 平台配置 |
-| `{WS}/platform/data/platform.db` | 全平台唯一 SQLite 库：entry_tasks / exit_tasks / assets / businesses / business_matches / lifecycles / 更新队列表等 |
-| `{WS}/platform/logs/` | 平台侧日志 |
-| `{WS}/platform/cache/assets/{asset_id}/` | 资产物化缓存（git clone 快照；资产根 = 其内登记的 subpath） |
-| `{WS}/businesses/{business_id}/data/{source}/{session_id}/` | 业务持久数据（如 jira 业务：`data/jira/HIM-XXXXX/review-records.json`） |
-| `{WS}/businesses/{business_id}/logs/{source}/{session_id}/run_*.log` | 单次 run 业务日志，排查第一现场；开头有"临时调试：平台实际调用 Runner 的 RunRequest"完整入参 |
-| `{WS}/businesses/{business_id}/cache/` | 业务缓存（agent-sessions、pi 配置等） |
+| 路径                                                                 | 内容                                                                                                                |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `{WS}/platform/config.json`                                          | 平台配置                                                                                                            |
+| `{WS}/platform/data/platform.db`                                     | 全平台唯一 SQLite 库：entry_tasks / exit_tasks / assets / businesses / business_matches / lifecycles / 更新队列表等 |
+| `{WS}/platform/logs/`                                                | 平台侧日志                                                                                                          |
+| `{WS}/platform/cache/assets/{asset_id}/`                             | 资产物化缓存（git clone 快照；资产根 = 其内登记的 subpath）                                                         |
+| `{WS}/businesses/{business_id}/data/{source}/{session_id}/`          | 业务持久数据（如 jira 业务：`data/jira/HIM-XXXXX/review-records.json`）                                             |
+| `{WS}/businesses/{business_id}/logs/{source}/{session_id}/run_*.log` | 单次 run 业务日志，排查第一现场；开头有"临时调试：平台实际调用 Runner 的 RunRequest"完整入参                        |
+| `{WS}/businesses/{business_id}/cache/`                               | 业务缓存（agent-sessions、pi 配置等）                                                                               |
 
 ## 2. 定位流程（按工单/事件号）
 

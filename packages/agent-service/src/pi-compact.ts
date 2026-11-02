@@ -1,6 +1,7 @@
 import type { CategoryLogger } from "@asteriskzuo/agent-logger";
 import { ProcessError, runProcess } from "@asteriskzuo/agent-process-runner";
 import type { AgentServeContext, AgentServiceDeps } from "./index.js";
+import type { EffectiveModels } from "./models-json.js";
 import type { ServiceResponse } from "./socket-server.js";
 import { buildPiEnv, whitelistFlags } from "./pi-runner.js";
 
@@ -20,6 +21,7 @@ const OK_NULL: ServiceResponse = {
 export async function runCompactOp(
   deps: AgentServiceDeps,
   ctx: AgentServeContext,
+  models: EffectiveModels,
   inflight: Set<AbortController>,
   log: CategoryLogger,
 ): Promise<ServiceResponse> {
@@ -63,7 +65,7 @@ export async function runCompactOp(
   try {
     await runProcess(deps.pi_cli_path, args, {
       cwd: ctx.workspace,
-      env: { mode: "exact", values: buildPiEnv(deps, ctx) },
+      env: { mode: "exact", values: buildPiEnv(deps, ctx, models.agent_dir) },
       stdin: JSON.stringify({ id: "c1", type: "compact" }) + "\n",
       timeout_ms: COMPACT_TIMEOUT_MS,
       signal: controller.signal,

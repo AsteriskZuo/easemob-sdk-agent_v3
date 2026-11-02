@@ -17,7 +17,6 @@ export type {
 export type {
   BusinessPiConfigService,
   BusinessPiConfigView,
-  PiValidateResult,
 } from "./routes-pi-config.js";
 export type * from "./dto.js";
 

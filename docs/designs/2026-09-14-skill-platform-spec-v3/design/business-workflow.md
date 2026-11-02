@@ -62,10 +62,18 @@ interface Sdk {
 
   /** 调大模型服务（经 socket 到平台 agent 调用服务执行；配额在此强制）。
    *  skills 为本次注入的 skill 名（可多个、可跨 skill 集合，服务端把各 SKILL.md 经 --append-system-prompt 内联注入）；
-   *  每个都必须在业务绑定的 skill 集合内（平台校验）；提示词总纲与模型由平台按业务资料注入。
+   *  每个都必须在业务绑定的 skill 集合内（平台校验）；提示词总纲由平台注入。
    *  mode 默认 'channel'：沿用/恢复当前通道的 agent 会话（多轮业务的每轮调用都是它）；
-   *  'fresh'：独立会话、不写通道映射（单 run 内初审→复审这类额外调用，上下文不串味） */
-  agent(call: { skills: string[]; input: unknown; mode?: 'channel' | 'fresh' }): Promise<unknown>;
+   *  'fresh'：独立会话、不写通道映射（单 run 内初审→复审这类额外调用，上下文不串味）。
+   *  model（2026-11-01 起，socket 契约 v2）：可选，provider/id 形式指定本次调用模型；
+   *  省略 = 业务配置的默认模型（首 provider 首 model）；指定集合外模型被拒绝（model_not_allowed）；
+   *  业务未配置大模型时调用被拒绝（model_not_configured） */
+  agent(call: { skills: string[]; input: unknown; mode?: 'channel' | 'fresh'; model?: string }): Promise<unknown>;
+
+  /** 枚举本业务可用模型集合（2026-11-01 起）：返回业务大模型配置解析出的
+   *  { default: string; providers: { name: string; models: string[] }[] }；
+   *  未配置时返回空枚举（default:''、providers:[]），不抛错 */
+  models(): Promise<{ default: string; providers: { name: string; models: string[] }[] }>;
 
   /** 当前通道的 agent 会话操作：多轮业务处理 /compact、/clear 类用户命令用。
    *  命令的识别归业务（用户消息原样到达流程程序，平台不识别不翻译），平台只提供通用会话能力 */

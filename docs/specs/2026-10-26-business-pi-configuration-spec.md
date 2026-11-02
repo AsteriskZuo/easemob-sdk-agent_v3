@@ -4,6 +4,17 @@
 > 状态：已确认（2026-10-31 grilling 两轮 11 项决策全部通过），作为实现依据
 > 范围：agent-server 的配置更新协调、业务自定义 Pi 配置、真实验证、控制台和运行链路。本文自包含；与旧规格的冲突仅在本文被确认后由同步任务修订。
 
+> **2026-11-01 修订（部分取代）**：`docs/specs/2026-11-01-business-multi-model-spec.md` 已确认并取代本文以下条目——
+> - 第 6 条全局保留作废：全局 `AGENT_PI_MODELS`、`AGENT_PI_AGENT_DIR`、全局派生 `platform/cache/pi/agent/models.json` 与未配置业务的全局兜底全部移除，**业务级大模型配置成为唯一模型来源**；
+> - 单模型同步验证改为**多 provider 多 model 异步遍历验证**（validate 返回 202 + validation_id，串行探针逐个真实调用，轮询状态，全部通过才可 confirm）；
+> - 模型简写 provider 形式取消，配置结构恒定完整 models.json；provider 名禁止纯整数；
+> - 默认模型不再经独立输入项，由服务端派生 = 第一个 provider 的第一个 model（随 pi.set 落库，业务资料 `model` 字段只读）；
+> - 删除业务大模型配置不再要求替代模型（remove payload 仅 `{business_id}`）；
+> - 新增 socket 契约 v2：`sdk.agent(..., { model })` 指定模型、`sdk.models()` 枚举集合、新错误码 `model_not_allowed`/`model_not_configured`；
+> - 新增全局 HTTP 超时配置 `AGENT_HTTP_TIMEOUT_MS`。
+>
+> 本文其余条款（更新队列与闲时生效、脱敏、验证-确认两段式、目录与权限、pi-probe 探针、模板帮助等）继续有效。
+
 ## 1. 决策与变更关系
 
 1. 业务配置归平台持有，业务可以选择自己的完整 Pi `models.json` 配置和 `provider/id` 模型。

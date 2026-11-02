@@ -34,9 +34,9 @@ export AGENT_ADMIN_USERNAME=admin
 export AGENT_ADMIN_PASSWORD=your-initial-password
 ```
 
-配置文件中 `AGENT_PI_MODELS` 为必填项（结构见下文与 `templates/models.json.example`），其余键均有默认值、按需覆盖。注意 `AGENT_WORKSPACE` 不能写进 config.json——它只从环境变量解析，写进文件会被静默忽略。server 启动时会在默认受管目录 `{workspace}/platform/cache/pi/agent` 自动生成 Pi 的 `models.json`，无需手工复制。
+配置文件的所有键均有默认值、按需覆盖。注意 `AGENT_WORKSPACE` 不能写进 config.json——它只从环境变量解析，写进文件会被静默忽略。
 
-从旧版升级时，把原 `models.json` 的 `{ "providers": ... }` 整体作为 `AGENT_PI_MODELS` 的值一次性迁入 `platform/config.json`，并删除不再需要的 `AGENT_PI_AGENT_DIR` 覆盖项以使用默认目录；此后不要同时手工维护两份配置。
+大模型配置不在部署配置里：业务的大模型（models.json）在控制台按业务配置（在线验证全部模型 → 确认保存、脱敏回显、经统一更新队列生效不重启），未配置的业务无法使用大模型推理。结构示例见 `templates/models.json.example`。
 
 > pi 内核（`@earendil-works/pi-coding-agent`）版本由 yarn.lock 锁定，`yarn install` 即得。推荐缺省自动解析 CLI；仅在明确需要替换二进制时设置 `AGENT_PI_CLI_PATH`。
 
@@ -73,12 +73,12 @@ yarn workspace @asteriskzuo/agent-console dev
 | 路径 | 内容 | 删除影响 |
 |------|------|---------|
 | `platform/data/platform.db` | 全部状态：账号/业务/资产登记/队列/通道/环境配置 | 全量重置（含控制台账号；下次启动需重新注入首启 admin） |
-| `platform/cache/` | 资产物化、默认 Pi 受管目录及派生 `models.json` | 安全，启动或按需重建；派生文件也含密钥，不得进 git 或日志 |
+| `platform/cache/` | 资产物化 | 安全，启动或按需重建 |
 | `platform/logs/` | 平台三日志 | 安全 |
 | `businesses/` | 各业务的数据/缓存/runs/日志 | 安全（业务级持久状态随之丢失，如去重记录） |
 | `platform/config.json` | 人工维护的部署配置，可能含模型 API Key | 别删（除非连配置一起重置）；真实文件不进 git，误删可用 `templates/config.json.example` 重建 |
 
-完整重置：**除 `platform/config.json` 外，工作区其余内容可整体删除**。若把 `AGENT_PI_AGENT_DIR` 显式指到 workspace 外，该目录不属于此重置范围——
+完整重置：**除 `platform/config.json` 外，工作区其余内容可整体删除**。
 
 ```bash
 rm -rf "$AGENT_WORKSPACE/platform/data" "$AGENT_WORKSPACE/platform/cache" "$AGENT_WORKSPACE/platform/logs" "$AGENT_WORKSPACE/businesses"
@@ -88,47 +88,31 @@ rm -rf "$AGENT_WORKSPACE/platform/data" "$AGENT_WORKSPACE/platform/cache" "$AGEN
 
 **所有配置项都归 server；console 不需要任何环境变量**（浏览器 SPA 运行时不读 env；开发模式的 API 代理目标写在 `app/console/vite.config.ts`，生产模式由 server 托管静态文件）。
 
-来源优先级：**环境变量 > `{workspace}/platform/config.json` 同名键 > 代码默认值**（config.json 与环境变量同名、含 `AGENT_` 前缀）。`AGENT_PI_MODELS` 在文件中是 object，在环境变量中是同结构 JSON 字符串；env 整体覆盖文件值，不做深合并。config.json 允许放 `__` 前缀的说明键（解析器一律忽略）——`templates/config.json.example` 即用此方式逐键注释（如 `__AGENT_LOG_LEVEL` 说明该键可选与否与用途）。
+来源优先级：**环境变量 > `{workspace}/platform/config.json` 同名键 > 代码默认值**（config.json 与环境变量同名、含 `AGENT_` 前缀）。config.json 允许放 `__` 前缀的说明键（解析器一律忽略）——`templates/config.json.example` 即用此方式逐键注释（如 `__AGENT_LOG_LEVEL` 说明该键可选与否与用途）。
 
-### 启动与 Pi 模型配置
+### 启动必选项
 
 | 变量 | 来源 | 说明 |
 |------|------|------|
 | `AGENT_WORKSPACE` | **只能环境变量** | 平台工作目录（数据五类分根的根）；config.json 栖身于 workspace，故不能来自文件 |
-| `AGENT_PI_MODELS` | env 或 config.json | 必填；完整 provider/model/apiKey 配置，至少一个模型。每次启动校验并同步受管 `models.json`，修改后重启生效。这是全局平台兜底；业务另可在控制台配置自定义大模型（在线验证—确认保存、脱敏回显、经统一更新队列生效不重启，见 `docs/specs/2026-10-26-business-pi-configuration-spec.md`） |
 | `PATH` / `HOME` | 只能环境变量 | pi 子进程基础环境（pi_env 固定组）；正常 shell 天然存在，一般无需显式设置 |
 
-完整键清单与默认值模板见 `templates/config.json.example`（拷贝后替换占位即用）；这里仅示例必填的 `AGENT_PI_MODELS`（密钥必须使用真实值，示例不得原样用于生产）。`apiKey` 应使用字面量——Pi 子进程环境只有 PATH/HOME，不能依赖 `$ENV_VAR` 插值读取厂商密钥：
+大模型配置**不归部署配置**：每个业务在控制台「业务编辑页 → 大模型配置区」维护自己的 `models.json`（Pi 原生结构，可配多个 provider 与模型；默认模型 = 第一个 provider 的第一个模型），经「在线验证全部模型 → 确认保存」生效，全部模型真实探针通过才允许保存；未配置的业务调用 `sdk.agent` 会被拒绝（`model_not_configured`）。完整键清单与默认值模板见 `templates/config.json.example`（拷贝后替换占位即用）。业务配置里的 `apiKey` 应使用字面量——Pi 子进程环境只有 PATH/HOME，不能依赖 `$ENV_VAR` 插值读取厂商密钥。
 
-```json
-{
-  "AGENT_PI_MODELS": {
-    "providers": {
-      "your-provider-name": {
-        "baseUrl": "https://your-provider.example.com/v1",
-        "api": "openai-completions",
-        "apiKey": "replace-with-real-api-key",
-        "models": [{ "id": "your-model-id" }]
-      }
-    }
-  }
-}
-```
-
-### Pi 路径（均可选，推荐默认）
+### Pi 路径（可选，推荐默认）
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
 | `AGENT_PI_CLI_PATH` | 自动解析 npm 依赖的 bin | 显式指定时优先，自检验存在可执行；仅在明确需要替换 Pi 二进制时设置 |
-| `AGENT_PI_AGENT_DIR` | `{workspace}/platform/cache/pi/agent` | 显式指定时优先；默认和自定义目录都为平台专用受管目录，启动会覆盖其中的 `models.json`，不要指向个人共用的 `~/.pi/agent` |
 
-`models.json` 是由 `AGENT_PI_MODELS` 生成的派生缓存，不再人工维护。真实 `config.json` 与派生文件都含密钥，均不得进入 git、日志或管理 API 回显。
+真实 `config.json` 与业务派生的 `models.json`（`businesses/{业务}/cache/pi/agent/`）都可能含密钥，均不得进入 git、日志或管理 API 回显。
 
 ### 运行参数（均有默认值，env 或 config.json 均可）
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
 | `AGENT_CONSOLE_PORT` | `6100` | 管理 API / 控制台端口 |
+| `AGENT_HTTP_TIMEOUT_MS` | `30000` | 平台 HTTP 服务（管理 API 与 webhook 入口）统一超时（毫秒），范围 1000–300000 |
 | `AGENT_HOP_LIMIT` | `8` | 派生事件 hop 上限（防循环订阅） |
 | `AGENT_TASK_CONCURRENCY` | `4` | 入口业务并发闸门 |
 | `AGENT_RESULT_CONCURRENCY` | `16` | 出口投递并发闸门 |
@@ -189,7 +173,7 @@ rm -rf "$AGENT_WORKSPACE/platform/data" "$AGENT_WORKSPACE/platform/cache" "$AGEN
 ├── templates/
 │   ├── agent-package/      # 业务包模板（拷贝即用）
 │   ├── config.json.example # {workspace}/platform/config.json 完整模板（全部键 + 默认值 + 占位）
-│   └── models.json.example # AGENT_PI_MODELS 值的结构示例（不是手工复制目标）
+│   └── models.json.example # 业务大模型配置（models.json）的结构示例
 ├── .easemob-agent-workspace/ # 本地开发约定俗成的 AGENT_WORKSPACE 指向（gitignore；变量必填、无默认值，上文示例命令即指向它）
 └── docs/               # 设计/规格/计划/进度（见 docs/README.md）
 ```

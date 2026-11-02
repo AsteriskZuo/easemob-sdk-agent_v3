@@ -57,6 +57,9 @@ export interface ConsoleApiDeps {
 export interface ConsoleApiOptions {
   /** 监听端口（0 = 随机，测试用） */
   port: number;
+  /** HTTP 超时（毫秒）：requestTimeout/socket timeout = 该值，headersTimeout 取其一半。
+   *  缺省 30000（Node requestTimeout 默认 300s 过长；超时硬化见 spec 2026-11-01 §8） */
+  timeout_ms?: number;
   /** 首启 admin 注入（users 表为空时生效；缺省不建号，记 error 日志不阻断启动） */
   bootstrap_admin?: { username: string; password: string };
   /** 控制台静态资源目录（vite build 产物的绝对路径）；
@@ -186,6 +189,11 @@ export function createConsoleApi(
   const server: Server = createServer((req, res) => {
     void handle(req, res);
   });
+  // 超时硬化（默认 30s）：整请求与 socket 空闲共用同一预算；headersTimeout 必须 < requestTimeout
+  const timeoutMs = options.timeout_ms ?? 30_000;
+  server.requestTimeout = timeoutMs;
+  server.timeout = timeoutMs;
+  server.headersTimeout = Math.floor(timeoutMs / 2);
 
   let listening = false;
   let stopPromise: Promise<void> | null = null;

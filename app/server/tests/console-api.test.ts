@@ -49,16 +49,6 @@ beforeEach(() => {
     join(platformDir, "config.json"),
     JSON.stringify({
       AGENT_NPM_REGISTRY: registryUrl,
-      AGENT_PI_MODELS: {
-        providers: {
-          "test-provider": {
-            baseUrl: "https://test-provider.example.com/v1",
-            api: "openai-completions",
-            apiKey: "sk-fake-placeholder",
-            models: [{ id: "model-a" }, { id: "model-b" }],
-          },
-        },
-      },
     }),
   );
 });
@@ -130,17 +120,17 @@ describe("bootstrap 装配管理 API", () => {
     expect(user.username).toBe("root");
     expect(user.role).toBe("admin");
 
-    // GET /api/config 携带 models（pi_agent_dir/models.json 解析结果）与 agents（MVP 恒 ['pi']）
+    // GET /api/config 携带 agents（MVP 恒 ['pi']）与入口适配器清单；
+    // 全局模型概念已移除（模型归业务自定义配置），响应不含 models / pi_agent_dir
     const configRes = await fetch(`http://127.0.0.1:${port}/api/config`, {
       headers: { cookie: `agent_console_token=${token}` },
     });
     expect(configRes.status).toBe(200);
     const rawConfig = await configRes.text();
-    expect(rawConfig).not.toContain("sk-fake-placeholder");
     expect(rawConfig).not.toContain("apiKey");
     expect(rawConfig).not.toContain("pi_models");
     const configView = JSON.parse(rawConfig) as {
-      models: string[];
+      models?: string[];
       agents: string[];
       entry_adapters: Array<{
         id: string;
@@ -149,10 +139,7 @@ describe("bootstrap 装配管理 API", () => {
         configSchema: unknown[];
       }>;
     };
-    expect(configView.models).toEqual([
-      "test-provider/model-a",
-      "test-provider/model-b",
-    ]);
+    expect(configView.models).toBeUndefined();
     expect(configView.agents).toEqual(["pi"]);
     // 入口适配器自描述 + 开关状态（默认：webhook 开、jira-polling 关）
     const webhook = configView.entry_adapters.find((a) => a.id === "webhook");

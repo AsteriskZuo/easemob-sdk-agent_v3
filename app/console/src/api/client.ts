@@ -27,9 +27,11 @@ export interface ApiFetchOptions {
   method?: string;
   /** 请求体（对象自动 JSON 序列化 + content-type；DELETE 带 body 同此路径） */
   body?: unknown;
+  /** 超时毫秒数（缺省 30000，与 server 端默认一致；超时抛 ApiError code='timeout'） */
+  timeout_ms?: number;
 }
 
-/** 同源 fetch 封装：JSON 编解码 + 统一错误体解析 + 401 回调。
+/** 同源 fetch 封装：JSON 编解码 + 统一错误体解析 + 401 回调 + 超时中断。
  *  同源部署/代理下 cookie（agent_console_token）默认携带，无需显式凭证参数 */
 export async function apiFetch<T>(
   path: string,
@@ -41,11 +43,35 @@ export async function apiFetch<T>(
     headers["Content-Type"] = "application/json";
     body = JSON.stringify(options.body);
   }
-  const res = await fetch(path, {
-    method: options.method ?? "GET",
-    headers,
-    body,
-  });
+  const timeoutMs = options.timeout_ms ?? 30_000;
+  // 手写 AbortController + setTimeout（AbortSignal.timeout 在 jsdom/老浏览器不存在）
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      method: options.method ?? "GET",
+      headers,
+      body,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    // controller.abort() 触发 AbortError；其余（连接拒绝/DNS 等）归 network
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new ApiError(
+        "timeout",
+        `请求超时（${timeoutMs}ms），请检查服务可达性`,
+        0,
+      );
+    }
+    throw new ApiError(
+      "network",
+      `网络错误：${err instanceof Error ? err.message : String(err)}`,
+      0,
+    );
+  } finally {
+    clearTimeout(timer);
+  }
   if (res.status === 401) {
     // 先通知（清用户态）再抛出，调用方无需各自处理 401
     onUnauthorized?.();

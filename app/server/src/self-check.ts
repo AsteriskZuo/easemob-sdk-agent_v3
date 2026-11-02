@@ -1,15 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { constants } from "node:fs";
-import {
-  accessSync,
-  mkdirSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { accessSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ServerConfig } from "./config.js";
-import { loadModelList } from "./models.js";
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -18,11 +11,10 @@ function errorMessage(err: unknown): string {
 /** 启动自检（fail-fast）：任一前提不满足抛出 Error，message 列出全部失败项。
  *  检查项全量收集后一次性报出，不遇一错即停：
  *  ① {workspace} 可建可写；② 数据分类子目录骨架（platform/{data,cache,logs} + businesses/）可建；
- *  ③ pi_cli_path 存在且可执行；④ pi_agent_dir 存在且含可解析、非空的 models.json
- *  （可选模型列表的部署侧来源，loadModelList 验证）；⑤ git 可用；
- *  ⑥ npm 可用；⑦ npm registry 可达（HEAD，3s 超时）。
+ *  ③ pi_cli_path 存在且可执行；④ git 可用；
+ *  ⑤ npm 可用；⑥ npm registry 可达（HEAD，3s 超时）。
  *  （node 不单列：workflow-runner 用 process.execPath spawn 业务程序，server 能启动即 node 恒在；
- *   数据库可打开/迁移由各工厂创建时自然 fail-fast） */
+ *   数据库可打开/迁移由各工厂创建时自然 fail-fast；大模型配置归业务自查，平台启动不检查） */
 export async function runSelfCheck(config: ServerConfig): Promise<void> {
   const failures: string[] = [];
 
@@ -63,40 +55,21 @@ export async function runSelfCheck(config: ServerConfig): Promise<void> {
     );
   }
 
-  // ④ pi_agent_dir 存在且含 models.json 文件，且可解析出非空模型列表
-  try {
-    if (!statSync(join(config.pi_agent_dir, "models.json")).isFile()) {
-      failures.push(
-        `pi_agent_dir 下 models.json 不是文件: ${config.pi_agent_dir}`,
-      );
-    } else {
-      try {
-        loadModelList(config.pi_agent_dir);
-      } catch (err) {
-        failures.push(`models.json 不可用: ${errorMessage(err)}`);
-      }
-    }
-  } catch (err) {
-    failures.push(
-      `pi_agent_dir 不存在或缺 models.json: ${config.pi_agent_dir}: ${errorMessage(err)}`,
-    );
-  }
-
-  // ⑤ git 可用（asset-registry 物化资产经 git 子进程，缺失则一切资产拉取必败）
+  // ④ git 可用（asset-registry 物化资产经 git 子进程，缺失则一切资产拉取必败）
   try {
     execFileSync("git", ["--version"], { stdio: "ignore" });
   } catch (err) {
     failures.push(`git 不可用: ${errorMessage(err)}`);
   }
 
-  // ⑥ npm 可用（物化构建跑 npm ci，缺失则 package/tool 资产物化必败）
+  // ⑤ npm 可用（物化构建跑 npm ci，缺失则 package/tool 资产物化必败）
   try {
     execFileSync("npm", ["--version"], { stdio: "ignore" });
   } catch (err) {
     failures.push(`npm 不可用: ${errorMessage(err)}`);
   }
 
-  // ⑦ npm registry 可达（HEAD，3s 超时；物化 npm ci 依赖它解析依赖。
+  // ⑥ npm registry 可达（HEAD，3s 超时；物化 npm ci 依赖它解析依赖。
   //  有任何 HTTP 响应即视为可达——只排网络层失败/超时，不替 registry 判状态码）
   try {
     await fetch(config.npm_registry, {

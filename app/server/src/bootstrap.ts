@@ -38,7 +38,6 @@ import { createWorkflowRunner } from "@asteriskzuo/agent-workflow-runner";
 import { resolveServerConfig } from "./config.js";
 import type { ServerConfig } from "./config.js";
 import { createExitDriver } from "./exit-driver.js";
-import { loadModelList, preparePiModels } from "./models.js";
 import { prepareBusinessPiModels } from "./models.js";
 import { runSelfCheck } from "./self-check.js";
 import { createBusinessPiConfigService } from "./pi-config-service.js";
@@ -113,23 +112,17 @@ export async function bootstrap(overrides?: {
   let context: AssembledContext | null = null;
 
   try {
-    // 3. 从生效配置生成 Pi 派生文件；源配置或写入失败均不消费旧文件
-    preparePiModels(config.pi_agent_dir, config.pi_models);
-
-    // 4. 启动自检（fail-fast，全量收集一次性报出）
+    // 3. 启动自检（fail-fast，全量收集一次性报出）
     await runSelfCheck(config);
 
-    // 4.5 可选模型全量列表；只向管理 API 提供 provider/id，不回显 apiKey
-    const models = loadModelList(config.pi_agent_dir);
-
-    // 4.6 system 日志「启动中」（回显关键配置，不含任何 secret）
+    // 3.5 system 日志「启动中」（回显关键配置，不含任何 secret）
     log.info("平台启动中", {
       workspace: config.workspace,
       hop_limit: config.hop_limit,
       task_concurrency: config.task_concurrency,
       result_concurrency: config.result_concurrency,
       pi_cli_path: config.pi_cli_path,
-      pi_agent_dir: config.pi_agent_dir,
+      http_timeout_ms: config.http_timeout_ms,
     });
 
     // 5. 接线（依赖方向即创建顺序）
@@ -182,7 +175,6 @@ export async function bootstrap(overrides?: {
       workspace: config.workspace,
       pi_cli_path: config.pi_cli_path,
       pi_env: config.pi_env,
-      globalModels: models,
     });
     const loader = createContextLoader({
       registry,
@@ -208,7 +200,6 @@ export async function bootstrap(overrides?: {
     const runner = createWorkflowRunner({ workspaceRoot: config.workspace });
     const agentService = createAgentService({
       pi_cli_path: config.pi_cli_path,
-      pi_agent_dir: config.pi_agent_dir,
       pi_env: config.pi_env,
       mapping: channelStore,
     });
@@ -271,10 +262,13 @@ export async function bootstrap(overrides?: {
     log.info("入口适配器开关", { adapters: switchStates });
     for (const [index, factory] of ENTRY_ADAPTERS.entries()) {
       if (!(switchStates[index] as { enabled: boolean }).enabled) continue;
-      // webhook 端口来自 AGENT_WEBHOOK_PORT；其余适配器无全局运行参数
+      // webhook 端口与 HTTP 超时来自全局配置；其余适配器无全局运行参数
       const adapter =
         factory.spec.id === "webhook"
-          ? factory.create({ webhook_port: config.webhook_port })
+          ? factory.create({
+              webhook_port: config.webhook_port,
+              http_timeout_ms: config.http_timeout_ms,
+            })
           : factory.create();
       adapter.start({ queue: entryQueue, registry, env: envProvider });
       startedAdapters.push(adapter);
@@ -299,8 +293,6 @@ export async function bootstrap(overrides?: {
       task_timeout_minutes: config.task_timeout_minutes,
       max_agent_calls: config.max_agent_calls,
       pi_cli_path: config.pi_cli_path,
-      pi_agent_dir: config.pi_agent_dir,
-      models,
       // MVP 恒 ['pi']；新内核 = 代码新增 + 此处登记
       agents: ["pi"],
       // 入口适配器自描述 + 当前开关状态（§8.1.1；console 入口区据此渲染 eventDoc 与 entry_config 表单）
@@ -327,6 +319,7 @@ export async function bootstrap(overrides?: {
       },
       {
         port: config.console_port,
+        timeout_ms: config.http_timeout_ms,
         ...(config.bootstrap_admin !== undefined
           ? { bootstrap_admin: config.bootstrap_admin }
           : {}),

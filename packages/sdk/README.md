@@ -134,18 +134,77 @@ interface AgentCall {
   skills: string[]; // 本次注入的 skill 名（可多个、可跨 skill 集合）；均须在本业务绑定的 skill 集合内
   input: unknown; // 给大模型的内容（业务保证已脱敏）
   mode?: "channel" | "fresh"; // 缺省 'channel'
+  model?: string; // 本次调用使用的模型（provider/id）；缺省 = 业务默认模型
 }
 ```
 
 - **用途**：调大模型服务（unix socket 到平台 agent 服务；模型凭据平台持有，不进业务进程；run 级调用次数配额服务端强制）；
 - **mode**：`'channel'`（缺省）= 沿用/恢复当前通道的 agent 会话（多轮业务每轮都用它）；`'fresh'` = 独立会话、不写通道映射（单 run 内初审→复审这类额外调用，上下文不串味）；
-- **异常**：`skills` 为空 → 抛错；信封无 `endpoint`（本地调试/mock 未给）→ 抛错（当前环境不可调用 agent/session）；服务端拒绝（白名单不通过、配额超限、agent 异常）→ reject 带原因。
+- **model**（可选）：按次指定模型（`provider/id`，如 `qwen/qwen3-max`、`ollama/qwen3:8b`）。缺省 = 业务默认模型（业务 models.json 配置里**第一个 provider 的第一个模型**）；必须是本业务配置枚举内的值，否则服务端回 `model_not_allowed`。链式重试建议配 `mode: "fresh"`（每次独立会话，互不串味）；
+- **异常**：`skills` 为空 → 抛错；`model` 为空串 → 抛错；信封无 `endpoint`（本地调试/mock 未给）→ 抛错（当前环境不可调用 agent/session）；服务端拒绝（白名单不通过、配额超限、`model_not_allowed`、`model_not_configured`（业务未配置大模型）、agent 异常）→ reject 带原因。
 
 ```ts
 const review = await sdk.agent({
   skills: ["ticket-review"],
   input: maskedTicket,
 });
+```
+
+#### 配套：`sdk.models(): Promise<ModelsInfo>`
+
+枚举本业务**当前生效**的大模型配置（只含 provider 名与模型 id，绝不含 apiKey/baseUrl 等敏感字段）：
+
+```ts
+interface ModelsInfo {
+  default: string; // 业务默认模型（provider/id）；未配置 = ""
+  providers: Array<{ name: string; models: string[] }>; // 按配置声明顺序；未配置 = []
+}
+```
+
+- **用途**：链式兜底（多次尝试、换模型重试）的主入口——尝试几轮、什么顺序、失败换谁、采纳哪份输出，全部归业务代码，平台零参与；
+- **不计配额**（元数据查询，不是推理）；
+- **未配置返回空枚举**（`{ default: "", providers: [] }`），不抛错；此时 `sdk.agent` 调用会失败 `model_not_configured`；
+- **配额提示**：每次 `sdk.agent` 调用计 1 次配额（不论成败），走链的业务请在控制台把 `max_agent_calls` 调到 ≥ 链长。
+
+```ts
+// 链式兜底完整示例：默认模型优先，失败（调用失败或输出解析失败）换下一个；
+// 注意示范的纪律——每次尝试独立会话（fresh）、每步留日志、错误不外抛成崩溃
+async function reviewWithFallback(input: unknown) {
+  const { providers } = await sdk.models();
+  // 候选链：undefined = 默认模型（配置里排第一的主用模型），其余按声明顺序兜底
+  const candidates: Array<string | undefined> = [
+    undefined,
+    ...providers.flatMap((p) => p.models.map((id) => `${p.name}/${id}`)),
+  ];
+  // 去重（默认模型本身也在枚举里）
+  const chain = [...new Set(candidates)];
+  let lastError: unknown = null;
+  for (const model of chain) {
+    try {
+      const output = await sdk.agent({
+        skills: ["ticket-review"],
+        input,
+        mode: "fresh",
+        ...(model !== undefined ? { model } : {}),
+      });
+      const review = parseReviewOutput(output); // 业务自己的输出契约校验
+      if (review !== null) {
+        sdk.log("info", "审查成功", { model: model ?? "（默认）" });
+        return review;
+      }
+      sdk.log("warn", "输出解析失败，换下一个模型", { model: model ?? "（默认）" });
+    } catch (err) {
+      lastError = err;
+      sdk.log("warn", "模型调用失败，换下一个", {
+        model: model ?? "（默认）",
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  throw new Error(
+    `全部模型尝试失败（${chain.length} 次）: ${String(lastError)}`,
+  );
+}
 ```
 
 ### 2.7 `sdk.session.compact()` / `sdk.session.clear()`
@@ -491,9 +550,10 @@ git clone → 清单形状校验 → npm ci（有 package.json 时，必须同�
 
 ## 9. 版本兼容政策
 
-- 全部平台契约（stdin 信封、stdout 结果、事件信封、socket 协议）带 `contract_version`，当前恒为 `"v1"`；版本路由靠它——v2 到来时按值区分，新旧业务并存；
+- 平台契约（stdin 信封、stdout 结果、事件信封）带 `contract_version`，当前恒为 `"v1"`；版本路由靠它，新旧业务并存；
+- **socket 协议（业务进程 ↔ agent 服务）自 SDK 0.3.0 起为 v2**：SDK 全部请求恒定发 `"v2"`（新增 agent 可选字段 `model` 与 `models` op）；服务端同时接受 v1/v2，旧 SDK 的业务不受影响，v1 请求携带 `model` 会被拒绝（防静默忽略）；
 - 信封校验**忽略不识别字段**（向后兼容规则）：平台新增信封字段不破坏旧业务；
-- SDK 按 npm 语义化版本发布，业务在 `package.json` 钉版本（模板默认 `^0.2.0`）；SDK 升级不改变契约版本——契约变更才会动 `contract_version`；
+- SDK 按 npm 语义化版本发布，业务在 `package.json` 钉版本（模板默认 `^0.3.0`）；
 - 资产的版本 = 登记的 commit：更新资产 = 登记新 commit = 新资产行，使用旧版本的业务不受打断。
 
 ---

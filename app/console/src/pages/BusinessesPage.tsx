@@ -92,7 +92,12 @@ export default function BusinessesPage() {
           { title: "名称", dataIndex: "business_name" },
           { title: "业务 ID", dataIndex: "business_id" },
           { title: "Agent", dataIndex: "agent_kind" },
-          { title: "模型", dataIndex: "model" },
+          {
+            title: "模型",
+            dataIndex: "model",
+            render: (model: string) =>
+              model !== "" ? model : <Tag color="orange">未配置</Tag>,
+          },
           {
             title: "包绑定",
             key: "package",

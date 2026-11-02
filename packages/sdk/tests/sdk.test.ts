@@ -243,7 +243,7 @@ describe("sdk.agent / session", () => {
       expect((result.output as any).agentOut).toBe("model-reply");
       expect(server.requests).toHaveLength(1);
       expect(server.requests[0]).toEqual({
-        contract_version: "v1",
+        contract_version: "v2",
         token: "tok-123",
         op: "agent",
         skills: ["summarize", "output-format"],
@@ -253,6 +253,104 @@ describe("sdk.agent / session", () => {
     } finally {
       await server.close();
     }
+  });
+
+  it("agent：携带 model → 请求行透传 model 与 v2", async () => {
+    const server = await startFakeServer(() => ({
+      contract_version: "v1",
+      ok: true,
+      output: "local-model-reply",
+    }));
+    try {
+      const r = await runFixture("probe-agent-model.js", {
+        stdin: makeEnvelope({
+          endpoint: { socket_path: server.socketPath, token: "tok-123" },
+        }),
+      });
+      expect(r.code).toBe(0);
+      const result = parseResult(r.stdout);
+      expect(result.ok).toBe(true);
+      expect((result.output as any).agentOut).toBe("local-model-reply");
+      expect(server.requests).toHaveLength(1);
+      expect(server.requests[0]).toEqual({
+        contract_version: "v2",
+        token: "tok-123",
+        op: "agent",
+        skills: ["summarize"],
+        input: { text: "hi" },
+        mode: "fresh",
+        model: "ollama/qwen3:8b",
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("models：op 请求 v2，返回枚举原样透出", async () => {
+    const info = {
+      default: "qwen/qwen3-max",
+      providers: [
+        { name: "qwen", models: ["qwen3-max", "qwen-plus"] },
+        { name: "ollama", models: ["qwen3:8b"] },
+      ],
+    };
+    const server = await startFakeServer(() => ({
+      contract_version: "v1",
+      ok: true,
+      output: info,
+    }));
+    try {
+      const r = await runFixture("probe-models.js", {
+        stdin: makeEnvelope({
+          endpoint: { socket_path: server.socketPath, token: "tok-123" },
+        }),
+      });
+      expect(r.code).toBe(0);
+      const result = parseResult(r.stdout);
+      expect(result.ok).toBe(true);
+      expect(result.output).toEqual(info);
+      expect(server.requests).toHaveLength(1);
+      expect(server.requests[0]).toEqual({
+        contract_version: "v2",
+        token: "tok-123",
+        op: "models",
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("models：无配置业务 → 空枚举原样透出", async () => {
+    const server = await startFakeServer(() => ({
+      contract_version: "v1",
+      ok: true,
+      output: { default: "", providers: [] },
+    }));
+    try {
+      const r = await runFixture("probe-models.js", {
+        stdin: makeEnvelope({
+          endpoint: { socket_path: server.socketPath, token: "tok-123" },
+        }),
+      });
+      expect(r.code).toBe(0);
+      const result = parseResult(r.stdout);
+      expect(result.ok).toBe(true);
+      expect(result.output).toEqual({ default: "", providers: [] });
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("model 空串 → 本地直接抛错（不发 socket 请求）", async () => {
+    const r = await runFixture("probe-agent-empty-model.js", {
+      stdin: makeEnvelope(),
+    });
+    expect(r.code).toBe(0);
+    const result = parseResult(r.stdout);
+    expect(result.ok).toBe(true);
+    const output = result.output as Record<string, any>;
+    expect(output.threw).toBe(true);
+    expect(output.message).toContain("model");
   });
 
   it("agent：ok:false → 抛错（带 error）", async () => {
@@ -293,7 +391,7 @@ describe("sdk.agent / session", () => {
       expect(server.requests.map((q) => q.op)).toEqual(["compact", "clear"]);
       for (const q of server.requests) {
         expect(q.token).toBe("tok-123");
-        expect(q.contract_version).toBe("v1");
+        expect(q.contract_version).toBe("v2");
       }
     } finally {
       await server.close();

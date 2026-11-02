@@ -1,7 +1,7 @@
 # 控制台设计
 
 > 版本：v0.7
-> 日期：2026-09-14（2026-09-26 修订：出口 = 出口工具绑定。2026-09-27 修订：业务 = 流程程序 + 资料，门禁标准不再是独立资料项。2026-09-30 修订：业务 = 包 + 配置——资产三族（包/工具/skill）绑定；key-value 并为普通/安全两桶；content/ 母本树消解，资产唯一来源为 git。2026-10-07 修订：模型/内核可选项由 server 解析 models.json 经管理 API 提供，平台代码不内置模型名；资产绑定空集合引导与出口配置去向标注。2026-10-08 修订：出入口自描述展示——入口适配器 eventDoc/configSchema 表单、出口工具 resultDoc；internal 内部入口引导；设置页资产缓存清理按钮。2026-10-12 修订：§6 工作区目录重构——五类生命周期 × 两种归属（platform/ 与 businesses/{business_id}/ 分根，决策见 docs/decisions/2026-10-12-workspace-layout-platform-business-split.md）。2026-10-25 修订：模型来源统一为 AGENT_PI_MODELS，启动生成受管 models.json；Pi agent 默认目录归 platform/cache，真实部署配置与派生密钥文件不进 git）
+> 日期：2026-09-14（2026-09-26 修订：出口 = 出口工具绑定。2026-09-27 修订：业务 = 流程程序 + 资料，门禁标准不再是独立资料项。2026-09-30 修订：业务 = 包 + 配置——资产三族（包/工具/skill）绑定；key-value 并为普通/安全两桶；content/ 母本树消解，资产唯一来源为 git。2026-10-07 修订：模型/内核可选项由 server 解析 models.json 经管理 API 提供，平台代码不内置模型名；资产绑定空集合引导与出口配置去向标注。2026-10-08 修订：出入口自描述展示——入口适配器 eventDoc/configSchema 表单、出口工具 resultDoc；internal 内部入口引导；设置页资产缓存清理按钮。2026-10-12 修订：§6 工作区目录重构——五类生命周期 × 两种归属（platform/ 与 businesses/{business_id}/ 分根，决策见 docs/decisions/2026-10-12-workspace-layout-platform-business-split.md）。2026-10-25 修订：模型来源统一为 AGENT_PI_MODELS，启动生成受管 models.json；Pi agent 默认目录归 platform/cache，真实部署配置与派生密钥文件不进 git。2026-11-01 修订：大模型配置去全局化——AGENT_PI_MODELS/AGENT_PI_AGENT_DIR/全局派生 models.json 全部移除，业务级配置成为唯一来源（结构 = 完整 models.json，多 provider 多 model 异步遍历验证，默认模型派生为首 provider 首 model）；帮助两级原则：简单提示 Tooltip、复杂说明右侧 Drawer）
 > 状态：待评审
 > 定位：骨架文档，定义控制台模块的设计要点。骨架只保留链接，细节以本文为准。
 
@@ -22,7 +22,7 @@
 用户的使用成本决定产品生死。很多产品不是死于功能不行，也不是死于软件质量，而是死于**违背使用者的习惯**。控制台的第一设计目标不是功能完备，而是：**简单到零学习成本**。
 
 1. **一看便知**：界面自解释，用户不读任何文档就能完成核心路径：创建业务 → 跑通 → 看到结果。这一条也是验收标准。
-2. **提示内建**：每个功能项、每个资料模块旁设叹号（❗），点击即知核心关键：**是什么、何时用、配错的后果**。不跳转外部文档。
+2. **提示内建**：每个功能项、每个资料模块旁设叹号（❗），点击即知核心关键：**是什么、何时用、配错的后果**。不跳转外部文档。帮助信息分两级：**简单说明用行内问号 Tooltip**（一两句话说清是什么/何时用/配错后果）；**复杂内容用右侧 Drawer**（配置模板、多步骤指引、厂商差异——参考实现：业务编辑页大模型配置区的「厂商配置帮助」）。
 3. **习惯优先**：表单就是表单，列表就是列表，不发明新交互范式。宁可少做功能，不做费解的功能。
 
 ---
@@ -50,7 +50,7 @@
 | 工具绑定 | 绑定任意多**工具资产**（自己的 + 他人共享的）：`sdk.run` 可调用的子程序全部来自本包 programs ∪ 绑定工具。绑定时机械校验：包清单 `requires.tools` 的名字被覆盖、程序名不重复 | 否 |
 | skill 绑定 | 绑定任意多 **skill 集合**（自己的 + 他人共享的）：`sdk.agent` 的 skill 白名单 = 绑定集合的技能并集。绑定时机械校验：`requires.skills` 的名字被覆盖、技能名不重复 | 否 |
 | agent 选择 | MVP 仅支持 **pi**；可选项由 server 经管理 API 提供（`GET /api/config` 的 `agents`），后续新增不改 UI | 是 |
-| 大模型选择 | 可选项 = server 启动时校验 **AGENT_PI_MODELS** 并生成受管 `models.json` 后提取的全部 `provider/id` 列表，经管理 API（`GET /api/config` 的 `models`）供控制台下拉选择；**平台代码不内置任何具体模型名**——加/换模型 = 修改 `AGENT_PI_MODELS` 并重启，不动代码，也不人工编辑派生文件；创建业务时必选 | 是 |
+| 大模型配置 | 业务自定义 `models.json`（Pi 原生结构，可配多个 provider 与模型）是**唯一模型来源**，无全局兜底。编辑页配置区提供 JSON 编辑器 + 厂商帮助抽屉；「在线验证全部模型」逐个真实探针（串行，逐条结果可见），**全部通过才能确认保存**（经统一更新队列闲时生效）；默认模型由服务端派生 = 第一个 provider 的第一个模型，业务资料 `model` 字段只读（create/patch 不可直接设置）；未配置 = 无法使用大模型推理（`sdk.agent` 拒绝 `model_not_configured`），纯程序业务可忽略——创建/保存时控制台给警告不阻断 | 否（用 agent 的业务实为必选） |
 | 入口（必选） | 与业务机械绑定。三种：**外部事件**（入口适配器 + 事件类型 + 过滤配置 + 会话标识规则）/ **内部队列事件**（关注哪个业务的哪类产出）/ **定时**（§5）。可配多个入口。选定 source 后下方渲染该适配器的 eventDoc（markdown：事件类型 + payload schema + 示例 JSON，业务开发者对接依据）；source 有 configSchema 的（webhook/jira-polling），entry_config 按 configSchema 生成表单项（secret 引用项标注「填 secrets 键名」），裸 JSON 输入保留为折叠的高级模式；webhook 端点 path 全平台唯一（写校验查重）。source 选 `internal` 时提供「上游业务」下拉 + 结果类型（completed/failed）选择，自动生成 `event_type={business_id}.completed|failed`，并提示 payload 为上游业务 sdk.return 的 output 原样；手填模式仍可用 | 是 |
 | 出口（可选） | 从**内置出口工具菜单**勾选（企微智能机器人 / 企微群 webhook / 邮件 / 自定义 webhook / jira / confluence / github 操作），按工具的 configSchema 填配置（webhook 地址、各平台账号等，凭证按业务隔离）；选定工具后下方渲染其 resultDoc（markdown：`sdk.return` 该返回的形状 + 示例 JSON）。表单中机密项标注其安全桶键名（`exit.{kind}.{字段}`）与「已配置/未配置」状态——用户一看就知道该项的值去安全桶哪个 key 配。可配多个；多业务可绑同一工具，互不影响——按 business_id 隔离路由。机器人按场景选：通知类用 webhook 机器人，交互类用智能机器人 | 否 |
 | 提示词（总纲） | 见 §3 | 是 |
@@ -83,7 +83,7 @@
 
 | 类 | 一句话解释 | 平台位置 | 业务位置（`businesses/{business_id}/` 下） | 可删除性 |
 |----|-----------|---------|--------------------------|---------|
-| **配置** | 人写给平台的输入：环境变量 + 可选配置文件兜底（优先级：env > 文件 > 代码默认值；格式 JSON） | `platform/config.json`（可选，含 `AGENT_PI_MODELS`） | —（业务配置存 platform.db） | 人工维护；真实配置可能含 secret，不进 git，脱敏示例可进 git |
+| **配置** | 人写给平台的输入：环境变量 + 可选配置文件兜底（优先级：env > 文件 > 代码默认值；格式 JSON） | `platform/config.json`（可选） | —（业务配置存 platform.db，含业务级大模型配置） | 人工维护；真实配置可能含 secret，不进 git，脱敏示例可进 git |
 | **数据** | 持久状态，删了影响正确性或用户可感知：平台侧 = 注册表/队列/通道/设置/账号/资产登记记录/身份目录（SQLite）；业务侧 = 业务级持久状态（`sdk.dataDir()`，如去重记录） | `platform/data/platform.db` | `data/{source}/{session_id}/` | 平台自管（部分表 TTL 如队列 purge），备份即文件拷贝 |
 | **缓存** | 可随时重建的物：资产物化（git clone）、Pi 受管派生配置（平台级 + 业务级）、agent 会话（会话清了丢多轮上下文，不丢正确性） | `platform/cache/` | `cache/` | 停 server 可清，启动或按需重建；派生 models.json 仍含 secret，不进 git/日志/API（业务级派生只随业务 Pi 配置写操作原子同步，非缓存清理目标） |
 | **临时** | 每次 run 的隔离工作区与产物 | —（平台无 runs） | `runs/` | TTL 清理（不早于任务记录保留期） |
@@ -98,13 +98,12 @@
 │   ├── data/
 │   │   └── platform.db                               # 数据：全部 sqlite 表（含资产登记记录、更新命令队列表、业务 Pi 配置 pi_models 列）
 │   ├── cache/
-│   │   ├── assets/{asset_id}/                        # 缓存：资产物化（git clone，可重拉）
-│   │   └── pi/agent/models.json                      # 缓存：AGENT_PI_MODELS 的受管派生文件（启动同步，不人工编辑）
+│   │   └── assets/{asset_id}/                        # 缓存：资产物化（git clone，可重拉）
 │   └── logs/{system,entry-loop,exit-loop}.log        # 日志：平台三日志
 └── businesses/{business_id}/                         # ══ 每个业务 ══
     ├── data/{source}/{session_id}/                   # 数据：业务持久状态（sdk.dataDir()，如去重记录）
     ├── cache/agent-sessions/{source}/{session_id}/   # 缓存：pi 会话存储（--session-dir 指向）
-    ├── cache/pi/agent/models.json                    # 缓存：业务自定义 Pi 配置的受管派生文件（2026-10-26 起；仅配置了自定义的业务存在，0700/0600，验证-确认后原子同步）
+    ├── cache/pi/agent/models.json                    # 缓存：业务级大模型配置的受管派生文件（仅配置了的业务存在，0700/0600，异步验证-确认后原子同步）
     ├── runs/{source}/{session_id}/{run_id}/          # 临时：run 隔离工作区
     └── logs/{source}/{session_id}/{run_id}.log       # 日志：业务 run 日志
 ```
@@ -158,7 +157,7 @@
 
 ## 11. MVP 范围
 
-做：账号体系（admin + 普通成员）、资产登记与管理（包/工具/skill：git 登记、列表、上架/下架开关、删除；共享标记登记时定）、业务创建与配置（§4 资料模块，含叹号提示）、关注与依赖配置、出口工具勾选与配置、定时触发、并发监控与上限设置（两道闸门）、任务监控（业务标记 + 干预）、Portainer 资源监控、agent=pi（内核注册表驱动）/ 模型列表=AGENT_PI_MODELS 驱动（启动生成派生 models.json，管理 API 只提供 provider/id，平台代码不内置模型名；2026-10-26 起业务可在编辑页配置自定义大模型——完整 models.json + 在线验证 + 确认保存，经统一更新队列生效）。全部管理写入经统一更新队列：页面不展示队列状态，只显示统一生效说明。页面范围见 §12。
+做：账号体系（admin + 普通成员）、资产登记与管理（包/工具/skill：git 登记、列表、上架/下架开关、删除；共享标记登记时定）、业务创建与配置（§4 资料模块，含叹号提示）、关注与依赖配置、出口工具勾选与配置、定时触发、并发监控与上限设置（两道闸门）、任务监控（业务标记 + 干预）、Portainer 资源监控、agent=pi（内核注册表驱动）/ 模型列表=业务级大模型配置驱动（2026-11-01 起去全局化：业务编辑页配置完整 models.json——多 provider 多 model、异步遍历在线验证、确认保存，经统一更新队列生效；默认模型派生为首 provider 首 model，平台代码不内置模型名）。全部管理写入经统一更新队列：页面不展示队列状态，只显示统一生效说明。页面范围见 §12。
 
 不做：定时通知出口类型、拖拽编排、二维表图形化、跨业务联合分析、多 API Key 管理、平台级共享连接、统计搜索页（§12，后续增加；结果缺省统计随该页一起落地）。
 

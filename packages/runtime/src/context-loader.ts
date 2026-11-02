@@ -17,8 +17,11 @@ export interface RunContext {
   programs: Record<string, string>; // 程序名→物化绝对路径全量映射（本包 ∪ 绑定工具；runner 注入信封）
   prompt: string; // 总纲（可空串，agent-service 原样传）
   skills: SkillRef[]; // 白名单全集：绑定 skill 集合的技能并集（name + 物化绝对路径）
+  /** agent 缺省模型（provider/id，= 生效配置第一个 provider 的第一个模型，随配置保存派生）；
+   *  '' = 业务未配置大模型（agent/compact 将被 agent-service 拒绝 model_not_configured） */
   model: string;
-  /** 业务自定义 Pi 配置的派生 agent 目录（cache/pi/agent）；未配置 = undefined（走全局目录）。只带目录，不带原始 JSON */
+  /** 业务自定义 Pi 配置的派生 agent 目录（cache/pi/agent）——模型的唯一来源；
+   *  未配置 = undefined（agent-service 拒绝 agent/compact，models op 回空枚举）。只带目录，不带原始 JSON */
   pi_agent_dir?: string;
   vars: Record<string, string>;
   secrets: Record<string, string>;
@@ -28,7 +31,7 @@ export interface RunContext {
 /** 业务自定义 Pi 配置的运行时解析器（平台装配根注入）：读当前生效配置并原子生成派生目录 */
 export interface BusinessPiRuntimeResolver {
   /** 存在业务配置：原子生成 businesses/{business_id}/cache/pi/agent/models.json 并返回该目录；
-   *  不存在返回 undefined（走全局目录）；生成失败抛错（该 run 失败，不消费旧文件、不回退全局） */
+   *  不存在返回 undefined（业务未配置大模型，agent 调用将被拒绝）；生成失败抛错（该 run 失败，不消费旧文件） */
   resolvePiAgentDir(business_id: string): string | undefined;
 }
 

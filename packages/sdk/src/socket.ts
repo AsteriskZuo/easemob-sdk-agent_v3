@@ -6,14 +6,25 @@ export interface ServiceEndpoint {
   token: string; // per-run 一次性 token
 }
 
-/** socket 请求（spec §5.4 唯一定义处）：一行一条 JSON（\n 结尾） */
+/**
+ * socket 契约 v2 升级内容（2026-11-01，spec：docs/specs/2026-11-01-business-multi-model-spec.md §5）：
+ *  1. agent 请求新增可选字段 model（provider/id）：指定本次调用使用的模型，缺省 = 业务默认模型；
+ *     不在本业务生效配置枚举内 → 服务端回 model_not_allowed；
+ *  2. 新增 op "models"：查询本 run 生效配置的 provider/模型枚举（只含名字与 id，绝不含敏感字段）；
+ *  3. 新增错误码：model_not_allowed、model_not_configured（业务未配置大模型）。
+ *  协商规则：SDK 所有请求恒定发 "v2"；服务端同时接受 "v1"/"v2"；v1 请求携带 model → invalid_request。
+ *  响应 envelope 形状不变，contract_version 恒为 "v1"（仅作 envelope 版本标识）。
+ */
+
+/** socket 请求（spec §5 唯一定义处）：一行一条 JSON（\n 结尾） */
 export interface ServiceRequest {
-  contract_version: "v1";
+  contract_version: "v2"; // 恒定 v2（见文件头升级说明）
   token: string; // per-run 一次性 token，run 结束失效
-  op: "agent" | "compact" | "clear";
+  op: "agent" | "compact" | "clear" | "models";
   skills?: string[]; // op='agent' 必填（可多个、可跨程序包；均须在本业务 skill 组内，服务端白名单校验，SKILL.md 经 --append-system-prompt 内联注入）
   input?: unknown; // op='agent' 必填
   mode?: "channel" | "fresh"; // op='agent' 可选，缺省 'channel'
+  model?: string; // op='agent' 可选（provider/id；缺省 = 业务默认模型；白名单外 → model_not_allowed）
 }
 
 /** socket 响应（spec §5.4）：服务端回完即关连接 */

@@ -84,11 +84,15 @@ function callRaw(socketPath: string, payload: string): Promise<string> {
 async function call(
   endpoint: { socket_path: string; token: string },
   req: Record<string, unknown>,
+  version: "v1" | "v2" = "v1",
 ): Promise<Resp> {
   const line = await callRaw(
     endpoint.socket_path,
-    JSON.stringify({ contract_version: "v1", token: endpoint.token, ...req }) +
-      "\n",
+    JSON.stringify({
+      contract_version: version,
+      token: endpoint.token,
+      ...req,
+    }) + "\n",
   );
   return JSON.parse(line) as Resp;
 }
@@ -132,6 +136,27 @@ describe("AgentService", () => {
   let capture: string;
   let handles: RunningAgentService[];
 
+  /** 造一个带 models.json 的业务派生 agent 目录（serve 会解析它） */
+  function makePiAgentDir(): string {
+    const dir = join(root, "pi-agent");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "models.json"),
+      JSON.stringify({
+        providers: {
+          test: {
+            baseUrl: "http://127.0.0.1:9",
+            api: "openai-completions",
+            apiKey: "fixture-key",
+            models: [{ id: "model" }, { id: "model-2" }],
+          },
+          local: { models: [{ id: "qwen3:8b" }] },
+        },
+      }),
+    );
+    return dir;
+  }
+
   function makeCtx(over: Partial<AgentServeContext> = {}): AgentServeContext {
     const workspace = join(root, "workspace");
     const sessionDir = join(root, "sessions");
@@ -153,10 +178,11 @@ describe("AgentService", () => {
         { name: "s1", path: skillDir("s1") },
         { name: "s2", path: skillDir("s2") },
       ],
-      model: "test:model",
+      model: "test/model",
       session_dir: sessionDir,
       audit_log_path: join(root, "audit", "llm-requests.jsonl"),
       quota: { max_agent_calls: 10 },
+      pi_agent_dir: makePiAgentDir(),
       ...over,
     };
   }
@@ -167,7 +193,6 @@ describe("AgentService", () => {
   ): AgentServiceDeps {
     return {
       pi_cli_path: fixturePath("fake-pi.js"),
-      pi_agent_dir: "/fake/agent-dir",
       // shebang 走 /usr/bin/env node，子进程 env 不继承，PATH 必须显式给
       pi_env: {
         PATH: process.env.PATH ?? "",
@@ -200,7 +225,7 @@ describe("AgentService", () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  it("1. serve 返回 endpoint（socket 存在）；非法 JSON / 版本不符 / token 错 → invalid_request", async () => {
+  it("1. serve 返回 endpoint（socket 存在）；非法 JSON / 版本不符 / token 错 → invalid_request；v2 接受", async () => {
     const mapping = makeMapping();
     const ctx = makeCtx();
     const handle = await serve(makeDeps(mapping), ctx);
@@ -218,7 +243,7 @@ describe("AgentService", () => {
     const badVersion = await callRaw(
       handle.endpoint.socket_path,
       JSON.stringify({
-        contract_version: "v2",
+        contract_version: "v99",
         token: handle.endpoint.token,
         op: "clear",
       }) + "\n",
@@ -240,6 +265,37 @@ describe("AgentService", () => {
       ok: false,
       error: "invalid_request",
     });
+
+    // v2 是合法版本（恒定 v2：SDK 全部请求发 v2，服务端收 v1/v2）
+    const v2Clear = await call(handle.endpoint, { op: "clear" }, "v2");
+    expect(v2Clear).toMatchObject({ ok: true });
+  });
+
+  it("1b. 契约版本规则：v1 携带 model → invalid_request；v2 携带 model → 受理", async () => {
+    const mapping = makeMapping();
+    const handle = await serve(makeDeps(mapping), makeCtx());
+
+    const v1WithModel = await call(
+      handle.endpoint,
+      { op: "agent", skills: ["s1"], input: "x", model: "test/model" },
+      "v1",
+    );
+    expect(v1WithModel).toMatchObject({ ok: false, error: "invalid_request" });
+
+    const v2WithModel = await call(
+      handle.endpoint,
+      { op: "agent", skills: ["s1"], input: "x", model: "test/model-2" },
+      "v2",
+    );
+    expect(v2WithModel.ok).toBe(true);
+
+    // model 非字符串 / 空串 → invalid_request（v2）
+    const badModel = await call(
+      handle.endpoint,
+      { op: "agent", skills: ["s1"], input: "x", model: "  " },
+      "v2",
+    );
+    expect(badModel).toMatchObject({ ok: false, error: "invalid_request" });
   });
 
   it("2. agent 正常：fake pi 回文本；capture 断言 argv/cwd/env 装配", async () => {
@@ -274,7 +330,7 @@ describe("AgentService", () => {
     expect(argv.filter((a) => a === "-e").length).toBe(1);
     expect(argvValue(argv, "-e")).toMatch(/extensions\/audit\.js$/);
     expect(argvValue(argv, "--session-dir")).toBe(ctx.session_dir);
-    expect(argvValue(argv, "--model")).toBe("test:model");
+    expect(argvValue(argv, "--model")).toBe("test/model");
     expect(argvValue(argv, "--system-prompt")).toBe("提示词总纲");
     expect(argvValue(argv, "--session-id")).toBeTruthy();
     expect(argv).toContain("--no-tools");
@@ -286,8 +342,139 @@ describe("AgentService", () => {
     // cwd = workspace；env 含 PI_CODING_AGENT_DIR / AUDIT_LOG_PATH
     // （macOS 上 tmpdir 是 /var 符号链接，子进程拿到真实路径，比较 realpath）
     expect(realpathSync(run.cwd)).toBe(realpathSync(ctx.workspace));
-    expect(run.env.PI_CODING_AGENT_DIR).toBe("/fake/agent-dir");
+    expect(run.env.PI_CODING_AGENT_DIR).toBe(ctx.pi_agent_dir);
     expect(run.env.AUDIT_LOG_PATH).toBe(ctx.audit_log_path);
+  });
+
+  it("2b. 显式 model：白名单内 → --model 覆盖；白名单外 → model_not_allowed 未 spawn", async () => {
+    const mapping = makeMapping();
+    const ctx = makeCtx();
+    const handle = await serve(makeDeps(mapping), ctx);
+
+    // 白名单内（test/model-2 与 local/qwen3:8b 都在 fixture models.json 里）
+    const ok = await call(
+      handle.endpoint,
+      { op: "agent", skills: ["s1"], input: "x", model: "local/qwen3:8b" },
+      "v2",
+    );
+    expect(ok.ok).toBe(true);
+    const lines = readCapture(capture);
+    expect(lines.length).toBe(1);
+    expect(argvValue(lines[0].argv, "--model")).toBe("local/qwen3:8b");
+
+    // 白名单外 → 拒绝且不再 spawn
+    const denied = await call(
+      handle.endpoint,
+      { op: "agent", skills: ["s1"], input: "x", model: "evil/model" },
+      "v2",
+    );
+    expect(denied).toMatchObject({
+      ok: false,
+      error: "model_not_allowed: evil/model",
+    });
+    expect(readCapture(capture).length).toBe(1);
+  });
+
+  it("2c. models op：返回 default 与按声明顺序的 providers；未配置 → 空枚举；不计配额", async () => {
+    const mapping = makeMapping();
+    const ctx = makeCtx({ quota: { max_agent_calls: 1 } });
+    const handle = await serve(makeDeps(mapping), ctx);
+
+    const info = await call(handle.endpoint, { op: "models" }, "v2");
+    expect(info).toMatchObject({ ok: true });
+    expect((info as { output: unknown }).output).toEqual({
+      default: "test/model",
+      providers: [
+        { name: "test", models: ["model", "model-2"] },
+        { name: "local", models: ["qwen3:8b"] },
+      ],
+    });
+    // 再调一次 models 仍成功（不计 agent 配额），随后 agent 把配额用掉
+    const again = await call(handle.endpoint, { op: "models" }, "v2");
+    expect(again.ok).toBe(true);
+    const spend = await call(handle.endpoint, {
+      op: "agent",
+      skills: ["s1"],
+      input: "x",
+    });
+    expect(spend.ok).toBe(true);
+    const over = await call(handle.endpoint, {
+      op: "agent",
+      skills: ["s1"],
+      input: "x",
+    });
+    expect(over).toMatchObject({ ok: false, error: "quota_exceeded" });
+    // 配额用尽后 models 仍可用
+    const still = await call(handle.endpoint, { op: "models" }, "v2");
+    expect(still.ok).toBe(true);
+    await handle.close();
+    handles.pop();
+
+    // 未配置业务（无 pi_agent_dir）：models 回空枚举
+    const bare = await serve(
+      makeDeps(makeMapping()),
+      makeCtx({ pi_agent_dir: undefined }),
+    );
+    const empty = await call(bare.endpoint, { op: "models" }, "v2");
+    expect(empty).toMatchObject({ ok: true });
+    expect((empty as { output: unknown }).output).toEqual({
+      default: "",
+      providers: [],
+    });
+  });
+
+  it("2d. 未配置大模型：agent/compact → model_not_configured；clear 放行", async () => {
+    const mapping = makeMapping();
+    mapping.bindAgentSession("ch-1", "sess-x");
+    const handle = await serve(
+      makeDeps(mapping),
+      makeCtx({ pi_agent_dir: undefined }),
+    );
+
+    const agent = await call(handle.endpoint, {
+      op: "agent",
+      skills: ["s1"],
+      input: "x",
+    });
+    expect(agent).toMatchObject({ ok: false, error: "model_not_configured" });
+
+    const compact = await call(handle.endpoint, { op: "compact" });
+    expect(compact).toMatchObject({
+      ok: false,
+      error: "model_not_configured",
+    });
+
+    const clear = await call(handle.endpoint, { op: "clear" });
+    expect(clear).toMatchObject({ ok: true, output: null });
+    expect(mapping.calls.clear).toEqual(["ch-1"]);
+    // 未 spawn 任何 pi
+    expect(readCapture(capture).length).toBe(0);
+  });
+
+  it("2e. serve 解析 models.json 失败（坏 JSON / 缺 models）→ serve 抛错", async () => {
+    // 坏 JSON
+    const ctx1 = makeCtx();
+    writeFileSync(join(ctx1.pi_agent_dir!, "models.json"), "{ 坏JSON");
+    await expect(serve(makeDeps(makeMapping()), ctx1)).rejects.toThrow(
+      /不是合法 JSON/,
+    );
+
+    // 结构非法（provider 无 models 数组）
+    const ctx2 = makeCtx();
+    writeFileSync(
+      join(ctx2.pi_agent_dir!, "models.json"),
+      JSON.stringify({ providers: { test: { apiKey: "k" } } }),
+    );
+    await expect(serve(makeDeps(makeMapping()), ctx2)).rejects.toThrow(
+      /models 必须是非空数组/,
+    );
+
+    // models.json 不存在
+    const ctx3 = makeCtx();
+    rmSync(join(ctx3.pi_agent_dir!, "models.json"));
+    await expect(serve(makeDeps(makeMapping()), ctx3)).rejects.toThrow(
+      /models\.json 不可读/,
+    );
   });
 
   it("3. 白名单：skills 含未授权名 → skill_not_allowed，未 spawn", async () => {

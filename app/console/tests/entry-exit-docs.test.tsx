@@ -92,7 +92,6 @@ function installPageMocks() {
       return {
         status: 200,
         body: {
-          models: ["qwen/qwen3.8-max"],
           agents: ["pi"],
           entry_adapters: ENTRY_ADAPTERS,
         },
@@ -132,11 +131,15 @@ function installPageMocks() {
         },
       };
     }
+    // 创建后跳编辑页：大模型配置区数据源（未配置）
+    if (path === "/api/businesses/biz-new/pi-config" && method === "GET") {
+      return { status: 200, body: { configured: false, model: "" } };
+    }
     return undefined;
   });
 }
 
-/** 填齐创建表单必填项（名称/包/入口程序/大模型/首个匹配行事件类型） */
+/** 填齐创建表单必填项（名称/包/入口程序/首个匹配行事件类型） */
 async function fillRequiredFields(
   user: ReturnType<typeof userEvent.setup>,
   name: string,
@@ -144,7 +147,6 @@ async function fillRequiredFields(
   await user.type(await screen.findByLabelText("业务名称"), name);
   await selectOption(user, "包绑定", "pkg-1");
   await selectOption(user, "入口程序", "main");
-  await selectOption(user, "大模型", "qwen/qwen3.8-max");
   await user.type(screen.getByLabelText("匹配行 1 事件类型"), "review.request");
 }
 

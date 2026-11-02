@@ -156,7 +156,7 @@
 
 精确义：`sdk.agent()` 的另一端——每 run 一个本地 socket + 一次性 token；平台 spawn pi 子进程执行（pi 是唯一内核），注入提示词总纲、按业务白名单校验 skill 并经 `--no-skills` + 逐个 `--append-system-prompt <目录>/SKILL.md` 内联注入、经 `-e` + `--no-extensions` 注入平台审计 extension（请求体落盘；不支持业务 extension）、按通道映射恢复会话、按 run 计配额。契约与 hooks 纪律的唯一定义处：`design/business-workflow.md` §4。
 
-要点：模型可选集合来自必需的 `AGENT_PI_MODELS`；server 每次启动严格校验并原子生成/同步平台专用受管 `{pi_agent_dir}/models.json`（含 secret，目录 `0700`、文件 `0600`）。模型凭据不进入业务进程或 Pi 子进程环境变量，`/api/config` 只回显 `provider/id`；修改全局源配置后重启生效，不热更新。2026-10-26 起业务可有自定义大模型配置（控制台验证—确认、经统一更新队列生效、脱敏回显），未配置的业务走本词条的全局兜底。
+要点：模型可选集合来自**业务级大模型配置**（2026-11-01 起去全局化，无全局兜底，全局 `AGENT_PI_MODELS`/`AGENT_PI_AGENT_DIR` 已移除）：业务经控制台保存完整 models.json（原文存 registry `pi_models` 列），派生业务专属 `businesses/{id}/cache/pi/agent/models.json`（含 secret，目录 `0700`、文件 `0600`）。模型凭据不进入业务进程或 Pi 子进程环境变量，API 回显一律递归脱敏；保存前经真实探针异步遍历验证、全部通过才可确认，经统一更新队列闲时生效，不重启。业务程序可经 `sdk.agent(..., { model })` 从已配置集合中选择模型，经 `sdk.models()` 枚举可用集合；未配置的业务调用 `sdk.agent`/`sdk.compact` 被拒绝（`model_not_configured`），选择集合外模型被拒绝（`model_not_allowed`）。
 
 ## 业务标记 · Business Markers
 

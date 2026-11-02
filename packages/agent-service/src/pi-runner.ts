@@ -9,6 +9,7 @@ import type {
   AgentServiceDeps,
   ValidatedAgentRequest,
 } from "./index.js";
+import type { EffectiveModels } from "./models-json.js";
 import type { ServiceResponse } from "./socket-server.js";
 
 /** 输入序列化后的体积上限（argv 长度保护） */
@@ -34,14 +35,16 @@ export function resolveAuditExtensionPath(): string {
 }
 
 /** pi 子进程 env：deps 注入的基础 env + PI_CODING_AGENT_DIR + AUDIT_LOG_PATH（不继承其他环境）。
- *  PI_CODING_AGENT_DIR 优先取 run 上下文的业务派生目录（业务自定义 Pi 配置），缺省用全局目录 */
+ *  PI_CODING_AGENT_DIR 取本 run 生效的业务派生目录（模型的唯一来源，由调用方从
+ *  EffectiveModels 传入；业务未配置时 agent/compact 已在 dispatch 层拦截，到不了这里） */
 export function buildPiEnv(
   deps: AgentServiceDeps,
   ctx: AgentServeContext,
+  agentDir: string,
 ): Record<string, string> {
   return {
     ...deps.pi_env,
-    PI_CODING_AGENT_DIR: ctx.pi_agent_dir ?? deps.pi_agent_dir,
+    PI_CODING_AGENT_DIR: agentDir,
     AUDIT_LOG_PATH: ctx.audit_log_path,
   };
 }
@@ -93,20 +96,24 @@ function extractAssistantOutput(stdout: string): {
 }
 
 /** agent op：装配命令行 → 经 process-runner 执行 pi（单次推理）→ 提取最终 assistant 文本。
- *  失败路径全部返回 ok:false（input_too_large / skill_not_allowed / agent_failed / agent_empty_output） */
+ *  失败路径全部返回 ok:false（input_too_large / skill_not_allowed / model_not_allowed / agent_failed / agent_empty_output） */
 export async function runAgentOp(
   deps: AgentServiceDeps,
   ctx: AgentServeContext,
   req: ValidatedAgentRequest,
+  models: EffectiveModels,
   inflight: Set<AbortController>,
   log: CategoryLogger,
 ): Promise<ServiceResponse> {
   const startedAt = Date.now();
-  // 结果埋点：op/skills/耗时/usage?/结果前缀（best-effort，不影响契约）
+  // 实际使用模型：请求显式指定（已过白名单）或业务默认模型
+  const effectiveModel = req.model ?? ctx.model;
+  // 结果埋点：op/skills/model/耗时/usage?/结果前缀（best-effort，不影响契约）
   const done = (resp: ServiceResponse, usage?: unknown): ServiceResponse => {
     const fields: Record<string, unknown> = {
       op: "agent",
       skills: req.skills,
+      model: effectiveModel,
       duration_ms: Date.now() - startedAt,
       result: resp.ok ? "ok" : resp.error.split(":")[0],
     };
@@ -123,6 +130,11 @@ export async function runAgentOp(
     typeof req.input === "string" ? req.input : JSON.stringify(req.input);
   if (Buffer.byteLength(inputText, "utf8") > MAX_INPUT_BYTES) {
     return fail("input_too_large");
+  }
+
+  // 显式 model 白名单：必须命中本 run 生效配置枚举（fail-fast，不 spawn pi）
+  if (req.model !== undefined && !models.allowed.has(req.model)) {
+    return fail(`model_not_allowed: ${req.model}`);
   }
 
   // skill 白名单：逐个按 name 校验 ∈ ctx.skills，通过后把物化目录下的 SKILL.md
@@ -166,7 +178,7 @@ export async function runAgentOp(
     "--system-prompt",
     ctx.prompt,
     "--model",
-    ctx.model,
+    effectiveModel,
     "--no-skills",
     ...skillFiles.flatMap((f) => ["--append-system-prompt", f]),
     "--no-extensions",
@@ -183,7 +195,7 @@ export async function runAgentOp(
   try {
     const result = await runProcess(deps.pi_cli_path, args, {
       cwd: ctx.workspace,
-      env: { mode: "exact", values: buildPiEnv(deps, ctx) },
+      env: { mode: "exact", values: buildPiEnv(deps, ctx, models.agent_dir) },
       timeout_ms: AGENT_OP_TIMEOUT_MS,
       signal: controller.signal,
       max_output_bytes: null, // 迁移前聚合不设上限，保持兼容

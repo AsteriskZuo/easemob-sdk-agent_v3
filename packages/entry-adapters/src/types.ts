@@ -52,6 +52,9 @@ export interface EntryAdapterSpec {
 export interface EntryAdapterCreateOptions {
   /** webhook 适配器监听端口（来自 AGENT_WEBHOOK_PORT；缺省 6200，0 = 随机端口） */
   webhook_port?: number;
+  /** 平台 HTTP 服务统一超时（毫秒，来自 AGENT_HTTP_TIMEOUT_MS；缺省 30000）。
+   *  webhook server 应用：requestTimeout/socket timeout = 该值，headersTimeout 取其一半 */
+  http_timeout_ms?: number;
 }
 
 /** 适配器工厂：描述 + 运行实例创建。装配根按开关过滤后调 create 拿实例再 start */

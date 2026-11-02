@@ -20,8 +20,8 @@ export interface EffectiveBinding {
 /** 业务写操作（create/patch）落库前的配置期校验：全量收集问题一次性报出（不遇一错即停），
  *  任一不过 → 400 invalid_input。
  *  - binding 为 undefined = 本次写不涉及绑定字段（如 patch 只改 prompt）→ 绑定校验整体跳过（零物化）；
- *  - model/agent_kind 与绑定无关：字段出现且非空时必须 ∈ config.models / config.agents
- *    （可选集合由部署侧 AGENT_PI_MODELS 驱动）。
+ *  - agent_kind 与绑定无关：字段出现且非空时必须 ∈ config.agents。
+ *  （model 不在此校验：model 由大模型配置派生，create/patch 一律禁止携带，由路由显式拒绝）
  *  注意：assets.get 是同步接口且可能触发 git clone——管理 API 的单线程事件循环会被阻塞，
  *  本版接受（配置期低频操作） */
 export function validateBusinessWrite(
@@ -33,7 +33,6 @@ export function validateBusinessWrite(
   actor: User,
   write: {
     binding?: EffectiveBinding;
-    model?: string;
     agent_kind?: string;
   },
   opts?: {
@@ -45,16 +44,7 @@ export function validateBusinessWrite(
   const { config } = deps;
   const problems: string[] = [];
 
-  // model/agent_kind 合法性（与绑定无关，create/patch 均执行）
-  if (
-    write.model !== undefined &&
-    write.model !== "" &&
-    !config.models.includes(write.model)
-  ) {
-    problems.push(
-      `model 不在可选集合: ${write.model}（可选: ${config.models.join(", ") || "无"}）`,
-    );
-  }
+  // agent_kind 合法性（与绑定无关，create/patch 均执行）
   if (
     write.agent_kind !== undefined &&
     write.agent_kind !== "" &&

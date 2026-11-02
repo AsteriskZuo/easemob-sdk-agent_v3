@@ -114,7 +114,6 @@ describe("业务绑定配置期校验", () => {
         entry_program: "main",
         tool_asset_ids: [ids.tool],
         skill_asset_ids: [ids.skill],
-        model: "test/model-a",
         agent_kind: "pi",
       },
     });
@@ -293,7 +292,7 @@ describe("业务绑定配置期校验", () => {
     expect(message).toContain("requires.skills 缺绑: alpha");
   });
 
-  it("model 非法 → 400 列出可选集合；agent_kind 非法 → 400", async () => {
+  it("model 一律禁止携带 → 400；agent_kind 非法 → 400", async () => {
     const badModel = await api(server, "POST", "/api/businesses", {
       token: alice.token,
       body: {
@@ -305,8 +304,7 @@ describe("业务绑定配置期校验", () => {
     });
     expect(badModel.status).toBe(400);
     const message = errMessage(badModel);
-    expect(message).toContain("model 不在可选集合: evil/model");
-    expect(message).toContain("test/model-a");
+    expect(message).toContain("model 由大模型配置派生，不可直接设置");
 
     const badAgent = await api(server, "POST", "/api/businesses", {
       token: alice.token,

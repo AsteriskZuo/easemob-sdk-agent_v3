@@ -2,13 +2,11 @@ import { App as AntdApp, Button, Drawer, Tabs, Typography } from "antd";
 import { useState } from "react";
 import { EFFECTIVENESS_NOTE } from "./EffectivenessNote";
 
-/** 单个厂商的帮助内容：模板原文与 spec §10.3 保持一致（只保证与当前锁定 Pi 的结构起点一致，
- *  用户仍需按账号、区域和厂商文档修改并真实验证；baseUrl 是 API 根，不追加端点路径） */
+/** 单个厂商的帮助内容：模板原文只保证与当前锁定 Pi 的结构起点一致，
+ *  用户仍需按账号、区域和厂商文档修改并真实验证（保存前每个列出的模型都会被逐个真实探针调用） */
 interface ProviderHelp {
   /** Tab 展示名 */
   label: string;
-  /** 模型选择示例（provider/id） */
-  modelExample: string;
   /** 模板说明（为什么这样写） */
   note: string;
   /** models.json 模板原文（复制用） */
@@ -20,8 +18,7 @@ interface ProviderHelp {
 const PROVIDERS: ProviderHelp[] = [
   {
     label: "千问（DashScope）",
-    modelExample: "dashscope/qwen-plus",
-    note: "自定义 DashScope provider，显式声明模型；contextWindow/maxTokens 是保守控制值，不宣称厂商上限。",
+    note: "自定义 DashScope provider，显式声明模型（必填）；contextWindow/maxTokens 是保守控制值，不宣称厂商上限。可按需在 models 数组里追加更多模型。",
     template: `{
   "providers": {
     "dashscope": {
@@ -45,14 +42,15 @@ const PROVIDERS: ProviderHelp[] = [
   },
   {
     label: "DeepSeek",
-    modelExample: "deepseek/deepseek-flash",
-    note: "使用 Pi 内置 provider，不重声明 models，以保留内置模型元数据。",
+    note: "使用 Pi 内置 provider：只给 apiKey 并显式列出要用的模型 id（与内置目录同名即自动继承其元数据；models 是必填的，不写将无法保存）。内置目录当前含 deepseek-flash、deepseek-v4-pro。",
     template: `{
   "providers": {
     "deepseek": {
-      "baseUrl": "https://api.deepseek.com",
-      "api": "openai-completions",
-      "apiKey": "sk-your-deepseek-key"
+      "apiKey": "sk-your-deepseek-key",
+      "models": [
+        { "id": "deepseek-flash" },
+        { "id": "deepseek-v4-pro" }
+      ]
     }
   }
 }`,
@@ -60,22 +58,40 @@ const PROVIDERS: ProviderHelp[] = [
   },
   {
     label: "OpenAI",
-    modelExample: "openai/gpt-5.4",
-    note: "使用 Pi 内置 provider，不重声明 models，以保留内置模型元数据。",
+    note: "使用 Pi 内置 provider：只给 apiKey 并显式列出要用的模型 id（同名继承内置元数据；models 必填）。按账号实际可用模型修改——写出的每个模型保存前都会被真实验证。",
     template: `{
   "providers": {
     "openai": {
-      "baseUrl": "https://api.openai.com/v1",
-      "api": "openai-responses",
-      "apiKey": "sk-your-openai-key"
+      "apiKey": "sk-your-openai-key",
+      "models": [
+        { "id": "gpt-4o" },
+        { "id": "gpt-4.1-mini" }
+      ]
     }
   }
 }`,
     docUrl: "https://platform.openai.com/docs/api-reference",
   },
+  {
+    label: "本地（Ollama）",
+    note: "自建 provider 指向本地 Ollama 的 OpenAI 兼容端点；apiKey 必填但 Ollama 不校验（占位即可）。本地模型冷启动可能较慢，验证探针单模型最长 30 秒，请先用 ollama run 预热。",
+    template: `{
+  "providers": {
+    "ollama": {
+      "baseUrl": "http://127.0.0.1:11434/v1",
+      "api": "openai-completions",
+      "apiKey": "ollama",
+      "models": [
+        { "id": "qwen3:8b" }
+      ]
+    }
+  }
+}`,
+    docUrl: "https://github.com/ollama/ollama/blob/main/docs/openai.md",
+  },
 ];
 
-/** 厂商帮助抽屉（问号触发）：三个厂商分标签，提供复制模板与官方文档链接。
+/** 厂商帮助抽屉（问号触发）：分厂商标签，提供复制模板与官方文档链接。
  *  纯静态帮助数据——不自动合并、不保存、不参与验证与运行判断 */
 export default function PiProviderHelpDrawer({
   open,
@@ -106,8 +122,10 @@ export default function PiProviderHelpDrawer({
     >
       <Typography.Paragraph type="secondary">
         模板是填写的起点，不自动合并或保存：复制到左侧 JSON
-        编辑器后按账号、区域和厂商文档修改，模型选择填「模型选择示例」所示的
-        provider/id。保存前必须先在编辑页完成在线验证。
+        编辑器后按账号、区域和厂商文档修改。两点须知：① 默认模型 = 第一个
+        provider 的第一个模型（sdk.agent 不传 model 时使用），
+        请把主用模型排在最前；②
+        列出的每个模型保存前都会被逐个真实验证，验证不过的必须从配置中移除，全部通过才能保存。
       </Typography.Paragraph>
       <Tabs
         activeKey={activeKey}
@@ -118,10 +136,6 @@ export default function PiProviderHelpDrawer({
           children: (
             <div>
               <Typography.Paragraph>{p.note}</Typography.Paragraph>
-              <Typography.Paragraph>
-                模型选择示例：
-                <Typography.Text code>{p.modelExample}</Typography.Text>
-              </Typography.Paragraph>
               <pre
                 style={{
                   background: "#f5f5f5",

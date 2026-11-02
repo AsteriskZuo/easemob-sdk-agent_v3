@@ -111,6 +111,7 @@ export class WebhookEntryAdapter implements EntryAdapter {
   readonly source = "webhook" as const;
 
   private readonly configuredPort: number;
+  private readonly httpTimeoutMs: number;
   private server: Server | null = null;
   private deps: EntryDeps | null = null;
   /** listen 完成/失败信号（绑端口是异步的，start() 契约是 void，测试与观测经 ready() 等待） */
@@ -118,6 +119,7 @@ export class WebhookEntryAdapter implements EntryAdapter {
 
   constructor(opts?: EntryAdapterCreateOptions) {
     this.configuredPort = opts?.webhook_port ?? 6200;
+    this.httpTimeoutMs = opts?.http_timeout_ms ?? 30_000;
   }
 
   /** 装配根调用：建 HTTP 服务并开始监听（异步；绑定失败记 error 日志，不拖垮装配）。
@@ -134,6 +136,10 @@ export class WebhookEntryAdapter implements EntryAdapter {
         if (!res.headersSent) sendJson(res, 500, { error: "内部错误" });
       });
     });
+    // 平台 HTTP 服务统一超时（默认 30s；webhook 是快路径，与 console-api 同策略）
+    server.requestTimeout = this.httpTimeoutMs;
+    server.timeout = this.httpTimeoutMs;
+    server.headersTimeout = Math.floor(this.httpTimeoutMs / 2);
     this.server = server;
     this.readyPromise = new Promise<void>((resolve, reject) => {
       server.once("error", (err) => {

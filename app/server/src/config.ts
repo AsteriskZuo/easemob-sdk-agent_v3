@@ -7,8 +7,6 @@ import {
   getNumber,
   getString,
 } from "@asteriskzuo/agent-env";
-import { validatePiModelsConfig } from "./models.js";
-import type { PiModelsConfig } from "./models.js";
 
 /** 平台运行配置：装配根的唯一配置来源（解析后只读，不再读环境变量） */
 export interface ServerConfig {
@@ -31,12 +29,12 @@ export interface ServerConfig {
   /** pi 可执行文件绝对路径（AGENT_PI_CLI_PATH 显式指定；
    *  缺省 = 本包 npm 依赖 @earendil-works/pi-coding-agent 的 bin，版本由 yarn.lock 锁定） */
   pi_cli_path: string;
-  /** PI_CODING_AGENT_DIR；缺省 = {workspace}/platform/cache/pi/agent */
-  pi_agent_dir: string;
-  /** 已校验的完整模型配置；含 secret，不进入日志或管理 API */
-  pi_models: PiModelsConfig;
-  /** pi 子进程基础环境：{ PATH, HOME }；模型凭据一律走 pi_agent_dir/models.json */
+  /** pi 子进程基础环境：{ PATH, HOME }；模型凭据一律走业务派生目录的 models.json */
   pi_env: Record<string, string>;
+  /** 平台 HTTP 服务（console-api server 与 entry webhook server）统一超时（毫秒）：
+   *  requestTimeout/socket timeout = 该值，headersTimeout 取其一半。
+   *  可选（AGENT_HTTP_TIMEOUT_MS），默认 30000，合法范围 1000–300000 */
+  http_timeout_ms: number;
   /** 管理 API（console-api）监听端口；0 = 随机（测试用） */
   console_port: number;
   /** webhook 入口适配器监听端口；0 = 随机（测试用） */
@@ -88,7 +86,7 @@ function resolvePiCliPathFromDeps(): string | undefined {
   return undefined;
 }
 
-/** config.json：键名与环境变量同名（含 AGENT_ 前缀）；标量为 string/number/boolean，AGENT_PI_MODELS 为 object */
+/** config.json：键名与环境变量同名（含 AGENT_ 前缀）；标量为 string/number/boolean */
 type FileConfig = Record<string, unknown>;
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -248,40 +246,6 @@ class KeyResolver {
     return undefined;
   }
 
-  /** JSON object 键：env 使用 JSON 字符串，文件直接使用 object；env 整体覆盖文件。 */
-  object(
-    name: string,
-    options: { required?: boolean } = {},
-  ): Record<string, unknown> | undefined {
-    const raw = this.envRaw(name);
-    if (raw !== undefined) {
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        this.problems.push(`环境变量 ${name} 必须是合法 JSON object`);
-        return undefined;
-      }
-      if (!isPlainObject(parsed)) {
-        this.problems.push(`环境变量 ${name} 必须是 JSON object`);
-        return undefined;
-      }
-      return parsed;
-    }
-    const fileValue = this.file[name];
-    if (fileValue !== undefined) {
-      if (!isPlainObject(fileValue)) {
-        this.problems.push(`config.json ${name} 类型不符: 期望 object`);
-        return undefined;
-      }
-      return fileValue;
-    }
-    if (options.required) {
-      this.problems.push(`环境变量 ${name} 未设置`);
-    }
-    return undefined;
-  }
-
   /** 布尔键 */
   boolean(name: string, options: { default: boolean }): boolean | undefined {
     const raw = this.envRaw(name);
@@ -310,8 +274,7 @@ class KeyResolver {
 /** 解析配置。优先级：环境变量 > {workspace}/platform/config.json 同名键 > 代码默认；
  *  AGENT_WORKSPACE 只能来自环境变量（config.json 栖身于 workspace，鸡生蛋）；
  *  pi_env 固定组 { PATH, HOME }，仅取自 envMap；
- *  pi_cli_path 缺省从 npm 依赖解析；pi_agent_dir 缺省归 {workspace}/platform/cache/pi/agent；
- *  AGENT_PI_MODELS 在 env 中为 JSON 字符串、在文件中为 object，env 整体覆盖文件。
+ *  pi_cli_path 缺省从 npm 依赖解析；
  *  envMap 可注入（测试用），缺省 process.env；
  *  缺失必填项 / 非法值 → 抛 EnvError（message 列出全部问题） */
 export function resolveServerConfig(
@@ -366,19 +329,14 @@ export function resolveServerConfig(
       "pi 可执行文件不可用：未设置 AGENT_PI_CLI_PATH，且 npm 依赖 @earendil-works/pi-coding-agent 未安装或 bin 缺失（先 yarn install）",
     );
   }
-  const piAgentDir =
-    resolver.string("AGENT_PI_AGENT_DIR") ??
-    (workspace !== undefined
-      ? join(workspace, "platform", "cache", "pi", "agent")
-      : undefined);
-  const piModelsValue = resolver.object("AGENT_PI_MODELS", { required: true });
-  let piModels: PiModelsConfig | undefined;
-  if (piModelsValue !== undefined) {
-    try {
-      piModels = validatePiModelsConfig(piModelsValue).config;
-    } catch (err) {
-      problems.push(errorMessage(err));
-    }
+  const httpTimeoutMs = resolver.number("AGENT_HTTP_TIMEOUT_MS", {
+    default: 30_000,
+    min: 1000,
+  });
+  if (httpTimeoutMs !== undefined && httpTimeoutMs > 300_000) {
+    problems.push(
+      `AGENT_HTTP_TIMEOUT_MS 越界: ${httpTimeoutMs} 大于 max 300000`,
+    );
   }
   const consolePort = resolver.number("AGENT_CONSOLE_PORT", {
     default: 6100,
@@ -407,7 +365,7 @@ export function resolveServerConfig(
     problems.push("AGENT_ADMIN_USERNAME 与 AGENT_ADMIN_PASSWORD 必须成对设置");
   }
 
-  // 4. pi_env 固定组 { PATH, HOME }（仅取自 envMap；模型凭据走 pi_agent_dir/models.json）
+  // 4. pi_env 固定组 { PATH, HOME }（仅取自 envMap；模型凭据走业务派生目录的 models.json）
   const piEnv: Record<string, string> = {};
   for (const name of ["PATH", "HOME"] as const) {
     const raw = env[name];
@@ -433,9 +391,8 @@ export function resolveServerConfig(
     task_timeout_minutes: taskTimeoutMinutes as number,
     max_agent_calls: maxAgentCalls as number,
     pi_cli_path: piCliPath as string,
-    pi_agent_dir: piAgentDir as string,
-    pi_models: piModels as PiModelsConfig,
     pi_env: piEnv,
+    http_timeout_ms: httpTimeoutMs as number,
     console_port: consolePort as number,
     webhook_port: webhookPort as number,
     entry_webhook_enabled: entryWebhookEnabled ?? true,
