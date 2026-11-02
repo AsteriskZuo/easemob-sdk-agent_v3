@@ -128,7 +128,7 @@ describe("WorkflowRunner", () => {
     const { runner } = setup();
     const outcome = await runner.run(makeReq("biz-fail.js"));
     expect(outcome.status).toBe("failed");
-    expect(outcome.reason).toContain("出口校验未通过");
+    expect(outcome.reason).toContain("业务处理失败");
   });
 
   it("4. 异常退出：exit 非零无合法结果 → failed、reason 含 exit code", async () => {

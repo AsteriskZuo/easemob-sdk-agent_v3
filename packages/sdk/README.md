@@ -4,7 +4,7 @@
 
 - 安装：`npm install @asteriskzuo/agent-sdk`（普通 npm 依赖，平台不做任何注入；模板已内置，见 §8）
 - 运行时：Node.js ≥ 24，ESM；SDK 运行时零第三方依赖
-- 导出：`import { sdk } from "@asteriskzuo/agent-sdk"`（单例对象）+ 类型 `RunInput` / `AgentCall`
+- 导出：`import { sdk, loadContract, checkFields } from "@asteriskzuo/agent-sdk"`（sdk 为单例对象；loadContract/checkFields 为契约 API）+ 类型 `RunInput` / `AgentCall` / `ModelsInfo` / `ContractField` / `ContractDoc`
 
 ---
 
@@ -12,7 +12,7 @@
 
 ### 1.1 业务是什么
 
-**业务 = 包 + 配置**。你交付的是一个 **包（package）**：一个 git 仓库（或仓库内子路径），内含流程程序入口与胶水代码；配置（入口、出口、skill/工具绑定、config/secrets、大模型选择等）由业务创建者在平台控制台登记。平台不认识你的业务内容，只做三件事：**登记**（git 三元组：url + commit + 子路径）、**物化**（clone 到缓存并构建，见 §8.4）、**执行**（事件触发时 spawn 你的流程程序）。
+**业务 = 包 + 配置**。你交付的是一个 **包（package）**：一个 git 仓库（或仓库内子路径），内含契约文件（contract.json）、程序入口（apps/）与库代码（packages/）；配置（入口、出口、skill/工具绑定、config/secrets、大模型选择等）由业务创建者在平台控制台登记。平台不认识你的业务内容，只做三件事：**登记**（git 三元组：url + commit + 子路径）、**物化**（clone 到缓存并构建，见 §8.4）、**执行**（事件触发时按三段编排 spawn 你的程序：check-input → 主程序 → check-output，见 §2.11）。
 
 ### 1.2 一入一出契约（四条，业务的全部约束）
 
@@ -36,7 +36,7 @@
 
 ### 1.4 run 隔离模型
 
-一次事件触发 = 一次 run = 一个独立子进程：
+一次事件触发 = 一次 run = 一组独立子进程（三段编排的每个阶段各一个，共用同一工作区与日志）：
 
 - 每 run 独立 **workspace**（隔离临时目录，进程 cwd，TTL 清理）与 **dataDir**（业务级持久目录，见 §7）；
 - **环境变量清空注入**（`env: {}`）——平台环境不泄漏，凭据只走 stdin 的 secrets；
@@ -54,6 +54,7 @@
 | 入口幂等 | `event_id` 队列层唯一约束去重（源生重推自动丢弃） |
 | 排队与串行 | 任务队列持久化 + 通道串行 + 并发闸门 |
 | 结果扇出 | `sdk.return` 的 output 自动派生事件给下游与出口 |
+| 入口检查 / 出口校验编排 | 平台三段编排自动调用 check-input / check-output 程序（§2.11） |
 
 业务语义级去重（如「同一工单同版本只审一次」）平台不代办——用 dataDir 自行实现（见 §7 与 §10 参考实现）。
 
@@ -69,10 +70,11 @@
 interface RunInput {
   event: unknown; // 触发信封（EventEnvelope 形状，见 §6.1）
   workspace: string; // 本 run 的隔离工作目录绝对路径（= 进程 cwd）
+  output?: unknown; // 主程序产出（仅 check-output 程序被注入，见 §2.11；其余程序读到 undefined）
 }
 ```
 
-- **用途**：流程程序的入口——读触发事件与工作目录；
+- **用途**：流程程序的入口——读触发事件与工作目录；check-output 程序额外读 `output`（主程序产出）；
 - **异常**：信封缺 `workspace`（平台注入必填）→ 抛错；stdin 是 TTY / 为空 / 信封非法（非 `contract_version:"v1"` 或无 `input`）→ 抛带原因的错；
 - 本地调试用管道喂 mock 信封（§8.2）。
 
@@ -258,14 +260,102 @@ sdk.log("info", "fetch ticket", { key: "PRJ-123" });
 - `sdk.return(null)` = **本业务明确无产出：出口不投递**（入口下游照常收到派生事件，payload=null，下游自行判断）；无需通知的判定用它，不要返回空字符串占位；
 - output 会成为派生事件的 payload：下游业务收到的就是它，出口投递的也是它——返回形状对着出口工具的 resultDoc 写（§6.3）。
 
-### 2.11 主流形态完整示例（单轮审查工单）
+### 2.11 契约 API：`loadContract(fileUrl)` / `checkFields(fields, data)`
+
+**业务包的入口检查 / 出口校验是契约驱动的**：包根 `contract.json` 声明输入与输出的字段形状（**唯一事实源**——平台物化校验它、控制台展示它、check 程序运行时解释它），平台按三段编排（check-input → 主程序 → check-output）在一次 run 内依次调用。check 程序不需要你写校验代码——模板自带的两个薄壳调的就是本节的通用校验器。
+
+```jsonc
+// contract.json（包根，与 agent-package.json 平级）
+{
+  "version": 1, // 顶层必填；平台物化拒绝未知版本
+  "input": {
+    // 显式 null = 无输入约束（平台跳过入口检查）；不允许缺失（缺失分不清"忘了"和"没有"）
+    "fields": [
+      {
+        "path": "payload.issue_key", // 点分路径（input 从事件信封根解析，可含信封顶层字段）
+        "type": "string", // 词表：string / number / boolean / object / array / T[]（T[] 递归校验元素）
+        "required": true, // 校验器只查 required 项（存在 + 类型）；可选项不查、仅供展示
+        "desc": "工单 key", // 展示用（控制台字段表）
+      },
+    ],
+  },
+  "output": {
+    // 显式 null = 声明无产出（产出非空即出口校验失败；结果行 output 键缺失或为 null 均视为空产出）
+    "fields": [
+      { "path": "content", "type": "string", "required": true },
+      { "path": "mentions", "type": "string[]" },
+    ],
+  },
+}
+```
+
+模板自带的两个 check 程序（**业务零修改**）：
 
 ```ts
+// apps/check-input/index.ts —— 入口检查（平台第一阶段）
+import { checkFields, loadContract, sdk } from "@asteriskzuo/agent-sdk";
+
+const { event } = sdk.input();
+const contract = loadContract(new URL("../../../contract.json", import.meta.url));
+if (contract.input !== null) {
+  const problems = checkFields(contract.input.fields, event);
+  if (problems.length > 0) sdk.fail(problems.join("；"));
+}
+sdk.return({});
+```
+
+```ts
+// apps/check-output/index.ts —— 出口校验（平台第三阶段；信封 output = 主程序产出，仅本程序被注入）
+import { checkFields, loadContract, sdk } from "@asteriskzuo/agent-sdk";
+
+const { output } = sdk.input();
+const contract = loadContract(new URL("../../../contract.json", import.meta.url));
+if (contract.output !== null) {
+  const problems = checkFields(contract.output.fields, output);
+  if (problems.length > 0) sdk.fail(problems.join("；"));
+} else if (output !== null && output !== undefined) {
+  sdk.fail("契约声明无产出（output: null），实际产出了非空值");
+}
+sdk.return({});
+```
+
+纪律与边界：
+
+- **纯校验**：check 程序只判过/不过、**不做数据转换**（解析归主程序）；平台对 check 阶段最小注入（无 secrets / endpoint / programs / dataDir）+ 60 秒固定超时——需要联网 / 取数 / 调大模型的检查不属于 check，归主程序；
+- **逃生门**：校验需求超出「存在 + 类型」（跨字段一致性、值域、条件必填等）时，自写 check 程序替换薄壳——平台契约（程序存在、过/不过语义）不变，平台无感知；
+- **失败语义**：check-input 失败 → run 失败、不进主程序；check-output 失败 → run 失败、**产出不扇出**（下游与出口都收不到）；
+- **loadContract 坏契约 = 抛错**（check 程序崩溃 → run 失败，与平台 fail-closed 一致）；`checkFields` 返回问题列表（空数组 = 通过）；
+- **v1 词表冻结**：不表达枚举 / 范围 / 正则 / 嵌套深入 / 条件必填——schema 演进走顶层 `version`。
+
+### 2.12 主流形态完整示例（单轮审查工单）
+
+一个契约文件 + 三个程序（check 薄壳模板自带，只写主程序）：
+
+```jsonc
+// contract.json
+{
+  "version": 1,
+  "input": {
+    "fields": [
+      { "path": "payload.issue_key", "type": "string", "required": true, "desc": "工单 key" },
+    ],
+  },
+  "output": {
+    "fields": [
+      { "path": "content", "type": "string", "required": true, "desc": "企微消息正文" },
+      { "path": "mentions", "type": "string[]", "desc": "@ 的 userid 列表" },
+    ],
+  },
+}
+```
+
+```ts
+// apps/main/index.ts —— 单轮审查工单：业务级去重 → 拉详情 → 大模型审查 → 组消息 → 唯一出口
+// 入口检查已由 check-input 完成（payload.issue_key 必有且为 string）；check 只判不转，这里自己解析
 import { sdk } from "@asteriskzuo/agent-sdk";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-// 单轮审查工单：收事件 → 业务级去重 → 拉详情 → 大模型审查 → 组消息 → 唯一出口
 const { event } = sdk.input();
 const envelope = event as {
   event_id: string;
@@ -273,14 +363,9 @@ const envelope = event as {
   payload: { issue_key?: string; updated?: string };
 };
 sdk.log("info", "run started", { event_id: envelope.event_id });
+const issueKey = envelope.payload.issue_key as string;
 
-// 1. 入口检查（程序校验，不过大模型）：输入不合规 = 直接失败（不扇出、下游不触发）
-const issueKey = envelope.payload.issue_key;
-if (!issueKey) {
-  sdk.fail("入口检查未通过：缺少 payload.issue_key");
-}
-
-// 2. 业务级去重（平台只保 event_id 幂等；「同工单同版本只审一次」是业务语义，自己管）
+// 1. 业务级去重（平台只保 event_id 幂等；「同工单同版本只审一次」是业务语义，自己管）
 const recordsPath = join(sdk.dataDir(), "review-records.json");
 const records = existsSync(recordsPath)
   ? (JSON.parse(readFileSync(recordsPath, "utf8")) as Record<string, string>)
@@ -289,24 +374,22 @@ if (records[issueKey] === envelope.payload.updated) {
   sdk.return(null); // 无产出：出口不投递，下游自行判断
 }
 
-// 3. 拉详情：绑定工具资产的子程序，凭据显式传（子程序拿不到 secrets）
+// 2. 拉详情：绑定工具资产的子程序，凭据显式传（子程序拿不到 secrets）
 const ticket = await sdk.run("jira-fetch", {
   input: { key: issueKey },
   config: { site: sdk.config().jira_site, token: sdk.secret("jira_token") },
 });
 
-// 4. 大模型审查：skills 须在业务绑定的 skill 集合内；input 业务保证已脱敏
+// 3. 大模型审查：skills 须在业务绑定的 skill 集合内；input 业务保证已脱敏
 const review = (await sdk.agent({
   skills: ["ticket-review"],
   input: ticket,
 })) as { verdict: string; reasons: string[] };
-
-// 5. 出口校验（程序校验）：不合格 = 失败；失败的处置（直接失败/修正后重试）归业务内部逻辑，平台不参与
 if (!review || typeof review.verdict !== "string") {
-  sdk.fail("出口校验未通过：审查结果不合规");
+  sdk.fail("审查结果不合规（模型输出解析失败）");
 }
 
-// 6. 组消息（形状对着出口工具 resultDoc）+ 落去重记录 + 唯一出口
+// 4. 组消息（形状 = contract.json output 契约，check-output 会复核）+ 落去重记录 + 唯一出口
 records[issueKey] = envelope.payload.updated ?? "";
 writeFileSync(recordsPath, JSON.stringify(records, null, 2));
 sdk.return({
@@ -453,7 +536,7 @@ skill = 给大模型的能力单元（可复用提示词组件）。
 
 ## 7. run 生命周期
 
-一次 run 的完整过程：通道轮到 → 并发闸门取得令牌 → 建目录 → spawn 流程程序（cwd = workspace，`env: {}` 清空注入）→ stdin 写信封并关闭 → 收 stdout 结果 / 超时强杀 → 打标（success/failed/timeout）→ 结果扇出。
+一次 run 的完整过程：通道轮到 → 并发闸门取得令牌 → 建目录 → 三段编排（check-input → 主程序 → check-output；每阶段 spawn 一个子进程，cwd = workspace，`env: {}` 清空注入）→ stdin 写信封并关闭 → 收 stdout 结果 / 超时强杀 → 打标（success/failed/timeout）→ 结果扇出（check-output 失败则不扇出）。
 
 **两个目录的分工**：
 
@@ -463,11 +546,11 @@ skill = 给大模型的能力单元（可复用提示词组件）。
 | 生命周期 | per-run 隔离临时目录，TTL 清理 | 业务级持久，平台不做 TTL（业务自管容量与清理） |
 | 用途 | 本次执行的临时产物（= 进程 cwd） | 跨 run 状态（去重记录、游标、进度…） |
 | 读口 | `sdk.input().workspace` | `sdk.dataDir()` |
-| 并发 | 每 run 独占 | 同通道 run 串行 ⇒ 读写无需自锁 |
+| 并发 | 每 run 独占（三个阶段共用） | 同通道 run 串行 ⇒ 读写无需自锁 |
 
 **其他边界**：
 
-- **超时**：wall-clock 默认 60 分钟（业务可在控制台覆盖），到点 SIGTERM、5 秒宽限后 SIGKILL；`sdk.run` 子程序单独计时（缺省 5 分钟，`timeout_ms` 可调）；
+- **超时**：主程序 wall-clock 默认 60 分钟（业务可在控制台覆盖），到点 SIGTERM、5 秒宽限后 SIGKILL；check 程序固定 60 秒；`sdk.run` 子程序单独计时（缺省 5 分钟，`timeout_ms` 可调）；
 - **配额**：agent 调用次数按 run 计上限（服务端强制，默认 20，业务可覆盖）；stdout 累计上限 1MB，超限即杀即判 failed；
 - **环境变量清空**：`process.env` 在业务进程里是空的——不要读环境变量，配置与凭据一律走 `sdk.config()` / `sdk.secret()`；
 - **agent 会话**：`mode: 'channel'` 沿用通道会话（多轮业务连续）；`'fresh'` 独立会话；`sdk.session.compact()/clear()` 管理上下文（§2.6/§2.7）；
@@ -479,11 +562,11 @@ skill = 给大模型的能力单元（可复用提示词组件）。
 
 ### 8.1 从模板开始
 
-平台仓 `templates/agent-package/` 是**拷贝即用**的包模板：内置与平台同构同版本的完整工具链，你只写 `src/` 业务代码。快速开始：
+平台仓 `templates/agent-package/` 是**拷贝即用**的包模板：内置与平台同构同版本的完整工具链，你只写 `contract.json`、`apps/` 与 `packages/` 业务代码。快速开始：
 
 1. 拷贝模板目录到你的仓库；改 `agent-package.json` 与 `package.json` 的 `name`；
 2. `npm install`（`@asteriskzuo/agent-sdk` 是普通 npm 依赖；平台未发布 npm 时的离线兜底：改为 `file:<平台仓>/packages/sdk`，平台验收脚本 `scripts/verify-template.sh` 即此做法）；
-3. 写 `src/` 业务代码（新增子程序 = `programs` 加条目；引用外部工具/skill = `requires` 加名字）；
+3. 写 `contract.json`（声明输入/输出契约）与 `apps/`、`packages/` 业务代码（新增子程序 = `programs` 加条目；引用外部工具/skill = `requires` 加名字）；
 4. **六条检查全绿**：`npm run build` / `npm test` / `npm run typecheck` / `npm run lint` / `npm run format:check` / `npm run circular`——本地跑绿的就是平台要求的全套检查；
 5. 推送 git → 控制台登记为包资产 → 创建业务绑定（同时绑定 requires 声明的工具与 skill）。
 
@@ -504,10 +587,10 @@ echo '{
   "config": { "jira_site": "https://jira.example.com" },
   "secrets": { "jira_token": "…" },
   "dataDir": "/tmp/my-data"
-}' | node dist/programs/main.js
+}' | node dist/apps/main/index.js
 ```
 
-- mock 信封的 `input` 就是 `sdk.input().event`——形状自己造（建议直接复制 §6.2 的示例信封）；
+- mock 信封的 `input` 就是 `sdk.input().event`——形状自己造（建议直接复制 §6.2 的示例信封）；调试 check-output 程序时另加 `"output": <主程序产出 mock>`；
 - `workspace` 必填（`sdk.input()` 校验）；`dataDir` 仅当你的代码调用 `sdk.dataDir()` 时需要；
 - **`sdk.agent` / `sdk.session` 本地不可用**（无 endpoint，调用即抛错）——本地调试到 agent 边界为止，或用测试替身隔离；`sdk.run` 可用（在 mock 信封里给出 `programs` 映射）。
 
@@ -519,7 +602,9 @@ echo '{
   "version": "0.1.0", // 推荐
   "programs": {
     // 子程序名 → 物化后产物的相对路径（必须 .js、相对、不含 ..）
-    "main": "dist/programs/main.js"
+    "main": "dist/apps/main/index.js",
+    "check-input": "dist/apps/check-input/index.js", // 平台三段编排保留名（§2.11）
+    "check-output": "dist/apps/check-output/index.js",
   },
   "requires": {
     // 可选，仅 package 可有：名字级依赖声明（不钉版本）
@@ -536,12 +621,12 @@ echo '{
 业务创建/变更绑定时，平台把资产 clone 到 `platform/cache/assets/{asset_id}/` 并执行固定流程（package/tool；skill 纯文档不构建）：
 
 ```text
-git clone → 清单形状校验 → npm ci（有 package.json 时，必须同时含 package-lock.json）
+git clone → 清单形状校验（含 contract.json 存在与形状、programs 含保留名）→ npm ci（有 package.json 时，必须同时含 package-lock.json）
   → 执行 node agent.materialize.mjs（资产根的初始化脚本，必带）
   → 产物校验（programs 每条路径必须真实存在）→ 完成标记
 ```
 
-- **`agent.materialize.mjs` 必带**：package/tool 资产根缺它 = 物化失败；职责 = 完成本仓库的一切初始化（转译/codegen/资源下载…），平台不传参、不理解过程，只验收产物；模板自带默认实现（esbuild 转译 `src/` → `dist/`，与 `npm run build` 同产物），简单项目原样可用；
+- **`agent.materialize.mjs` 必带**：package/tool 资产根缺它 = 物化失败；职责 = 完成本仓库的一切初始化（转译/codegen/资源下载…），平台不传参、不理解过程，只验收产物；模板自带默认实现（esbuild 转译 `apps/` 与 `packages/` → `dist/`，与 `npm run build` 同产物），简单项目原样可用；
 - **环境边界**：物化环境只保证 node 24 + npm + git；脚本子进程 env 仅 `PATH`/`HOME`/`NPM_CONFIG_REGISTRY`；其他语言环境谁用谁装；**所有 program 入口必须 node 可执行的 JS**（其他语言 = 薄 JS wrapper + child_process）；
 - **lockfile**：v1 只支持 npm + `package-lock.json`（锁文件必须进 git）；
 - 构建产物与 node_modules 随资产缓存同生共死；缓存清理（控制台设置页，admin）后下次 run 懒重建（可能分钟级）。
@@ -552,8 +637,9 @@ git clone → 清单形状校验 → npm ci（有 package.json 时，必须同�
 
 - 平台契约（stdin 信封、stdout 结果、事件信封）带 `contract_version`，当前恒为 `"v1"`；版本路由靠它，新旧业务并存；
 - **socket 协议（业务进程 ↔ agent 服务）自 SDK 0.3.0 起为 v2**：SDK 全部请求恒定发 `"v2"`（新增 agent 可选字段 `model` 与 `models` op）；服务端同时接受 v1/v2，旧 SDK 的业务不受影响，v1 请求携带 `model` 会被拒绝（防静默忽略）；
+- **SDK 0.4.0（additive）**：`RunInput` 增 `output`（check-output 程序读主程序产出）；新增契约 API（`loadContract` / `checkFields`，§2.11）——旧业务不受影响，新模板默认带 check 程序薄壳；
 - 信封校验**忽略不识别字段**（向后兼容规则）：平台新增信封字段不破坏旧业务；
-- SDK 按 npm 语义化版本发布，业务在 `package.json` 钉版本（模板默认 `^0.3.0`）；
+- SDK 按 npm 语义化版本发布，业务在 `package.json` 钉版本（模板默认 `^0.4.0`）；
 - 资产的版本 = 登记的 commit：更新资产 = 登记新 commit = 新资产行，使用旧版本的业务不受打断。
 
 ---
@@ -569,7 +655,7 @@ git clone → 清单形状校验 → npm ci（有 package.json 时，必须同�
 `sdk.return(null)`——出口不投递；入口下游仍会收到派生事件（payload=null）并自行判断。不要用空字符串或空对象占位。
 
 **Q：同一工单更新了会重复审查吗？**
-平台只保证 event_id 级幂等（jira-polling 的 `jira:{issueKey}:{updated}` 已让「同 updated 重推」天然去重）。「同版本只审一次」这类业务语义去重自己用 dataDir 实现（§2.11 示例）。
+平台只保证 event_id 级幂等（jira-polling 的 `jira:{issueKey}:{updated}` 已让「同 updated 重推」天然去重）。「同版本只审一次」这类业务语义去重自己用 dataDir 实现（§2.12 示例）。
 
 **Q：子程序能调大模型 / 读 secrets 吗？**
 不能，机制强制：子程序信封没有 endpoint/secrets/programs/dataDir。凭据由流程程序读出后经 `config` 显式传入；大模型调用只发生在流程程序（包的胶水代码）里。
@@ -590,19 +676,19 @@ program 入口必须是 node 可执行的 JS（runner 以 `node <program>` 拉�
 path 全平台唯一（创建/更新业务时校验查重，冲突 400 并列出占用方）。换路径段，或让占用方释放。
 
 **Q：物化失败去哪看原因？**
-绑定操作同步返回物化错误（消息含阶段名与 stderr 尾部 30 行）；管理员也可用平台物化脚本独立 CLI 复现完整输出。常见原因：缺 `agent.materialize.mjs`、缺 `package-lock.json`、初始化脚本 exit≠0、programs 产物缺失。
+绑定操作同步返回物化错误（消息含阶段名与 stderr 尾部 30 行）；管理员也可用平台物化脚本独立 CLI 复现完整输出。常见原因：缺 `agent.materialize.mjs`、缺 `package-lock.json`、contract.json 缺失或形状非法、初始化脚本 exit≠0、programs 产物缺失。
 
 ### 10.2 参考实现 walkthrough（单轮审查工单，端到端）
 
 以「jira 工单更新 → 大模型审查 → 企微群通知」业务为例，全链路如下：
 
 1. **写 skill**：建 skill 仓库，`ticket-review/SKILL.md` 写审查规则与输出 schema（frontmatter `name: ticket-review`）→ 控制台登记为 skill 集合资产；
-2. **备工具**：复用共享的 `jira-fetch` 工具资产（或自建：同包清单契约，`agent-package.json` 声明 `programs: { "jira-fetch": "dist/programs/jira-fetch.js" }`，程序内部用 `sdk.runInput()` 读 input/config）→ 登记为共享工具；
-3. **写包**：拷贝模板，流程程序 = §2.11 的完整示例（检查 → dataDir 去重 → `sdk.run('jira-fetch')` 拉详情 → 脱敏 → `sdk.agent({ skills: ['ticket-review'] })` 审查 → 还原/门禁 → 组企微消息形状 `sdk.return`）；清单 `requires: { tools: ["jira-fetch"], skills: ["ticket-review"] }`；
+2. **备工具**：复用共享的 `jira-fetch` 工具资产（或自建：同包清单契约，`agent-package.json` 声明 `programs: { "jira-fetch": "dist/apps/jira-fetch/index.js" }`，程序内部用 `sdk.runInput()` 读 input/config）→ 登记为共享工具；
+3. **写包**：拷贝模板，主程序 = §2.12 的完整示例（dataDir 去重 → `sdk.run('jira-fetch')` 拉详情 → 脱敏 → `sdk.agent({ skills: ['ticket-review'] })` 审查 → 还原/门禁 → 组企微消息形状 `sdk.return`）；入口/出口检查 = §2.11 的 check 薄壳（模板自带）；contract.json 按 §2.12 声明；清单 `requires: { tools: ["jira-fetch"], skills: ["ticket-review"] }`；
 4. **本地验证**：mock 信封管道喂入跑通到 agent 边界；六条检查全绿；
 5. **登记与绑定**：包仓库推送 git → 控制台登记（kind=package）→ 创建业务：绑定包（选入口程序 `main`）+ 工具 + skill 集合（配置期校验 requires 覆盖与查重）；
 6. **配入口**：jira-polling match 行（`source=jira`，`event_type=jira.issue.updated`，entry_config 填 jira_url/project/username/password——凭据可写 `{{key}}` 占位指向业务安全桶里的键）；或 webhook match 行 + 让 jira 推送到 `POST /hooks/jira-listener`；
 7. **配出口**：勾选 `wecom-webhook`，在出口配置里填群机器人 webhook 地址（key 段可用占位，如 `...?key={{wecom_key}}`，真值存安全桶；所有字段原样进绑定配置，secret 标记仅是表单提示）；
 8. **跑通**：工单更新 → 入口落队 → 通道串行执行 → 审查结果投递企微群；`sdk.return(null)` 的重复更新静默跳过投递。
 
-现成参照：模板 `templates/agent-package/`（可运行的工程骨架，`src/programs/main.ts` 注释承载契约四条）；平台仓 `business/jira-ticket-review/` 是该参考业务的三族资产落位目录（`package/`、`tools/`、`skills/`），结构对应本节的 1–3 步。
+现成参照：模板 `templates/agent-package/`（可运行的工程骨架：`contract.json` + `apps/` 三程序薄壳）；平台仓 `business/jira-ticket-review/` 是该参考业务的三族资产落位目录（`package/`、`tools/`、`skills/`），结构对应本节的 1–3 步。

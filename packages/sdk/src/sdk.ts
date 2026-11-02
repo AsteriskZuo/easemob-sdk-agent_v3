@@ -10,6 +10,7 @@ import { runSubprogram } from "./run.js";
 export interface RunInput {
   event: unknown; // 触发信封（EventEnvelope 形状；SDK 不 import contracts，结构化 typing）
   workspace: string; // 本 run 的隔离工作目录（spawn 时的 cwd）
+  output?: unknown; // 主程序产出（仅平台三段编排的 check-output 程序被注入；其余程序读到 undefined）
 }
 
 /** agent() 的调用参数 */
@@ -51,7 +52,7 @@ export const sdk = {
     if (typeof env.workspace !== "string" || env.workspace.length === 0) {
       throw new Error("stdin 信封缺少 workspace（平台注入必填）");
     }
-    return { event: env.input, workspace: env.workspace };
+    return { event: env.input, workspace: env.workspace, output: env.output };
   },
 
   /** 子程序侧读口：sdk.run 注入的 input 与 config（契约递归同构） */

@@ -1,9 +1,10 @@
 import { spawn } from "node:child_process";
 import net from "node:net";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { checkFields, loadContract } from "../src/contract.js";
 
 function fixturePath(name: string): string {
   return fileURLToPath(
@@ -120,6 +121,22 @@ describe("sdk 读口", () => {
     expect(output.secret).toBe("sk-test-abcdef123456");
   });
 
+  it("input 透传信封 output（check-output 程序读主程序产出）；未注入时为 undefined", async () => {
+    const withOutput = await runFixture("probe-input.js", {
+      stdin: makeEnvelope({ output: { answer: "x" } }),
+    });
+    expect(withOutput.code).toBe(0);
+    const outA = parseResult(withOutput.stdout).output as Record<string, any>;
+    expect(outA.input.output).toEqual({ answer: "x" });
+
+    const without = await runFixture("probe-input.js", {
+      stdin: makeEnvelope(),
+    });
+    expect(without.code).toBe(0);
+    const outB = parseResult(without.stdout).output as Record<string, any>;
+    expect(outB.input.output).toBeUndefined();
+  });
+
   it("secret 未注入名 → 抛错", async () => {
     const r = await runFixture("probe-secret-missing.js", {
       stdin: makeEnvelope(),
@@ -180,7 +197,7 @@ describe("sdk 出口", () => {
     expect(result).toEqual({
       contract_version: "v1",
       ok: false,
-      reason: "出口校验未通过",
+      reason: "业务处理失败",
     });
   });
 
@@ -515,4 +532,116 @@ describe("sdk.run", () => {
     expect(result.ok).toBe(false);
     expect(result.reason).toContain("超时");
   }, 15000);
+});
+
+describe("契约 API（loadContract / checkFields）", () => {
+  /** 把契约内容落成临时文件，返回 file:// URL（loadContract 的入参形态） */
+  function writeContract(content: unknown): URL {
+    const dir = mkdtempSync(join(tmpdir(), "sdk-contract-"));
+    const file = join(dir, "contract.json");
+    writeFileSync(
+      file,
+      typeof content === "string" ? content : JSON.stringify(content),
+    );
+    return pathToFileURL(file);
+  }
+
+  const VALID = {
+    version: 1,
+    input: {
+      fields: [
+        { path: "payload.issue_key", type: "string", required: true },
+        { path: "payload.labels", type: "string[]" },
+      ],
+    },
+    output: null,
+  };
+
+  describe("loadContract", () => {
+    it("合法契约（含显式 null 节）→ 原样返回", () => {
+      expect(loadContract(writeContract(VALID))).toEqual(VALID);
+    });
+
+    it("version 缺失或非 1 / 缺 input 节 / 坏 JSON → 抛错", () => {
+      expect(() =>
+        loadContract(writeContract({ ...VALID, version: 2 })),
+      ).toThrow(/version/);
+      const noVersion: Record<string, unknown> = { ...VALID };
+      delete noVersion.version;
+      expect(() => loadContract(writeContract(noVersion))).toThrow(/version/);
+      expect(() =>
+        loadContract(writeContract({ version: 1, output: null })),
+      ).toThrow(/缺少 input/);
+      expect(() => loadContract(writeContract("{ not json"))).toThrow(
+        /读取\/解析失败/,
+      );
+    });
+
+    it("字段声明非法（type 词表外 / required 非布尔）→ 抛错列出问题", () => {
+      expect(() =>
+        loadContract(
+          writeContract({
+            version: 1,
+            input: { fields: [{ path: "a", type: "int" }] },
+            output: null,
+          }),
+        ),
+      ).toThrow(/type 非法/);
+      expect(() =>
+        loadContract(
+          writeContract({
+            version: 1,
+            input: null,
+            output: {
+              fields: [{ path: "a", type: "string", required: "yes" }],
+            },
+          }),
+        ),
+      ).toThrow(/required/);
+    });
+  });
+
+  describe("checkFields", () => {
+    const fields = [
+      { path: "payload.issue_key", type: "string", required: true },
+      { path: "payload.count", type: "number", required: true },
+      { path: "payload.labels", type: "string[]" }, // 可选：不查
+      { path: "payload.meta", type: "object", required: true },
+    ];
+
+    it("全部满足 → 空数组", () => {
+      expect(
+        checkFields(fields, {
+          payload: { issue_key: "PRJ-1", count: 3, meta: {} },
+        }),
+      ).toEqual([]);
+    });
+
+    it("缺必填 → 报路径；类型不符 → 报期望与实际；数组不满足 object", () => {
+      const problems = checkFields(fields, {
+        payload: { count: "3", meta: [] },
+      });
+      expect(problems).toHaveLength(3);
+      expect(problems[0]).toContain("缺少必填字段：payload.issue_key");
+      expect(problems[1]).toContain("payload.count");
+      expect(problems[1]).toContain("期望 number");
+      expect(problems[1]).toContain("实际 string");
+      expect(problems[2]).toContain("payload.meta");
+    });
+
+    it("可选项不查：缺失或类型错都通过", () => {
+      expect(
+        checkFields(fields, {
+          payload: { issue_key: "PRJ-1", count: 1, meta: {}, labels: [1, 2] },
+        }),
+      ).toEqual([]);
+    });
+
+    it("T[] 递归校验元素；嵌套路径解析；整体缺失 → 缺必填", () => {
+      const f2 = [{ path: "a.b", type: "string[]", required: true }];
+      expect(checkFields(f2, { a: { b: ["x", "y"] } })).toEqual([]);
+      expect(checkFields(f2, { a: { b: ["x", 1] } })).toHaveLength(1);
+      expect(checkFields(f2, {})).toEqual(["缺少必填字段：a.b"]);
+    });
+  });
 });

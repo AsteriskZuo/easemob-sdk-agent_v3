@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "input": {
+    "fields": [
+      {
+        "path": "payload.text",
+        "type": "string",
+        "required": true,
+        "desc": "待处理的文本（示例契约）"
+      }
+    ]
+  },
+  "output": {
+    "fields": [
+      {
+        "path": "answer",
+        "type": "string",
+        "required": true,
+        "desc": "大模型回答（示例契约）"
+      }
+    ]
+  }
+}
