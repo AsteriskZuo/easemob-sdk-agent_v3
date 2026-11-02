@@ -12,7 +12,7 @@
   "__AGENT_ENTRY_WEBHOOK_ENABLED": "可选。webhook 入口开关，默认 true；关闭 = 不创建不启动该适配器",
 
   "AGENT_ENTRY_JIRA_POLLING_ENABLED": false,
-  "__AGENT_ENTRY_JIRA_POLLING_ENABLED": "可选。jira 轮询入口开关，默认 false；内部测试与无外网 webhook 场景的拉取入口",
+  "__AGENT_ENTRY_JIRA_POLLING_ENABLED": "可选。jira 轮询入口开关，默认 false；内部测试与无外网 webhook 场景的拉取入口；与 webhook 同时开启时被抑制（webhook 优先，记 error 日志）",
 
   "AGENT_NPM_REGISTRY": "https://registry.npmjs.org/",
   "__AGENT_NPM_REGISTRY": "可选。资产物化 npm ci 与初始化脚本子进程使用的 registry，默认官方 registry；启动自检验可达",

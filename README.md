@@ -126,7 +126,7 @@ rm -rf "$AGENT_WORKSPACE/platform/data" "$AGENT_WORKSPACE/platform/cache" "$AGEN
 | 变量 | 默认 | 说明 |
 |------|------|------|
 | `AGENT_ENTRY_WEBHOOK_ENABLED` | `true` | webhook 入口适配器开关（关闭 = 不创建不启动，完全不检查其配置） |
-| `AGENT_ENTRY_JIRA_POLLING_ENABLED` | `false` | jira 轮询入口开关（内部测试与无外网 webhook 场景的拉取入口） |
+| `AGENT_ENTRY_JIRA_POLLING_ENABLED` | `false` | jira 轮询入口开关（内部测试与无外网 webhook 场景的拉取入口）；与 webhook 同时开启时被抑制（webhook 优先，记 error 日志、继续运行） |
 | `AGENT_WEBHOOK_PORT` | `6200` | webhook 入口适配器监听端口 |
 | `AGENT_NPM_REGISTRY` | 官方 registry | 资产物化 `npm ci` 与初始化脚本子进程的 registry（启动自检验可达） |
 

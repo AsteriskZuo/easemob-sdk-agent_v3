@@ -185,13 +185,14 @@ describe("bootstrap 装配管理 API", () => {
     expect(me.status).toBe(401);
   });
 
-  it("AGENT_ENTRY_JIRA_POLLING_ENABLED=true → /api/config 里该适配器 enabled 为 true", async () => {
+  it("AGENT_ENTRY_JIRA_POLLING_ENABLED=true（webhook 关闭时）→ /api/config 里该适配器 enabled 为 true", async () => {
     const port = await freePort();
     handle = await bootstrap({
       env: testEnv({
         AGENT_CONSOLE_PORT: String(port),
         AGENT_ADMIN_USERNAME: "root",
         AGENT_ADMIN_PASSWORD: "root-pass",
+        AGENT_ENTRY_WEBHOOK_ENABLED: "false",
         AGENT_ENTRY_JIRA_POLLING_ENABLED: "true",
       }),
     });

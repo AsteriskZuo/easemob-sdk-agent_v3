@@ -161,10 +161,11 @@ describe("入口适配器开关（AGENT_ENTRY_*_ENABLED）", () => {
     expect(log).toContain('"id":"webhook","enabled":false');
   }, 30_000);
 
-  it("jira-polling 开启：无任何 jira 行/凭据配置也启动成功（关闭的适配器不看配置，开启的也无全局必需配置）", async () => {
+  it("jira-polling 开启（webhook 关闭时）：无任何 jira 行/凭据配置也启动成功（关闭的适配器不看配置，开启的也无全局必需配置）", async () => {
     const webhookPort = await freePort();
     const env = await makeEnv("case-jira-on", {
       AGENT_WEBHOOK_PORT: String(webhookPort),
+      AGENT_ENTRY_WEBHOOK_ENABLED: "false",
       AGENT_ENTRY_JIRA_POLLING_ENABLED: "true",
     });
     handle = await bootstrap({ env });
@@ -172,6 +173,29 @@ describe("入口适配器开关（AGENT_ENTRY_*_ENABLED）", () => {
     // 启动成功且日志含开启状态；无 jira 行 → 无轮询器无任何动作
     const log = readSystemLog(env.AGENT_WORKSPACE as string);
     expect(log).toContain('"id":"jira-polling","enabled":true');
+    expect(log).toContain("平台启动完成");
+  }, 30_000);
+
+  it("双 true 冲突（决策 D2）：webhook 优先、jira-polling 被抑制，error 日志记录，平台继续运行", async () => {
+    const webhookPort = await freePort();
+    const env = await makeEnv("case-both-on", {
+      AGENT_WEBHOOK_PORT: String(webhookPort),
+      AGENT_ENTRY_WEBHOOK_ENABLED: "true",
+      AGENT_ENTRY_JIRA_POLLING_ENABLED: "true",
+    });
+    handle = await bootstrap({ env });
+
+    // webhook 照常监听（平台未因冲突退出）
+    const res = await waitWebhookUp(webhookPort);
+    expect(res.status).toBe(404);
+
+    const log = readSystemLog(env.AGENT_WORKSPACE as string);
+    // error 级日志记录冲突与抑制动作
+    expect(log).toContain("入口开关冲突");
+    expect(log).toContain('"suppressed":"jira-polling"');
+    // 生效状态：webhook 开、jira-polling 关（启动日志与 /api/config 同源）
+    expect(log).toContain('"id":"webhook","enabled":true');
+    expect(log).toContain('"id":"jira-polling","enabled":false');
     expect(log).toContain("平台启动完成");
   }, 30_000);
 });

@@ -254,6 +254,22 @@ export async function bootstrap(overrides?: {
       webhook: config.entry_webhook_enabled,
       "jira-polling": config.entry_jira_polling_enabled,
     };
+    // 双 true 冲突兜底（决策 D2）：webhook 是正式入口、jira-polling 是内部测试/备用拉取入口，
+    // 同时开启时抑制 jira-polling（webhook 优先），记 error 日志、继续运行；
+    // 抑制在 adapterEnabled 计算处下手 → 启动日志与 /api/config 展示的都是生效后状态
+    if (
+      adapterEnabled["webhook"] === true &&
+      adapterEnabled["jira-polling"] === true
+    ) {
+      log.error(
+        "入口开关冲突：webhook 与 jira-polling 同时开启，已抑制 jira-polling（webhook 优先）",
+        {
+          suppressed: "jira-polling",
+          hint: "将 AGENT_ENTRY_JIRA_POLLING_ENABLED 设为 false 消除此日志",
+        },
+      );
+      adapterEnabled["jira-polling"] = false;
+    }
     const switchStates = ENTRY_ADAPTERS.map((factory) => ({
       id: factory.spec.id,
       enabled: adapterEnabled[factory.spec.id] ?? factory.spec.defaultEnabled,
