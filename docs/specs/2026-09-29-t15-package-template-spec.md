@@ -190,29 +190,32 @@ export default tseslint.config(
 ```ts
 import { sdk } from "@asteriskzuo/agent-sdk";
 
-// 流程程序骨架（单轮审查工单形态）：检查 → 取数/脱敏 → 大模型 → 还原/门禁 → 唯一出口。
+// 流程程序骨架（单轮审查工单形态）：入口检查 → 取数/脱敏 → 大模型 → 出口校验 → 唯一出口。
 // 约束四条：stdin 一段 JSON 进、stdout 一段 JSON 出（sdk.return/sdk.fail）、
 // 失败语义机械（任何一步失败 = 整体失败）、日志走 sdk.log（stderr，平台采集）。
 const { event } = sdk.input();
 sdk.log("info", "run started");
 
-// 1. 检查：输入不合规 = 直接失败（不扇出、下游不触发）
-const payload = (event as { payload?: { text?: string } }).payload;
-if (!payload?.text) {
-  sdk.fail("检查未通过：缺少 payload.text");
+// 1. 入口检查（程序校验，不过大模型，确定性可测试）：输入形状不合规 = 直接失败（不扇出、下游不触发）。
+//    报错统一前缀「入口检查未通过：」，便于日志检索与按失败类型归类。
+const payload = (event as { payload?: { text?: unknown } }).payload;
+if (typeof payload?.text !== "string" || payload.text === "") {
+  sdk.fail("入口检查未通过：缺少 payload.text（非空字符串）");
 }
 
 // 2. 取数/脱敏：sdk.run('your-fetch', { input: ... }) —— 调本包或绑定包的其他子程序，按需启用
 // 3. 大模型：skills 须在包清单 skills 内（可多个、可跨绑定包）；模型凭据平台持有
 const answer = await sdk.agent({ skills: ["example"], input: payload.text });
 
-// 4. 门禁：机械校验结果，不合格 = 失败（不重做）
-if (typeof answer !== "string" || answer.length === 0) {
-  sdk.fail("门禁未通过：结果为空");
+// 4. 出口校验（程序校验，不过大模型）：对产出形状做校验，与包内 CONTRACT.md 的输出契约保持一致。
+//    校验失败的处置（直接失败 / 修正后重试）是业务内部逻辑，平台不参与；本示例演示直接失败。
+const output = { answer };
+if (typeof output.answer !== "string" || output.answer.length === 0) {
+  sdk.fail("出口校验未通过：结果为空");
 }
 
 // 5. 唯一出口：结果由平台扇出（下游关注 + 出口绑定投递），业务不做投递
-sdk.return({ answer });
+sdk.return(output);
 ```
 
 ### 4.8 skills/example/SKILL.md
@@ -251,7 +254,7 @@ function run(stdin: string): { code: number; stdout: string } {
 }
 
 describe("main 程序契约", () => {
-  it("检查未通过 → stdout ok:false + exit 1（reason 含原因）", () => {
+  it("入口检查未通过 → stdout ok:false + exit 1（reason 含原因）", () => {
     const r = run(
       JSON.stringify({
         contract_version: "v1",
@@ -262,7 +265,7 @@ describe("main 程序契约", () => {
     expect(r.code).toBe(1);
     const result = JSON.parse(r.stdout.trim().split("\n").at(-1)!);
     expect(result.ok).toBe(false);
-    expect(result.reason).toContain("检查未通过");
+    expect(result.reason).toContain("入口检查未通过");
   });
 
   it("无注入输入（空 stdin）→ 非零退出", () => {
@@ -332,3 +335,11 @@ spec 是历史记录，正文不改；以下两处已被后续批次修订，现
 
 1. **初始化脚本必带**：模板新增 `agent.materialize.mjs`（资产根，package/tool 资产物化必带；默认实现 = esbuild 转译 `src/` → `dist/`，与 `npm run build` 同产物）。物化固定流程 = clone → 清单形状校验 → npm ci（要求 package-lock.json）→ 初始化脚本 → 产物校验。详见 `docs/specs/2026-10-08-t21-platform-landability-spec.md` §4 与 `docs/decisions/2026-10-08-asset-materialization-build.md`；机制唯一定义处 `design/asset-model.md` §9。
 2. **sdk 是普通 npm 依赖**：§2/§8.3 中「运行时平台注入同名模块（esbuild bundle），包内 node_modules 的 sdk 只服务开发期类型与测试」的表述**作废**——`@asteriskzuo/agent-sdk` 从 npm registry 安装进包内 node_modules，开发与运行时用同一份代码，平台不做任何注入/bundle。包名 @asteriskzuo/* 的作用域更名见 `docs/decisions/2026-10-08-package-scope-rename.md`。开发者完整文档 = `packages/sdk/README.md`。
+
+## 10. 修订注记（2026-11-02，契约化批次）
+
+spec 是历史记录，正文不改；以下结构已被后续设计取代，现行口径以 `docs/designs/2026-11-02-business-io-contract.md` 与模板 README 为准：
+
+1. **包结构整体演进**：模板从 `src/programs/main.ts` 单程序改为 `apps/`（可执行程序：`main` / `check-input` / `check-output` / 包内工具）+ `packages/`（库代码，含通用契约校验器）+ 资产根 `contract.json`（输入/输出契约，必选，机读）的布局；`agent-package.json` 的 programs 相应指向 `dist/apps/*/index.js`，其中 `check-input` / `check-output` 为平台三段编排的保留程序名（设计文档 §4/§5）。
+2. **报错前缀约定退役**：2026-11-02 上午曾把 §4.7/§4.9 的引用代码措辞同步为「入口检查未通过：/ 出口校验未通过：」；同日下午结构升级后，失败分类改由平台编排结构保证（`RunOutcome.failed_at`），文字前缀不再承担分类职责。
+3. **通用契约校验器归属 SDK（2026-11-02 晚，决策 D8）**：上条所称 packages/ 里的通用契约校验器不进模板逐包复制，改由 `@asteriskzuo/agent-sdk` ≥0.3.0 导出（`loadContract` / `checkFields` / 类型），模板 check 程序为调用 SDK 的薄壳；`contract.json` 顶层必含 `"version": 1`（物化闸拒绝未知版本）；SDK 同批 additive 增 `RunInput.output`（check-output 读主程序产出）。

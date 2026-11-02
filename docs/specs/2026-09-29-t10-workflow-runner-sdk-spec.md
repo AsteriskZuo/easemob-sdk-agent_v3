@@ -248,7 +248,7 @@ type ServiceResponse =
 
 1. 成功：fixture `sdk.input()` 回显 + `sdk.return({...})` → outcome success、output 一致、工作区目录按三维路径创建、cwd 是工作区（fixture 回显 process.cwd() 断言）；
 2. stdin 注入：config/secrets/endpoint 经 `sdk.config()/secret()` 回显一致；
-3. 业务失败：fixture `sdk.fail('门禁未通过')` → outcome failed、reason 含原因；
+3. 业务失败：fixture `sdk.fail('出口校验未通过')` → outcome failed、reason 含原因；
 4. 异常退出：fixture 抛异常（exit 非零、无合法结果）→ failed、reason 含 exit code；
 5. 超时：fixture sleep 长于 quota（注入 0.001 分钟级小值或直接用秒级构造）→ timeout、进程已被杀（无残留）；
 6. 输出上限：fixture 写超大 stdout（maxOutputBytes 注入小值如 1024）→ failed('output too large')；
@@ -289,3 +289,12 @@ type ServiceResponse =
 - **E. stdout 只认第一个合法结果 + 全程字节上限**：协议污染与垃圾输出的机械边界（防线三）。
 - **F. RunOutcome 独立于 scheduler.ExecutionResult**：runner 不依赖 scheduler 包（防循环、保层次），两者映射（含 usage）归装配根。
 - **G. `secrets` 只随平台→流程注入**：sdk.run 不向子程序传 secrets（子程序需要的凭据由流程程序显式放进 args.config——业务自觉，平台不替它扩散密钥）。
+
+## 10. 修订注记（2026-11-02，契约化批次）
+
+spec 是历史记录，正文不改；以下契约已被后续设计扩展，现行口径以 `docs/designs/2026-11-02-business-io-contract.md` 为准：
+
+1. **runner 三段编排**：一次 run = check-input → 主程序 → check-output 三个阶段（同一 run_id / 工作区 / 业务日志）；`RunOutcome` 增 `failed_at`（check-input / main / check-output）供失败分类；check 阶段固定超时（平台常量）且失败即终，check-output 失败则产出不扇出（设计文档 §5）。
+2. **StdinEnvelope 扩展**：增可选 `output` 字段——仅 check-output 阶段注入（= 主程序产出），供后置校验对照；SDK 侧 `RunInput` 增对应只读读口。check 两阶段采用最小注入（不含 secrets / endpoint / programs / dataDir），结构性落实"校验程序纯校验（不取数、不过大模型、无副作用、不做转换）"纪律。
+3. **兼容**：资产缺 `check-input` / `check-output` 程序（旧 pin）时 runner 跳过对应阶段，行为同现状；新登记/更新资产由物化与绑定双闸强制（设计文档 §6）。
+4. **check 阶段细化（2026-11-02 晚，决策 D8）**：`input: null` → runner 跳过 check-input 阶段（记 skip 日志）；`output: null` → check-output 仍执行，stdout 结果行 `output` 键缺失或值为 null 即视为空产出；逃生门（业务自写 check 程序）与通用校验器同约束（最小注入 / 仅 node / 60s 固定超时 / 纯本地判定）；check 程序对工作区只读（约定不强制）；runner 运行期读工作区 contract.json 判定跳过——缺失或解析失败 = 旧资产路径，跳过两个 check 阶段（记 warn）。控制台 run 详情最小呈现：失败时 `failed_at` 徽标 + reason 截断，成功 run 无阶段信息。
