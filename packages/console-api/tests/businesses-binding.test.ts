@@ -33,17 +33,25 @@ afterAll(async () => {
   resetTestLogger();
 });
 
-/** 包清单：2 个 programs + requires（tool 名 do、skill 名 alpha）；
+/** 包清单：programs（含两个平台编排保留名）+ requires（tool 名 do、skill 名 alpha）+ contract.json；
  *  附必带的 agent.materialize.mjs（产物已随仓库提交，空脚本） */
 function pkgFiles(): Record<string, string> {
   return {
     "agent-package.json": JSON.stringify({
       name: "biz-pkg",
-      programs: { main: "src/main.js", helper: "src/helper.js" },
+      programs: {
+        main: "src/main.js",
+        helper: "src/helper.js",
+        "check-input": "src/check-input.js",
+        "check-output": "src/check-output.js",
+      },
       requires: { tools: ["do"], skills: ["alpha"] },
     }),
     "src/main.js": "console.log('main');",
     "src/helper.js": "console.log('helper');",
+    "src/check-input.js": "console.log('check-input');",
+    "src/check-output.js": "console.log('check-output');",
+    "contract.json": JSON.stringify({ version: 1, input: null, output: null }),
     "agent.materialize.mjs": "// 测试 fixture：产物已随仓库提交，无需构建\n",
   };
 }

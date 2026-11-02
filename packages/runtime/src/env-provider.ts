@@ -40,6 +40,8 @@ export interface EnvProvider {
 
 // 迁移 module 'runtime'：env_entries（两桶）+ lifecycles（打标表，Lifecycle 侧用，§5.2）。
 // secrets 第一版明文存 platform.db（部署层靠文件权限保护）；纪律：不明文回显、不进日志
+// v2 追加 lifecycles.failed_at：run 失败阶段分类（check-input/main/check-output，契约设计 §5）；
+// 历史行 = NULL（契约机制前的 run，控制台按"无阶段信息"展示）
 const MIGRATIONS: readonly string[] = [
   `CREATE TABLE env_entries (
      scope TEXT NOT NULL,
@@ -58,6 +60,7 @@ const MIGRATIONS: readonly string[] = [
      created_at TEXT NOT NULL,
      finished_at TEXT
    );`,
+  `ALTER TABLE lifecycles ADD COLUMN failed_at TEXT;`,
 ];
 
 /** runtime 模块 schema 迁移入口（EnvProvider 与 LifecycleStore 共用，幂等） */

@@ -71,9 +71,22 @@ describe("POST /api/assets 登记", () => {
   });
 
   it("is_private credential_key 未在通用安全桶登记 → 400；登记凭据后 → 201", async () => {
-    // 登记即校验：subpath 须指向含清单+初始化脚本的合法包目录
+    // 登记即校验：subpath 须指向含清单+初始化脚本的合法包目录（契约闸口径：contract.json + 保留程序名）
     const subRepo = makeRepo(server.tmpDir, {
-      "sub/agent-package.json": JSON.stringify({ name: "sub-demo" }),
+      "sub/agent-package.json": JSON.stringify({
+        name: "sub-demo",
+        programs: {
+          "check-input": "check-input.js",
+          "check-output": "check-output.js",
+        },
+      }),
+      "sub/check-input.js": "console.log('check-input');",
+      "sub/check-output.js": "console.log('check-output');",
+      "sub/contract.json": JSON.stringify({
+        version: 1,
+        input: null,
+        output: null,
+      }),
       "sub/agent.materialize.mjs": "// 测试 fixture：无需构建\n",
     });
     const body = {

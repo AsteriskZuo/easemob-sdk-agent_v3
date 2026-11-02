@@ -14,6 +14,9 @@ export interface LifecycleRecord {
   status: LifecycleStatus; // 业务标记
   created_at: string; // 执行开始（ISO）
   finished_at?: string; // 执行完结（ISO；running 时无）
+  /** 失败阶段分类（check-input/main/check-output，契约设计 §5 三段编排）；
+   *  仅失败的 run 有值；契约机制前的历史 run / 平台自身错误（runner 抛错）无此字段 */
+  failed_at?: string;
 }
 
 /** 打标读口（控制台任务监控用；最小集） */
@@ -33,10 +36,11 @@ export interface LifecycleWriter {
     channel_id: string;
     created_at: string;
   }): void;
-  /** 终态打标：status + finished_at */
+  /** 终态打标：status + finished_at（+ 失败阶段分类 failed_at，成功/平台错误无） */
   markTerminal(
     lifecycle_id: string,
     status: "success" | "failed" | "timeout",
+    failed_at?: string,
   ): void;
 }
 
@@ -48,6 +52,7 @@ interface LifecycleRow {
   status: string;
   created_at: string;
   finished_at: string | null;
+  failed_at: string | null;
 }
 
 function rowToRecord(row: LifecycleRow): LifecycleRecord {
@@ -60,6 +65,7 @@ function rowToRecord(row: LifecycleRow): LifecycleRecord {
     created_at: row.created_at,
   };
   if (row.finished_at !== null) record.finished_at = row.finished_at;
+  if (row.failed_at !== null) record.failed_at = row.failed_at;
   return record;
 }
 
@@ -83,16 +89,16 @@ export function createLifecycleStore(
       );
     },
 
-    markTerminal(lifecycle_id, status): void {
+    markTerminal(lifecycle_id, status, failed_at): void {
       db.run(
-        "UPDATE lifecycles SET status = ?, finished_at = ? WHERE lifecycle_id = ?",
-        [status, new Date().toISOString(), lifecycle_id],
+        "UPDATE lifecycles SET status = ?, finished_at = ?, failed_at = ? WHERE lifecycle_id = ?",
+        [status, new Date().toISOString(), failed_at ?? null, lifecycle_id],
       );
     },
 
     listByBusiness(business_id: string, limit = 50): LifecycleRecord[] {
       const rows = db.all<LifecycleRow>(
-        "SELECT lifecycle_id, business_id, event_id, channel_id, status, created_at, finished_at FROM lifecycles WHERE business_id = ? ORDER BY created_at DESC LIMIT ?",
+        "SELECT lifecycle_id, business_id, event_id, channel_id, status, created_at, finished_at, failed_at FROM lifecycles WHERE business_id = ? ORDER BY created_at DESC LIMIT ?",
         [business_id, limit],
       );
       return rows.map(rowToRecord);
@@ -100,7 +106,7 @@ export function createLifecycleStore(
 
     get(lifecycle_id: string): LifecycleRecord | undefined {
       const row = db.get<LifecycleRow>(
-        "SELECT lifecycle_id, business_id, event_id, channel_id, status, created_at, finished_at FROM lifecycles WHERE lifecycle_id = ?",
+        "SELECT lifecycle_id, business_id, event_id, channel_id, status, created_at, finished_at, failed_at FROM lifecycles WHERE lifecycle_id = ?",
         [lifecycle_id],
       );
       return row ? rowToRecord(row) : undefined;

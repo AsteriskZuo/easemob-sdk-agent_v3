@@ -517,6 +517,19 @@ describe("sdk.run", () => {
     expect(result.reason).toContain("子任务拒绝");
   });
 
+  it("子程序无产出（无参 return，结果行缺 output 键）→ 归一为 null，不判 missing result", async () => {
+    const r = await runFixture("run-parent.js", {
+      stdin: makeEnvelope({
+        programs: { ...PROGRAMS, empty: fixturePath("run-child-no-output.js") },
+        input: { child: "empty", args: { input: null } },
+      }),
+    });
+    expect(r.code).toBe(0);
+    const result = parseResult(r.stdout);
+    expect(result.ok).toBe(true);
+    expect((result.output as any).runOut).toBeNull();
+  });
+
   it("子程序超时（timeout_ms 小值）→ 抛错", async () => {
     const r = await runFixture("run-parent.js", {
       stdin: makeEnvelope({

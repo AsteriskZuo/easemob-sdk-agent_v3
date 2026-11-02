@@ -13,6 +13,9 @@ yarn.lock
 *.log
 *.tsbuildinfo
 
+# 测试 fixture：故意损坏的 JSON（runner 容错路径用），不可被格式化修正
+packages/workflow-runner/tests/fixtures/pkg-bad-contract/contract.json
+
 # 存量文档不做格式化（docs/ 由人工维护，禁止改动）
 docs
 AGENTS.md

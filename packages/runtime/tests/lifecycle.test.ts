@@ -264,6 +264,29 @@ describe("打标", () => {
     expect(record?.finished_at).toBeDefined();
   });
 
+  it("runner 返回 failed + failed_at → 打标带失败阶段分类；成功 run 无 failed_at", async () => {
+    const { recorder, lifecycle } = makeStubs({
+      outcome: {
+        status: "failed",
+        output: undefined,
+        reason: "输入不合规：缺少必填字段 payload.issue_key",
+        failed_at: "check-input",
+      },
+    });
+    await lifecycle.execute(makeTask(), makeWatcher());
+    const store = createLifecycleStore(db);
+    const record = store.get(recorder.runArg!.run_id!);
+    expect(record?.status).toBe("failed");
+    expect(record?.failed_at).toBe("check-input");
+
+    // 成功路径：failed_at 不落库（undefined → NULL）
+    const ok = makeStubs();
+    await ok.lifecycle.execute(makeTask(), makeWatcher());
+    const okRecord = store.get(ok.recorder.runArg!.run_id!);
+    expect(okRecord?.status).toBe("success");
+    expect(okRecord?.failed_at).toBeUndefined();
+  });
+
   it("loader 抛错 → 打标 failed 且错误原样上抛", async () => {
     const { lifecycle } = makeStubs({
       loadImpl: (business_id) => {

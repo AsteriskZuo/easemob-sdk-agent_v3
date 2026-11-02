@@ -481,13 +481,20 @@ export function makeRepo(
 }
 
 /** 合法 package 仓库的清单文件集合（物化纪律：package/tool 必带 agent.materialize.mjs；
- *  本 fixture 产物已随仓库提交，用空脚本） */
+ *  契约闸口径：contract.json + 两个保留程序名齐备；本 fixture 产物已随仓库提交，用空脚本） */
 export const PKG_FILES: Record<string, string> = {
   "agent-package.json": JSON.stringify({
     name: "demo",
     version: "1.0.0",
-    programs: { main: "src/main.js" },
+    programs: {
+      main: "src/main.js",
+      "check-input": "src/check-input.js",
+      "check-output": "src/check-output.js",
+    },
   }),
   "src/main.js": "console.log('hi');",
+  "src/check-input.js": "console.log('check-input');",
+  "src/check-output.js": "console.log('check-output');",
+  "contract.json": JSON.stringify({ version: 1, input: null, output: null }),
   "agent.materialize.mjs": "// 测试 fixture：产物已随仓库提交，无需构建\n",
 };

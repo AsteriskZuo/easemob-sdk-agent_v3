@@ -53,7 +53,24 @@ function makeAssetRepo(): string {
     JSON.stringify({
       name: "integration-test-pkg",
       version: "0.1.0",
-      programs: { main: "programs/main.js" },
+      programs: {
+        main: "programs/main.js",
+        "check-input": "programs/check-input.js",
+        "check-output": "programs/check-output.js",
+      },
+    }),
+  );
+  // 契约（物化闸强制）：入口要求 payload 对象，出口要求 echo 键（与下方 main/check 程序的行为互相对应）
+  writeFileSync(
+    join(repoDir, "contract.json"),
+    JSON.stringify({
+      version: 1,
+      input: {
+        fields: [{ path: "payload", type: "object", required: true }],
+      },
+      output: {
+        fields: [{ path: "echo", type: "object", required: true }],
+      },
     }),
   );
   // 流程程序 fixture：读 stdin 信封，stdout 输出一行契约结果
@@ -74,7 +91,44 @@ process.stdin.on("end", () => {
 });
 `,
   );
-  // 业务初始化脚本（物化纪律：package 资产必带）：产物 programs/main.js 已随仓库提交，无需构建
+  // 入口检查 fixture（平台三段编排阶段 1）：断言最小注入（无 secrets/endpoint/programs/dataDir）后放行
+  writeFileSync(
+    join(repoDir, "programs", "check-input.js"),
+    `let buf = "";
+process.stdin.on("data", (chunk) => { buf += chunk; });
+process.stdin.on("end", () => {
+  const envelope = JSON.parse(buf);
+  const forbidden = ["secrets", "endpoint", "programs", "dataDir"].filter((k) => k in envelope);
+  if (forbidden.length > 0) {
+    process.stdout.write(JSON.stringify({
+      contract_version: "v1",
+      ok: false,
+      reason: "最小注入被破坏: " + forbidden.join(","),
+    }));
+    return;
+  }
+  process.stdout.write(JSON.stringify({ contract_version: "v1", ok: true, output: {} }));
+});
+`,
+  );
+  // 出口校验 fixture（阶段 3）：校验主程序产出注入（output.echo 存在）后放行
+  writeFileSync(
+    join(repoDir, "programs", "check-output.js"),
+    `let buf = "";
+process.stdin.on("data", (chunk) => { buf += chunk; });
+process.stdin.on("end", () => {
+  const envelope = JSON.parse(buf);
+  const out = envelope.output;
+  const pass = out !== null && typeof out === "object" && "echo" in out;
+  process.stdout.write(JSON.stringify(
+    pass
+      ? { contract_version: "v1", ok: true, output: {} }
+      : { contract_version: "v1", ok: false, reason: "产出不符合契约" },
+  ));
+});
+`,
+  );
+  // 业务初始化脚本（物化纪律：package 资产必带）：产物 programs/*.js 已随仓库提交，无需构建
   writeFileSync(
     join(repoDir, "agent.materialize.mjs"),
     "// 集成测试 fixture：产物已随仓库提交，无需构建\n",

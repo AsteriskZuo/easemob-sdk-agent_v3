@@ -76,10 +76,18 @@ const NOOP_MATERIALIZE = "// 测试 fixture：产物已随仓库提交，无需�
 const PKG_FILES: Record<string, string> = {
   "agent-package.json": JSON.stringify({
     name: "demo",
-    programs: { main: "src/main.js", helper: "src/helper.js" },
+    programs: {
+      main: "src/main.js",
+      helper: "src/helper.js",
+      "check-input": "src/check-input.js",
+      "check-output": "src/check-output.js",
+    },
   }),
   "src/main.js": "console.log('hi');",
   "src/helper.js": "console.log('helper');",
+  "src/check-input.js": "console.log('check-input');",
+  "src/check-output.js": "console.log('check-output');",
+  "contract.json": JSON.stringify({ version: 1, input: null, output: null }),
   "agent.materialize.mjs": NOOP_MATERIALIZE,
 };
 
@@ -182,6 +190,8 @@ describe("全链路组装", () => {
     expect(ctx.programs).toEqual({
       main: join(pkgRoot, "src/main.js"),
       helper: join(pkgRoot, "src/helper.js"),
+      "check-input": join(pkgRoot, "src/check-input.js"),
+      "check-output": join(pkgRoot, "src/check-output.js"),
       do: join(toolRoot, "do.js"),
     });
     for (const p of Object.values(ctx.programs)) {

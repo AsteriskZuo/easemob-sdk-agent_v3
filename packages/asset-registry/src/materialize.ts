@@ -8,7 +8,11 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { cloneAtCommit } from "./git.js";
-import { assertProgramsBuilt, validateAssetShape } from "./validate.js";
+import {
+  assertContractGate,
+  assertProgramsBuilt,
+  validateAssetShape,
+} from "./validate.js";
 import type { AssetKind, AssetManifest } from "./validate.js";
 
 /** npm ci / 业务初始化脚本的子进程超时（spec §4.3/§4.4：各 10 分钟） */
@@ -139,6 +143,9 @@ export function materializeFromGit(opts: MaterializeGitOptions): string {
     const kind = opts.kind ?? detectKind(assetRoot);
     // 构建前只验清单形状：programs 指向的是构建产物，存在性此时尚不成立
     const manifest: AssetManifest = validateAssetShape(assetRoot, kind);
+    // 契约闸（仅 package）：contract.json 存在+形状合法、programs 含两个保留名。
+    // 构建前失败可省去 npm ci；旧结构资产只在重新物化时被拦（缓存命中不经过这里，软迁移语义）
+    assertContractGate(assetRoot, manifest);
     if (kind !== "skill") {
       // skill 资产（纯文档）不构建；package/tool 必走 npm ci（有 package.json 时）+ 初始化脚本
       buildAsset(assetRoot, opts.npmRegistry);

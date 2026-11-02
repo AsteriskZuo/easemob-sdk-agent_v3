@@ -7,5 +7,6 @@ export {
   validateAsset,
   validateAssetShape,
   assertProgramsBuilt,
+  assertContractGate,
 } from "./validate.js";
 export type { AssetKind, AssetManifest } from "./validate.js";

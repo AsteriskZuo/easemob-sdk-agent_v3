@@ -222,3 +222,120 @@ export function validateAsset(
   assertProgramsBuilt(assetRoot, manifest);
   return manifest;
 }
+
+// ─── 契约闸（契约设计 §6：package 类资产的物化强制） ───
+
+// 类型词表与 SDK 运行期校验器（packages/sdk/src/contract.ts）同一份冻结语义（v1，设计 §4.3）：
+// 两处机械重复是有意的——asset-registry 不反向依赖业务侧 SDK；schema 演进走 contract.json 顶层 version 升号
+const CONTRACT_TYPE_WORDS = new Set([
+  "string",
+  "number",
+  "boolean",
+  "object",
+  "array",
+]);
+
+/** 类型词合法性：五个基词或 `<词>[]`（可叠层，如 string[][]） */
+function isValidContractTypeWord(type: unknown): boolean {
+  if (typeof type !== "string" || type === "") return false;
+  if (type.endsWith("[]")) return isValidContractTypeWord(type.slice(0, -2));
+  return CONTRACT_TYPE_WORDS.has(type);
+}
+
+/** 校验 contract 一侧（input/output）的字段声明形状，问题追加进 problems */
+function lintContractSide(
+  side: unknown,
+  name: "input" | "output",
+  problems: string[],
+): void {
+  if (side === null) return; // 显式 null = 无约束/无产出（合法）
+  if (!isPlainObject(side) || !Array.isArray(side.fields)) {
+    problems.push(`contract.json ${name} 必须是 null 或 { fields: [...] }`);
+    return;
+  }
+  for (const [index, field] of (side.fields as unknown[]).entries()) {
+    const at = `contract.json ${name}.fields[${index}]`;
+    if (!isPlainObject(field)) {
+      problems.push(`${at} 必须是对象`);
+      continue;
+    }
+    if (typeof field.path !== "string" || field.path === "") {
+      problems.push(`${at}.path 必须是非空字符串`);
+    }
+    if (!isValidContractTypeWord(field.type)) {
+      problems.push(
+        `${at}.type 非法：${JSON.stringify(field.type)}（词表：string/number/boolean/object/array/T[]）`,
+      );
+    }
+    if (field.required !== undefined && typeof field.required !== "boolean") {
+      problems.push(`${at}.required 必须是布尔值`);
+    }
+    if (field.desc !== undefined && typeof field.desc !== "string") {
+      problems.push(`${at}.desc 必须是字符串`);
+    }
+  }
+}
+
+/** 契约闸（物化强制，仅 package 类资产；tool/skill 非编排单元不适用）：
+ *  ① programs 含 check-input / check-output 两个平台编排保留名（产物存在性归构建后 assertProgramsBuilt）；
+ *  ② contract.json 存在于资产根且形状合法（version===1——未知版本拒绝；input/output 显式给出，null 或字段声明）。
+ *  问题逐条收集、一次失败全部列出（validation_failed）。构建前调用（contract.json 与程序名是构建前事实，失败可省去构建） */
+export function assertContractGate(
+  assetRoot: string,
+  manifest: AssetManifest,
+): void {
+  if (manifest.kind !== "package") return;
+
+  const problems: string[] = [];
+  for (const name of ["check-input", "check-output"] as const) {
+    if (!(name in manifest.programs)) {
+      problems.push(`programs 缺平台编排保留程序名：${name}`);
+    }
+  }
+
+  const contractPath = path.join(assetRoot, "contract.json");
+  let raw: string | null = null;
+  try {
+    raw = readFileSync(contractPath, "utf8");
+  } catch {
+    problems.push("contract.json 不存在于资产根或不可读");
+  }
+  if (raw !== null) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      problems.push("contract.json 不是合法 JSON");
+      parsed = undefined;
+    }
+    if (parsed !== undefined) {
+      if (!isPlainObject(parsed)) {
+        problems.push("contract.json 顶层必须是 JSON 对象");
+      } else {
+        if (parsed.version !== 1) {
+          problems.push(
+            "contract.json version 缺失或不是 1（未知版本平台无法解释）",
+          );
+        }
+        if (!("input" in parsed)) {
+          problems.push(
+            "contract.json 缺少 input 节（无输入约束也要显式写 null）",
+          );
+        } else {
+          lintContractSide(parsed.input, "input", problems);
+        }
+        if (!("output" in parsed)) {
+          problems.push(
+            "contract.json 缺少 output 节（无产出也要显式写 null）",
+          );
+        } else {
+          lintContractSide(parsed.output, "output", problems);
+        }
+      }
+    }
+  }
+
+  if (problems.length > 0) {
+    fail(`契约闸未通过：\n- ${problems.join("\n- ")}`);
+  }
+}

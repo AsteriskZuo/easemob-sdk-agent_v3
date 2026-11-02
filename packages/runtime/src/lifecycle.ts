@@ -135,7 +135,7 @@ export function createLifecycle(deps: LifecycleDeps): EntryDriver {
       }
 
       // runner 返回 failed/timeout 不抛错（EntryDriver 契约：业务失败返回而非抛）
-      store.markTerminal(run_id, outcome.status);
+      store.markTerminal(run_id, outcome.status, outcome.failed_at);
       if (outcome.status === "success") {
         log.info("run 终态", {
           status: outcome.status,
@@ -145,6 +145,9 @@ export function createLifecycle(deps: LifecycleDeps): EntryDriver {
         log.warn("run 终态", {
           status: outcome.status,
           reason: outcome.reason,
+          ...(outcome.failed_at !== undefined
+            ? { failed_at: outcome.failed_at }
+            : {}),
           event_id: task.event.event_id,
         });
       }

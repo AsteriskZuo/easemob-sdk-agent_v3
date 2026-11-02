@@ -240,3 +240,145 @@ describe("WorkflowRunner", () => {
     expect(existsSync(join(root, "runs"))).toBe(false);
   });
 });
+
+describe("三段编排（契约检查）", () => {
+  /** 指定 fixture 包目录的保留名 programs 映射（平铺布局：check-*.js 直接位于包根，contract.json 同级） */
+  function pkgPrograms(pkg: string): Record<string, string> {
+    return {
+      "check-input": fixturePath(`${pkg}/check-input.js`),
+      "check-output": fixturePath(`${pkg}/check-output.js`),
+    };
+  }
+
+  /** 读该 run 的业务日志全文（断言跳过/警告日志用） */
+  function readRunLog(root: string): string {
+    const logsDir = logsRootOf(root);
+    const logFiles = readdirSync(logsDir);
+    expect(logFiles).toHaveLength(1);
+    return readFileSync(join(logsDir, logFiles[0]), "utf8");
+  }
+
+  it("13. 三段成功：check-input 过（最小注入，无 secrets/endpoint/programs/dataDir）→ main → check-output 收到产出", async () => {
+    const { runner } = setup();
+    // 多层嵌套布局：check 程序在 pkg-full/apps/<name>/index.js，contract.json 在两级之上的包根（验证近端祖先定位）
+    const outcome = await runner.run(
+      makeReq("return-content.js", {
+        programs: {
+          "check-input": fixturePath("pkg-full/apps/check-input/index.js"),
+          "check-output": fixturePath("pkg-full/apps/check-output/index.js"),
+        },
+      }),
+    );
+    expect(outcome.status).toBe("success");
+    expect(outcome.failed_at).toBeUndefined();
+    expect(outcome.output).toEqual({ content: "正文内容" });
+  });
+
+  it("14. check-input 失败 → run 失败 failed_at=check-input，不进 main", async () => {
+    const { runner } = setup();
+    const outcome = await runner.run(
+      makeReq("return-content.js", { programs: pkgPrograms("pkg-input-fail") }),
+    );
+    expect(outcome.status).toBe("failed");
+    expect(outcome.failed_at).toBe("check-input");
+    expect(outcome.reason).toContain("缺少必填字段 payload.issue_key");
+  });
+
+  it("15. check-output 失败 → run 失败 failed_at=check-output，产出不扇出", async () => {
+    const { runner } = setup();
+    // 契约要求 content 非空，但 main 产出为空（结果行缺 output 键）
+    const outcome = await runner.run(
+      makeReq("return-empty.js", {
+        programs: {
+          "check-input": fixturePath("pkg-full/apps/check-input/index.js"),
+          "check-output": fixturePath("pkg-full/apps/check-output/index.js"),
+        },
+      }),
+    );
+    expect(outcome.status).toBe("failed");
+    expect(outcome.failed_at).toBe("check-output");
+    expect(outcome.reason).toContain("产出不符合契约");
+    expect(outcome.output).toBeUndefined();
+  });
+
+  it("16. 契约 input:null → 跳过 check-input（即使该程序会失败），main 与 check-output 照常", async () => {
+    const { root, runner } = setup();
+    const outcome = await runner.run(
+      makeReq("return-content.js", { programs: pkgPrograms("pkg-input-null") }),
+    );
+    expect(outcome.status).toBe("success");
+    expect(outcome.output).toEqual({ content: "正文内容" });
+    expect(readRunLog(root)).toContain("跳过 check-input 阶段");
+  });
+
+  it("17. 契约 output:null + main 空产出（结果行缺 output 键）→ 成功，产出归一为 null", async () => {
+    const { runner } = setup();
+    const outcome = await runner.run(
+      makeReq("return-empty.js", {
+        programs: pkgPrograms("pkg-output-null"),
+      }),
+    );
+    expect(outcome.status).toBe("success");
+    expect(outcome.output).toBeNull();
+  });
+
+  it("18. 契约 output:null + main 非空产出 → check-output 失败 failed_at=check-output", async () => {
+    const { runner } = setup();
+    const outcome = await runner.run(
+      makeReq("return-content.js", {
+        programs: pkgPrograms("pkg-output-null"),
+      }),
+    );
+    expect(outcome.status).toBe("failed");
+    expect(outcome.failed_at).toBe("check-output");
+    expect(outcome.reason).toContain("实际产出了非空值");
+  });
+
+  it("19. main 失败 → failed_at=main（check-input 已通过）", async () => {
+    const { runner } = setup();
+    const outcome = await runner.run(
+      makeReq("biz-fail.js", {
+        programs: {
+          "check-input": fixturePath("pkg-full/apps/check-input/index.js"),
+          "check-output": fixturePath("pkg-full/apps/check-output/index.js"),
+        },
+      }),
+    );
+    expect(outcome.status).toBe("failed");
+    expect(outcome.failed_at).toBe("main");
+    expect(outcome.reason).toContain("业务处理失败");
+  });
+
+  it("20. 有 check 程序但无 contract.json → 按旧结构资产跳过两个 check 阶段（记 warn）", async () => {
+    const { root, runner } = setup();
+    const outcome = await runner.run(
+      makeReq("return-content.js", {
+        programs: pkgPrograms("pkg-no-contract"),
+      }),
+    );
+    expect(outcome.status).toBe("success");
+    expect(outcome.output).toEqual({ content: "正文内容" });
+    expect(readRunLog(root)).toContain("未找到 contract.json");
+  });
+
+  it("21. contract.json 非法 JSON → 按旧结构资产跳过两个 check 阶段（记 warn）", async () => {
+    const { root, runner } = setup();
+    const outcome = await runner.run(
+      makeReq("return-content.js", {
+        programs: pkgPrograms("pkg-bad-contract"),
+      }),
+    );
+    expect(outcome.status).toBe("success");
+    expect(readRunLog(root)).toContain("读取/解析失败");
+  });
+
+  it("22. check 阶段超时（60s 平台常量，测试注入小值）→ run 失败 failed_at=check-input", async () => {
+    const { runner } = setup({ checkTimeoutMs: 200, killGraceMs: 50 });
+    const outcome = await runner.run(
+      makeReq("return-content.js", { programs: pkgPrograms("pkg-sleep") }),
+    );
+    expect(outcome.status).toBe("failed");
+    expect(outcome.failed_at).toBe("check-input");
+    expect(outcome.reason).toContain("timeout after 200ms");
+  }, 15000);
+});

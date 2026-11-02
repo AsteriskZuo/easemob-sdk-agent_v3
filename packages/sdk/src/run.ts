@@ -19,8 +19,14 @@ function parseStdoutResult(line: string): StdoutResult | null {
     return null;
   }
   if (!isPlainObject(parsed) || parsed.contract_version !== "v1") return null;
-  if (parsed.ok === true && "output" in parsed) {
-    return { contract_version: "v1", ok: true, output: parsed.output };
+  // ok=true 允许缺 output 键：无参 sdk.return 时 JSON.stringify 丢弃 undefined 键，
+  // 与 output: null 同义（空产出），解析时归一为 null（与 runner 侧同一判定）
+  if (parsed.ok === true) {
+    return {
+      contract_version: "v1",
+      ok: true,
+      output: "output" in parsed ? parsed.output : null,
+    };
   }
   if (parsed.ok === false && typeof parsed.reason === "string") {
     return { contract_version: "v1", ok: false, reason: parsed.reason };

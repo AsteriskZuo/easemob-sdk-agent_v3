@@ -66,14 +66,21 @@ function makeRepo(files: Record<string, string>): {
 const NOOP_MATERIALIZE_SCRIPT =
   "// 测试 fixture：产物已随仓库提交，无需构建（物化纪律：package/tool 必带 agent.materialize.mjs）\n";
 
-/** 合法 package/tool 仓库的清单文件集合 */
+/** 合法 package 仓库的清单文件集合（契约闸口径：contract.json + 两个保留程序名齐备） */
 const PKG_FILES: Record<string, string> = {
   "agent-package.json": JSON.stringify({
     name: "demo",
     version: "1.0.0",
-    programs: { main: "src/main.js" },
+    programs: {
+      main: "src/main.js",
+      "check-input": "src/check-input.js",
+      "check-output": "src/check-output.js",
+    },
   }),
   "src/main.js": "console.log('hi');",
+  "src/check-input.js": "console.log('check-input');",
+  "src/check-output.js": "console.log('check-output');",
+  "contract.json": JSON.stringify({ version: 1, input: null, output: null }),
   "agent.materialize.mjs": NOOP_MATERIALIZE_SCRIPT,
 };
 
@@ -519,7 +526,11 @@ describe("get", () => {
       kind: "package",
       name: "demo",
       version: "1.0.0",
-      programs: { main: "src/main.js" },
+      programs: {
+        main: "src/main.js",
+        "check-input": "src/check-input.js",
+        "check-output": "src/check-output.js",
+      },
       requires: { tools: [], skills: [] },
     });
   });
@@ -590,7 +601,22 @@ describe("materialize", () => {
 
   it("带 subpath 时返回子路径", () => {
     const repo = makeRepo({
-      "sub/agent-package.json": JSON.stringify({ name: "sub-pkg" }),
+      "sub/agent-package.json": JSON.stringify({
+        name: "sub-pkg",
+        programs: {
+          main: "main.js",
+          "check-input": "check-input.js",
+          "check-output": "check-output.js",
+        },
+      }),
+      "sub/main.js": "console.log('main');",
+      "sub/check-input.js": "console.log('check-input');",
+      "sub/check-output.js": "console.log('check-output');",
+      "sub/contract.json": JSON.stringify({
+        version: 1,
+        input: null,
+        output: null,
+      }),
       "sub/agent.materialize.mjs": NOOP_MATERIALIZE_SCRIPT,
       "readme.md": "root",
     });
@@ -612,7 +638,20 @@ describe("materialize", () => {
     const repo = makeRepo({
       "agent-package.json": JSON.stringify({
         name: "broken",
-        programs: { main: "nope.js", other: "absent/x.js" },
+        programs: {
+          main: "nope.js",
+          other: "absent/x.js",
+          "check-input": "check-input.js",
+          "check-output": "check-output.js",
+        },
+      }),
+      // 保留程序产物齐备（契约闸放行），失败只来自 main/other 的产物缺失
+      "check-input.js": "console.log('check-input');",
+      "check-output.js": "console.log('check-output');",
+      "contract.json": JSON.stringify({
+        version: 1,
+        input: null,
+        output: null,
       }),
       "agent.materialize.mjs": NOOP_MATERIALIZE_SCRIPT,
     });
@@ -693,18 +732,29 @@ describe("物化构建链路（npm ci + 业务初始化脚本 + 产物校验）"
     }),
   };
 
-  /** 纯 node 初始化脚本：造 dist 产物（不依赖 esbuild） */
+  /** 纯 node 初始化脚本：造 dist 产物（不依赖 esbuild；apps/<name>/ 布局对齐包模板） */
   const BUILD_SCRIPT = `
 import { mkdirSync, writeFileSync } from "node:fs";
-mkdirSync("dist/programs", { recursive: true });
-writeFileSync("dist/programs/main.js", "console.log('built');\\n");
+for (const name of ["main", "check-input", "check-output"]) {
+  mkdirSync("dist/apps/" + name, { recursive: true });
+  writeFileSync("dist/apps/" + name + "/index.js", "console.log('built');\\n");
+}
 `;
 
   it("package 资产全链路：npm ci 跑过 + 初始化脚本产出 dist + 产物校验通过", () => {
     const repo = makeRepo({
       "agent-package.json": JSON.stringify({
         name: "build-me",
-        programs: { main: "dist/programs/main.js" },
+        programs: {
+          main: "dist/apps/main/index.js",
+          "check-input": "dist/apps/check-input/index.js",
+          "check-output": "dist/apps/check-output/index.js",
+        },
+      }),
+      "contract.json": JSON.stringify({
+        version: 1,
+        input: null,
+        output: null,
       }),
       ...NPM_ZERO_DEP_FILES,
       "agent.materialize.mjs": BUILD_SCRIPT,
@@ -712,7 +762,15 @@ writeFileSync("dist/programs/main.js", "console.log('built');\\n");
     const meta = registry.register(pkgInput(repo.dir));
     const root = registry.materialize(meta.asset_id);
     // 初始化脚本产物就位（清单 programs 指向的 dist 产物由脚本构建出来，非仓库提交）
-    expect(existsSync(join(root, "dist", "programs", "main.js"))).toBe(true);
+    expect(existsSync(join(root, "dist", "apps", "main", "index.js"))).toBe(
+      true,
+    );
+    expect(
+      existsSync(join(root, "dist", "apps", "check-input", "index.js")),
+    ).toBe(true);
+    expect(
+      existsSync(join(root, "dist", "apps", "check-output", "index.js")),
+    ).toBe(true);
     expect(existsSync(join(cacheRoot, meta.asset_id, ".materialized-ok"))).toBe(
       true,
     );
@@ -720,7 +778,20 @@ writeFileSync("dist/programs/main.js", "console.log('built');\\n");
 
   it("资产根含 package.json 但缺 package-lock.json → 登记即失败 materialize_failed 明确提示", () => {
     const repo = makeRepo({
-      "agent-package.json": JSON.stringify({ name: "no-lock" }),
+      "agent-package.json": JSON.stringify({
+        name: "no-lock",
+        programs: {
+          "check-input": "check-input.js",
+          "check-output": "check-output.js",
+        },
+      }),
+      "check-input.js": "console.log('check-input');",
+      "check-output.js": "console.log('check-output');",
+      "contract.json": JSON.stringify({
+        version: 1,
+        input: null,
+        output: null,
+      }),
       "package.json": JSON.stringify({ name: "no-lock", version: "1.0.0" }),
       "agent.materialize.mjs": NOOP_MATERIALIZE_SCRIPT,
     });
@@ -733,7 +804,21 @@ writeFileSync("dist/programs/main.js", "console.log('built');\\n");
     "%s 资产缺 agent.materialize.mjs → 登记即失败 materialize_failed 提示缺该文件",
     (kind) => {
       const repo = makeRepo({
-        "agent-package.json": JSON.stringify({ name: `no-script-${kind}` }),
+        // 契约闸齐备（package 时放行到构建段）；tool 不适用契约闸，同样文件无害
+        "agent-package.json": JSON.stringify({
+          name: `no-script-${kind}`,
+          programs: {
+            "check-input": "check-input.js",
+            "check-output": "check-output.js",
+          },
+        }),
+        "check-input.js": "console.log('check-input');",
+        "check-output.js": "console.log('check-output');",
+        "contract.json": JSON.stringify({
+          version: 1,
+          input: null,
+          output: null,
+        }),
       });
       expect(() => registry.register(pkgInput(repo.dir, { kind }))).toThrow(
         /materialize_failed: 业务初始化脚本缺失: .*agent\.materialize\.mjs/,
@@ -749,7 +834,20 @@ for (let i = 1; i <= 40; i++) {
 process.exit(1);
 `;
     const repo = makeRepo({
-      "agent-package.json": JSON.stringify({ name: "fail-script" }),
+      "agent-package.json": JSON.stringify({
+        name: "fail-script",
+        programs: {
+          "check-input": "check-input.js",
+          "check-output": "check-output.js",
+        },
+      }),
+      "check-input.js": "console.log('check-input');",
+      "check-output.js": "console.log('check-output');",
+      "contract.json": JSON.stringify({
+        version: 1,
+        input: null,
+        output: null,
+      }),
       "agent.materialize.mjs": failScript,
     });
     let message = "";
@@ -775,6 +873,133 @@ process.exit(1);
     const root = registry.materialize(meta.asset_id);
     expect(existsSync(join(root, "s1", "SKILL.md"))).toBe(true);
     expect(existsSync(join(root, "node_modules"))).toBe(false);
+  });
+});
+
+describe("契约闸（package 物化强制：contract.json + 保留程序名）", () => {
+  /** 闸内最小合法件：两个保留程序及其产物文件 */
+  const GATE_OK_FILES: Record<string, string> = {
+    "check-input.js": "console.log('check-input');",
+    "check-output.js": "console.log('check-output');",
+    "agent.materialize.mjs": NOOP_MATERIALIZE_SCRIPT,
+  };
+  const GATE_OK_CONTRACT = JSON.stringify({
+    version: 1,
+    input: null,
+    output: null,
+  });
+
+  it("package 缺 contract.json → 登记即失败 validation_failed，消息指出缺契约", () => {
+    const repo = makeRepo({
+      "agent-package.json": JSON.stringify({
+        name: "no-contract",
+        programs: {
+          "check-input": "check-input.js",
+          "check-output": "check-output.js",
+        },
+      }),
+      ...GATE_OK_FILES,
+    });
+    expect(() => registry.register(pkgInput(repo.dir))).toThrow(
+      /validation_failed: 契约闸未通过：\n- contract\.json 不存在于资产根或不可读/,
+    );
+    expect(registry.list({})).toHaveLength(0);
+  });
+
+  it("programs 缺 check-input / check-output → 逐条列出（缺两个列两条）", () => {
+    const repo = makeRepo({
+      "agent-package.json": JSON.stringify({
+        name: "no-check-programs",
+        programs: { main: "main.js" },
+      }),
+      "main.js": "console.log('main');",
+      "contract.json": GATE_OK_CONTRACT,
+      "agent.materialize.mjs": NOOP_MATERIALIZE_SCRIPT,
+    });
+    let message = "";
+    try {
+      registry.register(pkgInput(repo.dir));
+    } catch (err) {
+      message = (err as Error).message;
+    }
+    expect(message).toContain("保留程序名：check-input");
+    expect(message).toContain("保留程序名：check-output");
+    expect(registry.list({})).toHaveLength(0);
+  });
+
+  it("contract.json version 非 1 → 拒绝（未知版本平台无法解释）", () => {
+    const repo = makeRepo({
+      "agent-package.json": JSON.stringify({
+        name: "bad-version",
+        programs: {
+          "check-input": "check-input.js",
+          "check-output": "check-output.js",
+        },
+      }),
+      ...GATE_OK_FILES,
+      "contract.json": JSON.stringify({
+        version: 2,
+        input: null,
+        output: null,
+      }),
+    });
+    expect(() => registry.register(pkgInput(repo.dir))).toThrow(
+      /version 缺失或不是 1/,
+    );
+  });
+
+  it("contract.json 缺 input / output 节 → 逐条列出（显式 null 纪律：缺失分不清忘了和没有）", () => {
+    const repo = makeRepo({
+      "agent-package.json": JSON.stringify({
+        name: "missing-sides",
+        programs: {
+          "check-input": "check-input.js",
+          "check-output": "check-output.js",
+        },
+      }),
+      ...GATE_OK_FILES,
+      "contract.json": JSON.stringify({ version: 1 }),
+    });
+    let message = "";
+    try {
+      registry.register(pkgInput(repo.dir));
+    } catch (err) {
+      message = (err as Error).message;
+    }
+    expect(message).toContain("缺少 input 节");
+    expect(message).toContain("缺少 output 节");
+  });
+
+  it("contract.json 字段声明类型词非法 → 拒绝（v1 冻结词表）", () => {
+    const repo = makeRepo({
+      "agent-package.json": JSON.stringify({
+        name: "bad-type",
+        programs: {
+          "check-input": "check-input.js",
+          "check-output": "check-output.js",
+        },
+      }),
+      ...GATE_OK_FILES,
+      "contract.json": JSON.stringify({
+        version: 1,
+        input: {
+          fields: [{ path: "payload.issue_key", type: "uuid", required: true }],
+        },
+        output: null,
+      }),
+    });
+    expect(() => registry.register(pkgInput(repo.dir))).toThrow(
+      /type 非法："uuid"/,
+    );
+  });
+
+  it("tool 不适用契约闸：无 contract.json、无保留程序名照常登记", () => {
+    const repo = makeRepo({
+      "agent-package.json": JSON.stringify({ name: "gate-free-tool" }),
+      "agent.materialize.mjs": NOOP_MATERIALIZE_SCRIPT,
+    });
+    const meta = registry.register(pkgInput(repo.dir, { kind: "tool" }));
+    expect(meta.kind).toBe("tool");
   });
 });
 
@@ -831,7 +1056,21 @@ describe("materialize-cli 独立执行", () => {
 
   it("物化失败（缺初始化脚本）→ exit 1 且 stderr 含阶段错误", () => {
     const repo = makeRepo({
-      "agent-package.json": JSON.stringify({ name: "cli-no-script" }),
+      // 契约闸齐备（detectKind=package 时放行到构建段）
+      "agent-package.json": JSON.stringify({
+        name: "cli-no-script",
+        programs: {
+          "check-input": "check-input.js",
+          "check-output": "check-output.js",
+        },
+      }),
+      "check-input.js": "console.log('check-input');",
+      "check-output.js": "console.log('check-output');",
+      "contract.json": JSON.stringify({
+        version: 1,
+        input: null,
+        output: null,
+      }),
     });
     const r = runCli([
       "--url",

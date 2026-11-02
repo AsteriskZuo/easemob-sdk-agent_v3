@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "input": {
+    "fields": [
+      { "path": "payload.issue_key", "type": "string", "required": true }
+    ]
+  },
+  "output": {
+    "fields": [{ "path": "content", "type": "string", "required": true }]
+  }
+}
