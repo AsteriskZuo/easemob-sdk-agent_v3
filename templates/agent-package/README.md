@@ -58,5 +58,5 @@
 - `jest.config.mjs`：jest 配置——跑 esbuild 转译后的 `dist-test/tests/**/*.test.js`。
 - `eslint.config.js`：独立 eslint 配置——规则与平台同构，files 指向本包。
 - `.prettierignore` / `.gitignore`：忽略 node_modules/dist/dist-test/coverage。
-- `src/programs/main.ts`：流程程序骨架（单轮审查工单形态），注释承载约束四条。
+- `src/programs/main.ts`：流程程序骨架（单轮审查工单形态），含入口检查/出口校验示例（注释承载约束四条）。
 - `tests/main.test.ts`：e2e 失败路径两则，验证一入一出契约。

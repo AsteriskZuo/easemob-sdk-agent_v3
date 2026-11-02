@@ -274,10 +274,10 @@ const envelope = event as {
 };
 sdk.log("info", "run started", { event_id: envelope.event_id });
 
-// 1. 检查：输入不合规 = 直接失败（不扇出、下游不触发）
+// 1. 入口检查（程序校验，不过大模型）：输入不合规 = 直接失败（不扇出、下游不触发）
 const issueKey = envelope.payload.issue_key;
 if (!issueKey) {
-  sdk.fail("检查未通过：缺少 payload.issue_key");
+  sdk.fail("入口检查未通过：缺少 payload.issue_key");
 }
 
 // 2. 业务级去重（平台只保 event_id 幂等；「同工单同版本只审一次」是业务语义，自己管）
@@ -301,9 +301,9 @@ const review = (await sdk.agent({
   input: ticket,
 })) as { verdict: string; reasons: string[] };
 
-// 5. 门禁：机械校验结果，不合格 = 失败（不重做）
+// 5. 出口校验（程序校验）：不合格 = 失败；失败的处置（直接失败/修正后重试）归业务内部逻辑，平台不参与
 if (!review || typeof review.verdict !== "string") {
-  sdk.fail("门禁未通过：审查结果不合规");
+  sdk.fail("出口校验未通过：审查结果不合规");
 }
 
 // 6. 组消息（形状对着出口工具 resultDoc）+ 落去重记录 + 唯一出口

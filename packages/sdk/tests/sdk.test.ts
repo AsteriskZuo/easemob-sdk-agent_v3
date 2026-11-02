@@ -180,7 +180,7 @@ describe("sdk 出口", () => {
     expect(result).toEqual({
       contract_version: "v1",
       ok: false,
-      reason: "门禁未通过",
+      reason: "出口校验未通过",
     });
   });
 

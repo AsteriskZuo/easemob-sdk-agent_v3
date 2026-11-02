@@ -17,7 +17,7 @@ function run(stdin: string): { code: number; stdout: string } {
 }
 
 describe("main 程序契约", () => {
-  it("检查未通过 → stdout ok:false + exit 1（reason 含原因）", () => {
+  it("入口检查未通过 → stdout ok:false + exit 1（reason 含原因）", () => {
     const r = run(
       JSON.stringify({
         contract_version: "v1",
@@ -28,7 +28,7 @@ describe("main 程序契约", () => {
     expect(r.code).toBe(1);
     const result = JSON.parse(r.stdout.trim().split("\n").at(-1)!);
     expect(result.ok).toBe(false);
-    expect(result.reason).toContain("检查未通过");
+    expect(result.reason).toContain("入口检查未通过");
   });
 
   it("无注入输入（空 stdin）→ 非零退出", () => {

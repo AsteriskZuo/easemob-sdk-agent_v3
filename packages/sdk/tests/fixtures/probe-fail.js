@@ -1,3 +1,3 @@
 import { sdk } from "../../dist/index.js";
 
-sdk.fail("门禁未通过");
+sdk.fail("出口校验未通过");
