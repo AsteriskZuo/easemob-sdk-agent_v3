@@ -6,15 +6,16 @@ import {
   Card,
   Checkbox,
   Collapse,
+  Drawer,
   Form,
   Input,
   InputNumber,
+  Modal,
   Select,
   Switch,
   Tabs,
-  Tooltip,
 } from "antd";
-import { QuestionCircleOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined } from "@ant-design/icons";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type {
   AssetManifest,
@@ -40,6 +41,7 @@ import MatchEditor, {
 import type { MatchRow } from "../components/MatchEditor";
 import EffectivenessNote from "../components/EffectivenessNote";
 import PiConfigSection from "../components/PiConfigSection";
+import SectionHelp from "../components/SectionHelp";
 
 /** 表单字段（antd Form 承载的部分；匹配行与出口配置走独立 state） */
 interface BusinessFormValues {
@@ -155,15 +157,58 @@ function exitConfigTemplate(tool: ExitToolMenuItem): string {
   return JSON.stringify(template, null, 2);
 }
 
-/** 表单区块标题 + 叹号提示（是什么/何时用/配错的后果） */
-function SectionTitle({ title, tip }: { title: string; tip: string }) {
+/** 平滑滚动到指定区块（保存报错定位 / 顶部状态条锚点导航共用）。
+ *  jsdom 未实现 scrollIntoView，方法级可选调用兜底测试环境 */
+function scrollToSection(domId: string) {
+  document.getElementById(domId)?.scrollIntoView?.({
+    behavior: "smooth",
+    block: "start",
+  });
+}
+
+/** 状态点颜色：ok=已配置（绿）/ warn=待完善（黄）/ plain=可选或未涉及（蓝；灰色留给「不可用」语义） */
+type SectionStatus = { kind: "ok" | "warn" | "plain"; text: string };
+
+const STATUS_COLORS: Record<SectionStatus["kind"], string> = {
+  ok: "#52c41a",
+  warn: "#faad14",
+  plain: "#1677ff",
+};
+
+/** 出口「期望返回形状」抽屉按钮（resultDoc 较长，从卡内移入抽屉） */
+function ResultDocButton({ toolName, doc }: { toolName: string; doc: string }) {
+  const [open, setOpen] = useState(false);
   return (
-    <span>
-      {title}
-      <Tooltip title={tip}>
-        <QuestionCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
-      </Tooltip>
-    </span>
+    <>
+      <Button
+        type="link"
+        size="small"
+        style={{ padding: 0 }}
+        onClick={() => setOpen(true)}
+      >
+        查看该出口期望 sdk.return 返回的形状
+      </Button>
+      <Drawer
+        title={`${toolName} · 期望的返回形状`}
+        placement="right"
+        width={520}
+        open={open}
+        onClose={() => setOpen(false)}
+      >
+        <pre
+          style={{
+            margin: 0,
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            fontSize: 12,
+            lineHeight: 1.7,
+            fontFamily: "monospace",
+          }}
+        >
+          {doc}
+        </pre>
+      </Drawer>
+    </>
   );
 }
 
@@ -227,6 +272,19 @@ export default function BusinessEditPage() {
   const [businesses, setBusinesses] = useState<BusinessProfile[]>([]);
   // 编辑态失效侦测：profile 原值不在可选集合时保留显示并标黄
   const watchedAgentKind = Form.useWatch("agent_kind", form);
+  // 全表单值监听（顶部状态条的实时状态判定）
+  const formValues = Form.useWatch([], form);
+  // 全局运行策略默认值（/api/config；运行策略区「继承可视化」用）
+  const [globalDefaults, setGlobalDefaults] = useState<{
+    task_timeout_minutes?: number;
+    max_agent_calls?: number;
+  }>({});
+  // 编辑态回填基准：出口配置文本（脏判定用）
+  const [originalExitTexts, setOriginalExitTexts] = useState<
+    Record<string, string>
+  >({});
+  // 编辑态大模型配置状态（profile.model 非空 = 已配置；状态条判定用）
+  const [modelConfigured, setModelConfigured] = useState(false);
 
   const reportError = useCallback(
     (err: unknown, fallback: string) => {
@@ -343,6 +401,10 @@ export default function BusinessEditPage() {
       .then((config) => {
         setAgents(config.agents);
         setEntryAdapters(config.entry_adapters);
+        setGlobalDefaults({
+          task_timeout_minutes: config.task_timeout_minutes,
+          max_agent_calls: config.max_agent_calls,
+        });
         // 创建模式 agent 默认选中第一个可选项
         if (!isEdit && config.agents.length > 0) {
           if (form.getFieldValue("agent_kind") === undefined) {
@@ -381,7 +443,9 @@ export default function BusinessEditPage() {
           source: m.source,
           event_type: m.event_type,
           entry_config_text:
-            m.entry_config !== undefined ? JSON.stringify(m.entry_config) : "",
+            m.entry_config !== undefined
+              ? JSON.stringify(m.entry_config, null, 2)
+              : "",
         }));
         if (rows.length > 0) {
           setMatches(rows);
@@ -396,6 +460,8 @@ export default function BusinessEditPage() {
         }
         setCheckedExits(checked);
         setExitConfigTexts(texts);
+        setOriginalExitTexts(texts);
+        setModelConfigured(profile.model !== "");
         if (profile.package_asset_id !== undefined) {
           await loadEntryPrograms(profile.package_asset_id);
         }
@@ -459,24 +525,124 @@ export default function BusinessEditPage() {
     return { bindings, problems };
   };
 
+  /** 返回业务列表：创建态草稿已自动落 localStorage（重进可恢复，无损）直接返回；
+   *  编辑态有未保存修改（表单字段 / 匹配行 / 出口配置）时弹确认 */
+  const goBack = useCallback(() => {
+    if (!isEdit) {
+      navigate("/businesses");
+      return;
+    }
+    const dirty =
+      form.isFieldsTouched() ||
+      JSON.stringify(matches) !== JSON.stringify(originalMatches) ||
+      JSON.stringify(exitConfigTexts) !== JSON.stringify(originalExitTexts);
+    if (!dirty) {
+      navigate("/businesses");
+      return;
+    }
+    Modal.confirm({
+      title: "有未保存的修改",
+      content: "离开后修改将丢失，确定返回业务列表？",
+      okText: "放弃修改并返回",
+      cancelText: "继续编辑",
+      onOk: () => navigate("/businesses"),
+    });
+  }, [
+    isEdit,
+    navigate,
+    form,
+    matches,
+    originalMatches,
+    exitConfigTexts,
+    originalExitTexts,
+  ]);
+
+  // 顶部状态条：七块配置完整性速览（能低本判定的实时判定，环境配置纯锚点）
+  const checkedExitCount = Object.values(checkedExits).filter(Boolean).length;
+  const hasRuntimeOverride =
+    (formValues?.timeout_minutes ?? null) != null ||
+    (formValues?.max_agent_calls ?? null) != null ||
+    formValues?.on_failure === true;
+  const sectionNav: Array<{
+    id: string;
+    label: string;
+    status: SectionStatus;
+  }> = [
+    {
+      id: "sec-model",
+      label: "大模型",
+      status: !isEdit
+        ? { kind: "plain", text: "创建后配置" }
+        : modelConfigured
+          ? { kind: "ok", text: "已配置" }
+          : { kind: "warn", text: "未配置" },
+    },
+    {
+      id: "sec-prompt",
+      label: "提示词",
+      status:
+        (formValues?.prompt ?? "").trim() !== ""
+          ? { kind: "ok", text: "已填写" }
+          : { kind: "plain", text: "未填写" },
+    },
+    {
+      id: "sec-assets",
+      label: "资产",
+      status:
+        formValues?.package_asset_id !== undefined &&
+        formValues?.package_asset_id !== "" &&
+        formValues?.entry_program !== undefined &&
+        formValues?.entry_program !== ""
+          ? { kind: "ok", text: "已绑定" }
+          : { kind: "warn", text: "缺绑定" },
+    },
+    {
+      id: "sec-entry",
+      label: "入口",
+      status: { kind: "ok", text: `${matches.length} 行` },
+    },
+    {
+      id: "sec-exit",
+      label: "出口",
+      status:
+        checkedExitCount > 0
+          ? { kind: "ok", text: `${checkedExitCount} 个` }
+          : { kind: "plain", text: "可选" },
+    },
+    {
+      id: "sec-env",
+      label: "环境配置",
+      status: { kind: "plain", text: "·" },
+    },
+    {
+      id: "sec-runtime",
+      label: "运行策略",
+      status: hasRuntimeOverride
+        ? { kind: "ok", text: "自定义" }
+        : { kind: "plain", text: "继承全局" },
+    },
+  ];
+
   const submit = async () => {
     let values: BusinessFormValues;
     try {
       values = await form.validateFields();
     } catch {
-      return; // 表单内已报错
+      return; // 表单内已报错（Form scrollToFirstError 自动定位）
     }
     // 匹配行校验：全部行 JSON 合法（event_type 可留空 = 通配该来源全部事件）
     const matchBodies = matches.map(toMatchBody);
     if (matchBodies.some((b) => b === null)) {
-      message.error("匹配行的入口配置不是合法 JSON object，请修正后再提交");
+      message.error("入口配置：匹配行的 JSON 不是合法 object，请修正后再提交");
+      scrollToSection("sec-entry");
       return;
     }
     // 上面已拦截 null（非法 JSON），此处收窄
     const validMatchBodies = matchBodies as MatchBody[];
     const { bindings, problems } = buildExitBindings();
     if (problems.length > 0) {
-      message.error(problems[0]);
+      message.error(`出口配置：${problems[0]}`);
+      scrollToSection("sec-exit");
       return;
     }
 
@@ -596,7 +762,60 @@ export default function BusinessEditPage() {
 
   return (
     <div style={{ maxWidth: 860 }}>
-      <h2>{isEdit ? "编辑业务" : "创建业务"}</h2>
+      {/* 页头：返回按钮单独一行（文字按钮弱化存在感），标题独占一行 */}
+      <div style={{ marginBottom: 4 }}>
+        <Button
+          type="text"
+          icon={<ArrowLeftOutlined />}
+          aria-label="返回业务列表"
+          onClick={goBack}
+          style={{ padding: "4px 0", color: "#666" }}
+        >
+          返回
+        </Button>
+      </div>
+      <h2 style={{ margin: "0 0 8px" }}>{isEdit ? "编辑业务" : "创建业务"}</h2>
+
+      {/* 顶部状态条：七块配置完整性速览 + 锚点导航（绿=已配置 黄=待完善 蓝=可选/未涉及） */}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: "6px 18px",
+          padding: "8px 12px",
+          marginBottom: 16,
+          background: "#fafafa",
+          border: "1px solid #f0f0f0",
+          borderRadius: 8,
+          fontSize: 13,
+        }}
+      >
+        {sectionNav.map((s) => (
+          <a
+            key={s.id}
+            aria-label={`跳转到${s.label}配置`}
+            onClick={() => scrollToSection(s.id)}
+            style={{ cursor: "pointer", color: "inherit" }}
+          >
+            <span
+              style={{
+                display: "inline-block",
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: STATUS_COLORS[s.status.kind],
+                marginRight: 6,
+              }}
+            />
+            {s.label}
+            <span style={{ color: "#999", marginLeft: 4 }}>
+              {s.status.text}
+            </span>
+          </a>
+        ))}
+      </div>
+
       {!isEdit && draftRestored && (
         <Alert
           type="info"
@@ -614,439 +833,548 @@ export default function BusinessEditPage() {
         form={form}
         layout="vertical"
         disabled={loading}
+        scrollToFirstError
         initialValues={{
           on_failure: false,
         }}
         onValuesChange={scheduleDraftWrite}
       >
-        <Card
-          title={
-            <SectionTitle
-              title="基本信息"
-              tip="业务的身份与执行内核。名称仅用于展示，不参与事件匹配。"
-            />
-          }
+        {/* 业务名：页头精简行（不套卡片；仅展示用，不参与事件匹配） */}
+        <Form.Item
+          name="business_name"
+          rules={[
+            { required: true, whitespace: true, message: "业务名称不能为空" },
+          ]}
           style={{ marginBottom: 16 }}
         >
-          <Form.Item
-            name="business_name"
-            label="业务名称"
-            tooltip="是什么：业务的展示名。何时用：创建时命名，之后可改。配错后果：无执行影响，但重名会让运维分不清业务。"
-            rules={[
-              { required: true, whitespace: true, message: "业务名称不能为空" },
-            ]}
-          >
-            <Input aria-label="业务名称" placeholder="如：代码评审助手" />
-          </Form.Item>
-          <Form.Item
-            name="agent_kind"
-            label="Agent"
-            tooltip="是什么：执行大模型调用的内核程序（当前仅 pi）。何时用：一般保持默认。配错后果：不在可选集合的值保存时会被服务端拒绝。"
-            rules={[{ required: true, message: "请选择 agent 内核" }]}
-            extra={
-              isEdit &&
-              watchedAgentKind !== undefined &&
-              watchedAgentKind !== "" &&
-              agents.length > 0 &&
-              !agents.includes(watchedAgentKind) ? (
-                <span style={{ color: "#faad14" }}>
-                  该 agent 内核已不在可选列表
-                </span>
-              ) : undefined
-            }
-          >
-            <Select
-              aria-label="Agent"
-              options={agents.map((a) => ({ value: a, label: a }))}
-            />
-          </Form.Item>
-          {/* 大模型配置（业务自定义 models.json 是唯一模型来源）：
-              编辑页 = 完整配置区（在线验证-确认流程）；创建页 = 警告（业务创建后才能在编辑页配置） */}
-          {isEdit && id !== undefined ? (
-            <PiConfigSection businessId={id} />
-          ) : (
-            <Alert
-              type="warning"
-              showIcon
-              style={{ marginBottom: 24 }}
-              message="大模型：创建后配置"
-              description="业务创建后才能配置大模型：创建后请在编辑页的大模型配置区完成 models.json 配置并在线验证。未配置的业务无法使用大模型推理（sdk.agent 调用将失败）；不使用大模型的纯程序业务可忽略。"
-            />
-          )}
-          <Form.Item
-            name="prompt"
-            label="提示词总纲"
-            tooltip="是什么：每次 agent 调用自动注入的业务总纲，说明业务规则、边界与不可做。何时用：业务需要稳定的行为约束时必写。配错后果：总纲缺失或过宽，模型输出质量与边界不可控。"
-          >
-            <Input.TextArea
-              aria-label="提示词总纲"
-              rows={6}
-              placeholder="业务级提示词，拼在包/工具/skill 之前。写清业务目标与边界。"
-            />
-          </Form.Item>
-        </Card>
-
-        <Card
-          title={
-            <SectionTitle
-              title="资产绑定"
-              tip="是什么：业务要用的代码资产组合。何时用：创建业务时配置，改了立即作用于后续 run。配错后果：缺绑/名冲突保存时被服务端拒绝（消息会列出全部问题）。"
-            />
-          }
-          style={{ marginBottom: 16 }}
-        >
-          <Alert
-            type="info"
-            showIcon
-            style={{ marginBottom: 16 }}
-            message="包 / 工具 / skill 的关系"
-            description="包 = 业务代码单位，提供流程程序入口（平台每次执行 spawn 它）与包内程序；工具 = 可共享的子程序，包代码用 sdk.run('程序名') 调用；skill = 给大模型的能力集合，sdk.agent 按名注入。工具与 skill 可绑多个（自己的 + 他人共享的），名冲突会被拒绝。"
+          <Input
+            aria-label="业务名称"
+            size="large"
+            placeholder="业务名称，如：代码评审助手"
           />
-          <Form.Item
-            name="package_asset_id"
-            label="包绑定"
-            tooltip="是什么：业务代码单位（恰好一个），提供流程程序入口与包内程序。何时用：创建业务必选。配错后果：不绑定包业务无法运行；绑错包 = 执行错误的流程。"
-            rules={[
-              { required: true, message: "必须绑定包资产，否则业务无法运行" },
-            ]}
-            extra={
-              packages.length === 0 ? (
-                <span>
-                  还没有可用的包资产。包是业务代码单位（恰好绑定一个），
-                  <Link to="/assets">先去资产管理登记</Link>。
-                </span>
-              ) : undefined
+        </Form.Item>
+
+        <div id="sec-model">
+          <Card
+            title={
+              <SectionHelp
+                title="大模型配置"
+                tip="是什么：业务推理用的模型来源与执行内核。业务自定义 models.json 是唯一模型来源，改动需在线验证全部通过后确认保存。配错后果：未配置的业务 sdk.agent 调用将失败（纯程序业务可忽略）。"
+              />
             }
+            style={{ marginBottom: 16 }}
           >
-            <Select
-              aria-label="包绑定"
-              placeholder="选择包资产（我的包）"
-              options={assetOptions(packages)}
-              onChange={(assetId: string) => {
-                form.setFieldValue("entry_program", undefined);
-                setEntryPrograms([]);
-                void loadEntryPrograms(assetId);
+            <Form.Item
+              name="agent_kind"
+              label="Agent 内核"
+              tooltip="是什么：执行大模型调用的内核程序（当前仅 pi）。何时用：一般保持默认。配错后果：不在可选集合的值保存时会被服务端拒绝。"
+              rules={[{ required: true, message: "请选择 agent 内核" }]}
+              extra={
+                isEdit &&
+                watchedAgentKind !== undefined &&
+                watchedAgentKind !== "" &&
+                agents.length > 0 &&
+                !agents.includes(watchedAgentKind) ? (
+                  <span style={{ color: "#faad14" }}>
+                    该 agent 内核已不在可选列表
+                  </span>
+                ) : undefined
+              }
+            >
+              <Select
+                aria-label="Agent 内核"
+                options={agents.map((a) => ({ value: a, label: a }))}
+              />
+            </Form.Item>
+            {/* 大模型配置（业务自定义 models.json 是唯一模型来源）：
+                编辑页 = 完整配置区（在线验证-确认流程）；创建页 = 警告（业务创建后才能在编辑页配置） */}
+            {isEdit && id !== undefined ? (
+              <PiConfigSection businessId={id} />
+            ) : (
+              <Alert
+                type="warning"
+                showIcon
+                style={{ marginBottom: 24 }}
+                message="大模型：创建后配置"
+                description="业务创建后才能配置大模型：创建后请在编辑页的大模型配置区完成 models.json 配置并在线验证。未配置的业务无法使用大模型推理（sdk.agent 调用将失败）；不使用大模型的纯程序业务可忽略。"
+              />
+            )}
+          </Card>
+        </div>
+
+        <div id="sec-prompt">
+          <Card
+            title={
+              <SectionHelp
+                title="提示词配置"
+                tip="是什么：每次 agent 调用自动注入的业务总纲，说明业务规则、边界与不可做。何时用：业务需要稳定的行为约束时必写。配错后果：总纲缺失或过宽，模型输出质量与边界不可控。"
+              />
+            }
+            style={{ marginBottom: 16 }}
+          >
+            <Form.Item
+              name="prompt"
+              label="提示词总纲"
+              tooltip="是什么：每次 agent 调用自动注入的业务总纲，说明业务规则、边界与不可做。何时用：业务需要稳定的行为约束时必写。配错后果：总纲缺失或过宽，模型输出质量与边界不可控。"
+              style={{ marginBottom: 0 }}
+            >
+              <Input.TextArea
+                aria-label="提示词总纲"
+                rows={6}
+                placeholder="业务级提示词，拼在包/工具/skill 之前。写清业务目标与边界。"
+              />
+            </Form.Item>
+          </Card>
+        </div>
+
+        <div id="sec-assets">
+          <Card
+            title={
+              <SectionHelp
+                title="资产配置"
+                tip="是什么：业务要用的代码资产组合。何时用：创建业务时配置，改了立即作用于后续 run。配错后果：缺绑/名冲突保存时被服务端拒绝（消息会列出全部问题）。"
+                drawerDoc={`包 / 工具 / skill 的关系
+
+包 = 业务代码单位（恰好绑定一个），提供流程程序入口（平台每次执行 spawn 它）与包内程序。
+工具 = 可共享的子程序资产，包代码用 sdk.run('程序名') 按名调用。
+skill = 给大模型的能力集合，sdk.agent 按名注入（白名单校验）。
+
+绑定规则
+- 工具与 skill 可绑多个（自己的 + 他人共享的）；
+- 包清单 requires.tools / requires.skills 声明的外部依赖必须全部绑定，缺绑保存时被拒绝；
+- 程序名 / skill 名冲突会被拒绝；
+- 运行期按名找不到程序则 run 失败；缺绑 skill 则 agent 调用被白名单拦截。
+
+生效方式：改动经统一更新队列作用于后续 run。`}
+              />
+            }
+            style={{ marginBottom: 16 }}
+          >
+            <Form.Item
+              name="package_asset_id"
+              label="包绑定"
+              tooltip="是什么：业务代码单位（恰好一个），提供流程程序入口与包内程序。何时用：创建业务必选。配错后果：不绑定包业务无法运行；绑错包 = 执行错误的流程。"
+              rules={[
+                { required: true, message: "必须绑定包资产，否则业务无法运行" },
+              ]}
+              extra={
+                packages.length === 0 ? (
+                  <span>
+                    还没有可用的包资产。包是业务代码单位（恰好绑定一个），
+                    <Link to="/assets">先去资产管理登记</Link>。
+                  </span>
+                ) : undefined
+              }
+            >
+              <Select
+                aria-label="包绑定"
+                placeholder="选择包资产（我的包）"
+                options={assetOptions(packages)}
+                onChange={(assetId: string) => {
+                  form.setFieldValue("entry_program", undefined);
+                  setEntryPrograms([]);
+                  void loadEntryPrograms(assetId);
+                }}
+              />
+            </Form.Item>
+            <Form.Item
+              name="entry_program"
+              label="入口程序"
+              tooltip="是什么：包清单 programs 中作为流程入口的程序名，平台每次执行 spawn 它。何时用：选定包后必选。配错后果：选错入口 = 执行了错误的程序。"
+              rules={[{ required: true, message: "请选择入口程序" }]}
+            >
+              <Select
+                aria-label="入口程序"
+                placeholder="包清单 programs 的键"
+                options={entryPrograms.map((p) => ({ value: p, label: p }))}
+              />
+            </Form.Item>
+            <Form.Item
+              name="tool_asset_ids"
+              label="工具绑定"
+              tooltip="是什么：可共享的子程序资产，包代码用 sdk.run('程序名') 按名调用。何时用：包清单 requires.tools 声明了外部工具时必须绑定对应资产。配错后果：缺绑/程序名冲突保存时被拒绝；运行期按名找不到程序则 run 失败。"
+              extra={
+                tools.length === 0 ? (
+                  <span>
+                    没有可绑定的工具资产（可选项）。工具是可共享的子程序，
+                    sdk.run 按名调用；需要时
+                    <Link to="/assets">去资产管理登记</Link>。
+                  </span>
+                ) : undefined
+              }
+            >
+              <Select
+                aria-label="工具绑定"
+                mode="multiple"
+                allowClear
+                placeholder="选择工具资产（我的 + 共享的）"
+                options={assetOptions(tools)}
+              />
+            </Form.Item>
+            <Form.Item
+              name="skill_asset_ids"
+              label="Skill 绑定"
+              tooltip="是什么：给大模型的能力集合，sdk.agent 按名注入（白名单校验）。何时用：包代码调 sdk.agent 引用 skill 时。配错后果：缺绑时 agent 调用被白名单拦截而失败。"
+              extra={
+                skills.length === 0 ? (
+                  <span>
+                    没有可绑定的 skill 集合（可选项）。skill 是给大模型的能力，
+                    sdk.agent 按名注入；需要时
+                    <Link to="/assets">去资产管理登记</Link>。
+                  </span>
+                ) : undefined
+              }
+            >
+              <Select
+                aria-label="Skill 绑定"
+                mode="multiple"
+                allowClear
+                placeholder="选择 skill 集合资产（我的 + 共享的）"
+                options={assetOptions(skills)}
+              />
+            </Form.Item>
+          </Card>
+        </div>
+
+        <div id="sec-entry">
+          <Card
+            title={
+              <SectionHelp
+                title="入口配置"
+                tip="是什么：决定什么事件触发本业务。三种入口：外部事件 = 入口适配器推送（如 webhook）；内部队列事件 = 关注上游业务的产出类型（业务id.产出类型）；定时 = 周期/绝对时间触发。何时用：每个业务至少一条匹配行。配错后果：事件类型写错 = 业务永远不触发；关注错上游 = 误触发。"
+                drawerDoc={`入口（匹配行）决定什么事件触发本业务。一个业务可有多条匹配行（多入口并行），任一命中即触发。
+
+三种入口来源
+
+1. 外部事件（入口适配器推送）
+   webhook：上游系统 HTTP 推送到平台 /hooks/{path}；jira 等：平台周期轮询。
+   选中适配器后，下方按其 configSchema 生成配置表单，并可查看该入口的事件文档（报文形状）。
+   entry_config 的必配项缺失会在入队时被拒绝（如 webhook 必配 path 与 session_id_key）。
+
+2. 内部队列事件（internal）
+   关注上游业务的产出：event_type = {业务id}.completed | {业务id}.failed，
+   payload 为上游业务 sdk.return 的 output 原样。处理链（下游关注上游）就靠它串起来。
+
+3. 定时（cron）与手动（manual）
+   cron = 周期/绝对时间触发；manual = 手动触发。
+
+匹配语义
+- event_type 留空 = 接收该来源全部事件；填写 = 精确过滤；
+- 串行键 = 会话标识 × 业务：同一会话同一业务的 run 串行，其余组合并行；
+- 配错后果：事件类型写错 = 永远不触发；关注错上游 = 误触发。`}
+              />
+            }
+            style={{ marginBottom: 16 }}
+          >
+            <MatchEditor
+              value={matches}
+              onChange={(rows) => {
+                setMatches(rows);
+                scheduleDraftWrite();
               }}
+              entryAdapters={entryAdapters}
+              businesses={businesses}
             />
-          </Form.Item>
-          <Form.Item
-            name="entry_program"
-            label="入口程序"
-            tooltip="是什么：包清单 programs 中作为流程入口的程序名，平台每次执行 spawn 它。何时用：选定包后必选。配错后果：选错入口 = 执行了错误的程序。"
-            rules={[{ required: true, message: "请选择入口程序" }]}
-          >
-            <Select
-              aria-label="入口程序"
-              placeholder="包清单 programs 的键"
-              options={entryPrograms.map((p) => ({ value: p, label: p }))}
-            />
-          </Form.Item>
-          <Form.Item
-            name="tool_asset_ids"
-            label="工具绑定"
-            tooltip="是什么：可共享的子程序资产，包代码用 sdk.run('程序名') 按名调用。何时用：包清单 requires.tools 声明了外部工具时必须绑定对应资产。配错后果：缺绑/程序名冲突保存时被拒绝；运行期按名找不到程序则 run 失败。"
-            extra={
-              tools.length === 0 ? (
-                <span>
-                  没有可绑定的工具资产（可选项）。工具是可共享的子程序， sdk.run
-                  按名调用；需要时<Link to="/assets">去资产管理登记</Link>。
-                </span>
-              ) : undefined
+          </Card>
+        </div>
+
+        <div id="sec-exit">
+          <Card
+            title={
+              <SectionHelp
+                title="出口配置"
+                tip="是什么：业务结果的投递目的地（企微/邮件/webhook 等），投递不过大模型。何时用：结果需要通知人或系统时勾选并按 schema 填配置，敏感值建议填 {{key}} 占位（真值存环境配置）。配错后果：地址/账号填错 = 运行时投递失败进死信；占位键不存在 = 保存时被服务端拒绝。"
+              />
             }
-          >
-            <Select
-              aria-label="工具绑定"
-              mode="multiple"
-              allowClear
-              placeholder="选择工具资产（我的 + 共享的）"
-              options={assetOptions(tools)}
-            />
-          </Form.Item>
-          <Form.Item
-            name="skill_asset_ids"
-            label="Skill 绑定"
-            tooltip="是什么：给大模型的能力集合，sdk.agent 按名注入（白名单校验）。何时用：包代码调 sdk.agent 引用 skill 时。配错后果：缺绑时 agent 调用被白名单拦截而失败。"
-            extra={
-              skills.length === 0 ? (
-                <span>
-                  没有可绑定的 skill 集合（可选项）。skill 是给大模型的能力，
-                  sdk.agent 按名注入；需要时
-                  <Link to="/assets">去资产管理登记</Link>。
-                </span>
-              ) : undefined
-            }
-          >
-            <Select
-              aria-label="Skill 绑定"
-              mode="multiple"
-              allowClear
-              placeholder="选择 skill 集合资产（我的 + 共享的）"
-              options={assetOptions(skills)}
-            />
-          </Form.Item>
-        </Card>
-
-        <Card
-          title={
-            <SectionTitle
-              title="入口（匹配行）"
-              tip="是什么：决定什么事件触发本业务。三种入口：外部事件 = 入口适配器推送（如 webhook）；内部队列事件 = 关注上游业务的产出类型（业务id.产出类型）；定时 = 周期/绝对时间触发。何时用：每个业务至少一条匹配行。配错后果：事件类型写错 = 业务永远不触发；关注错上游 = 误触发。"
-            />
-          }
-          style={{ marginBottom: 16 }}
-        >
-          <MatchEditor
-            value={matches}
-            onChange={(rows) => {
-              setMatches(rows);
-              scheduleDraftWrite();
-            }}
-            entryAdapters={entryAdapters}
-            businesses={businesses}
-          />
-        </Card>
-
-        <Card
-          title={
-            <SectionTitle
-              title="出口（可选）"
-              tip="是什么：业务结果的投递目的地（企微/邮件/webhook 等），投递不过大模型。何时用：结果需要通知人或系统时勾选并按 schema 填配置，敏感值建议填 {{key}} 占位（真值存环境配置）。配错后果：地址/账号填错 = 运行时投递失败进死信；占位键不存在 = 保存时被服务端拒绝。"
-            />
-          }
-          style={{ marginBottom: 16 }}
-        >
-          {exitTools.map((tool) => {
-            const checked = checkedExits[tool.kind] === true;
-            const configText = exitConfigTexts[tool.kind] ?? "";
-            const parsedConfig = parseExitConfigText(configText);
-            return (
-              <div key={tool.kind} style={{ marginBottom: 12 }}>
-                <Checkbox
-                  checked={checked}
-                  disabled={!tool.implemented}
-                  onChange={(e) => {
-                    setCheckedExits((prev) => ({
-                      ...prev,
-                      [tool.kind]: e.target.checked,
-                    }));
-                    scheduleDraftWrite();
-                  }}
-                >
-                  {tool.name}（{tool.kind}）
-                  {!tool.implemented && (
-                    <span style={{ color: "#999" }}>（未实现，占位）</span>
-                  )}
-                </Checkbox>
-                {checked && (
-                  <div style={{ marginLeft: 24, marginTop: 8 }}>
-                    {!parsedConfig.ok && (
-                      <Alert
-                        type="error"
-                        showIcon
-                        style={{ marginBottom: 8 }}
-                        message={`出口「${tool.name}」的配置不是合法 JSON object（请先在「JSON」视图修正）`}
-                      />
-                    )}
-                    <Tabs
-                      size="small"
-                      aria-label={`出口 ${tool.kind} 配置视图`}
-                      items={[
-                        {
-                          key: "form",
-                          label: "表单",
-                          disabled: !parsedConfig.ok,
-                          children: (
-                            <div
-                              style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: 8,
-                              }}
-                            >
-                              {tool.configSchema.map((field) => (
-                                <div key={field.key}>
-                                  <div style={{ marginBottom: 4 }}>
-                                    {field.required === true && (
-                                      <span style={{ color: "#ff4d4f" }}>
-                                        *{" "}
-                                      </span>
-                                    )}
-                                    {field.label}
-                                    <span
-                                      style={{ color: "#999", fontSize: 12 }}
-                                    >
-                                      （{field.key}）
-                                    </span>
-                                  </div>
-                                  <Input
-                                    aria-label={`出口 ${tool.kind} ${field.key}`}
-                                    placeholder={field.placeholder}
-                                    disabled={!parsedConfig.ok}
-                                    value={exitConfigFieldValue(
-                                      configText,
-                                      field.key,
-                                    )}
-                                    onChange={(e) =>
-                                      setExitConfigValue(
-                                        tool.kind,
-                                        field.key,
-                                        e.target.value,
-                                      )
-                                    }
-                                  />
-                                  {field.secret === true && (
-                                    <div
-                                      style={{ color: "#999", fontSize: 12 }}
-                                    >
-                                      {
-                                        "建议填 {{key}} 占位，真值存安全变量（本业务环境配置的 secrets）"
-                                      }
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          ),
-                        },
-                        {
-                          key: "json",
-                          label: "JSON",
-                          children: (
-                            <Input.TextArea
-                              aria-label={`出口 ${tool.kind} 配置 JSON`}
-                              rows={4}
-                              placeholder={exitConfigTemplate(tool)}
-                              value={configText}
-                              status={parsedConfig.ok ? "" : "error"}
-                              onChange={(e) => {
-                                setExitConfigTexts((prev) => ({
-                                  ...prev,
-                                  [tool.kind]: e.target.value,
-                                }));
-                                scheduleDraftWrite();
-                              }}
-                            />
-                          ),
-                        },
-                      ]}
-                    />
-                    {/* 该出口期望 sdk.return 返回的形状（markdown 原文展示，不引渲染器依赖） */}
-                    {tool.resultDoc != null && tool.resultDoc !== "" && (
-                      <div style={{ marginTop: 8 }}>
-                        <div style={{ color: "#666", marginBottom: 4 }}>
-                          该出口期望 sdk.return 返回的形状：
-                        </div>
-                        <pre
-                          style={{
-                            margin: 0,
-                            padding: 12,
-                            background: "#fafafa",
-                            border: "1px solid #f0f0f0",
-                            borderRadius: 6,
-                            whiteSpace: "pre-wrap",
-                            wordBreak: "break-word",
-                            fontSize: 12,
-                            maxHeight: 320,
-                            overflow: "auto",
-                          }}
-                        >
-                          {tool.resultDoc}
-                        </pre>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </Card>
-
-        <Card
-          title={
-            <SectionTitle
-              title="运行策略"
-              tip="超时/配额留空 = 用全局默认（见通用配置页），业务级覆盖优先。"
-            />
-          }
-          style={{ marginBottom: 16 }}
-        >
-          <Form.Item
-            name="on_failure"
-            label="失败传播"
-            tooltip="是什么：开启后，本业务失败也会派生事件（带失败状态）扇出给下游与出口。何时用：下游需要感知失败做善后时。配错后果：默认关闭下失败静默，下游以为没发生；误开会让下游收到大量失败事件。"
-            valuePropName="checked"
-          >
-            <Switch aria-label="失败传播" />
-          </Form.Item>
-          <Form.Item
-            name="timeout_minutes"
-            label="超时覆盖（分钟，可清空）"
-            tooltip="是什么：本业务 run 的 wall-clock 超时（分钟），覆盖全局默认。何时用：业务明显长于/短于全局默认时。配错后果：过短 = 正常业务被强杀；过长 = 失控任务长期占用并发闸门。"
-          >
-            <InputNumber aria-label="超时覆盖" min={1} placeholder="全局默认" />
-          </Form.Item>
-          <Form.Item
-            name="max_agent_calls"
-            label="agent 调用配额覆盖（可清空）"
-            tooltip="是什么：本业务单 run 的 agent 调用次数上限，覆盖全局默认。何时用：多轮/多阶段业务需要更多调用时。配错后果：过低 = 正常流程被配额强杀；过高 = 失控循环烧钱。"
-          >
-            <InputNumber aria-label="配额覆盖" min={1} placeholder="全局默认" />
-          </Form.Item>
-        </Card>
-
-        {/* 随建环境配置（仅创建模式，默认展开）：两组皆空时提交不携带 env；编辑模式走下方 EnvEditor 由主保存统一落库 */}
-        {!isEdit && (
-          <Collapse
             style={{ marginBottom: 16 }}
-            defaultActiveKey={["env"]}
-            items={[
-              {
-                key: "env",
-                label: "环境配置（可选，随业务一并创建）",
-                children: (
-                  <CreateEnvEditor
-                    vars={envVars}
-                    secrets={envSecrets}
-                    onVarsChange={(rows) => {
-                      setEnvVars(rows);
+          >
+            {exitTools.map((tool) => {
+              const checked = checkedExits[tool.kind] === true;
+              const configText = exitConfigTexts[tool.kind] ?? "";
+              const parsedConfig = parseExitConfigText(configText);
+              return (
+                <div key={tool.kind} style={{ marginBottom: 12 }}>
+                  <Checkbox
+                    checked={checked}
+                    disabled={!tool.implemented}
+                    onChange={(e) => {
+                      setCheckedExits((prev) => ({
+                        ...prev,
+                        [tool.kind]: e.target.checked,
+                      }));
                       scheduleDraftWrite();
                     }}
-                    onSecretsChange={(rows) => {
-                      setEnvSecrets(rows);
-                      scheduleDraftWrite();
-                    }}
-                  />
-                ),
-              },
-            ]}
-          />
-        )}
-      </Form>
+                  >
+                    {tool.name}（{tool.kind}）
+                    {!tool.implemented && (
+                      <span style={{ color: "#999" }}>（未实现，占位）</span>
+                    )}
+                  </Checkbox>
+                  {checked && (
+                    <div style={{ marginLeft: 24, marginTop: 8 }}>
+                      {!parsedConfig.ok && (
+                        <Alert
+                          type="error"
+                          showIcon
+                          style={{ marginBottom: 8 }}
+                          message={`出口「${tool.name}」的配置不是合法 JSON object（请先在「JSON」视图修正）`}
+                        />
+                      )}
+                      <Tabs
+                        size="small"
+                        aria-label={`出口 ${tool.kind} 配置视图`}
+                        items={[
+                          {
+                            key: "form",
+                            label: "表单",
+                            disabled: !parsedConfig.ok,
+                            children: (
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: 8,
+                                }}
+                              >
+                                {tool.configSchema.map((field) => (
+                                  <div key={field.key}>
+                                    <div style={{ marginBottom: 4 }}>
+                                      {field.required === true && (
+                                        <span style={{ color: "#ff4d4f" }}>
+                                          *{" "}
+                                        </span>
+                                      )}
+                                      {field.label}
+                                      <span
+                                        style={{ color: "#999", fontSize: 12 }}
+                                      >
+                                        （{field.key}）
+                                      </span>
+                                    </div>
+                                    <Input
+                                      aria-label={`出口 ${tool.kind} ${field.key}`}
+                                      placeholder={field.placeholder}
+                                      disabled={!parsedConfig.ok}
+                                      value={exitConfigFieldValue(
+                                        configText,
+                                        field.key,
+                                      )}
+                                      onChange={(e) =>
+                                        setExitConfigValue(
+                                          tool.kind,
+                                          field.key,
+                                          e.target.value,
+                                        )
+                                      }
+                                    />
+                                    {field.secret === true && (
+                                      <div
+                                        style={{ color: "#999", fontSize: 12 }}
+                                      >
+                                        {
+                                          "建议填 {{key}} 占位，真值存安全变量（本业务环境配置的 secrets）"
+                                        }
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ),
+                          },
+                          {
+                            key: "json",
+                            label: "JSON",
+                            children: (
+                              <Input.TextArea
+                                aria-label={`出口 ${tool.kind} 配置 JSON`}
+                                rows={4}
+                                placeholder={exitConfigTemplate(tool)}
+                                value={configText}
+                                status={parsedConfig.ok ? "" : "error"}
+                                onChange={(e) => {
+                                  setExitConfigTexts((prev) => ({
+                                    ...prev,
+                                    [tool.kind]: e.target.value,
+                                  }));
+                                  scheduleDraftWrite();
+                                }}
+                              />
+                            ),
+                          },
+                        ]}
+                      />
+                      {/* 该出口期望 sdk.return 返回的形状：内容较长，移入抽屉 */}
+                      {tool.resultDoc != null && tool.resultDoc !== "" && (
+                        <div style={{ marginTop: 8 }}>
+                          <ResultDocButton
+                            toolName={tool.name}
+                            doc={tool.resultDoc}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </Card>
+        </div>
 
-      {isEdit && (
-        <Card
-          title={
-            <SectionTitle
-              title="业务 key-value"
-              tip="是什么：按业务注入的 key-value 配置——普通桶明文回显，安全桶只写不读（掩码）。何时用：包代码 sdk.config()/sdk.secret() 要读的参数与凭据；入口/出口配置里 {{key}} 占位的真值也在这里建键。配错后果：键名写错 = 业务代码取不到值或占位解析失败；机密放普通桶 = 明文泄漏。"
+        {/* 环境配置：创建态 = 随建 Collapse（可选）；编辑态 = EnvEditor 卡片（ref.save 由主保存统一落库）。
+            统一命名「环境配置」（原编辑态「业务 key-value」为实现视角叫法） */}
+        <div id="sec-env">
+          {!isEdit ? (
+            <Collapse
+              style={{ marginBottom: 16 }}
+              defaultActiveKey={["env"]}
+              items={[
+                {
+                  key: "env",
+                  label: "环境配置（可选，随业务一并创建）",
+                  children: (
+                    <CreateEnvEditor
+                      vars={envVars}
+                      secrets={envSecrets}
+                      onVarsChange={(rows) => {
+                        setEnvVars(rows);
+                        scheduleDraftWrite();
+                      }}
+                      onSecretsChange={(rows) => {
+                        setEnvSecrets(rows);
+                        scheduleDraftWrite();
+                      }}
+                    />
+                  ),
+                },
+              ]}
             />
-          }
-          style={{ marginTop: 16 }}
-        >
-          {/* 行内草稿由主「保存」统一落库（ref.save()）；仍独立请求序列，不并入 PATCH body */}
-          <EnvEditor
-            ref={envEditorRef}
-            scope="business"
-            businessId={id}
-            hideActions
-          />
-        </Card>
-      )}
+          ) : (
+            <Card
+              title={
+                <SectionHelp
+                  title="环境配置"
+                  tip="是什么：按业务注入的 key-value 配置——普通桶明文回显，安全桶只写不读（掩码）。何时用：包代码 sdk.config()/sdk.secret() 要读的参数与凭据；入口/出口配置里 {{key}} 占位的真值也在这里建键。配错后果：键名写错 = 业务代码取不到值或占位解析失败；机密放普通桶 = 明文泄漏。"
+                />
+              }
+              style={{ marginBottom: 16 }}
+            >
+              {/* 行内草稿由主「保存」统一落库（ref.save()）；仍独立请求序列，不并入 PATCH body */}
+              <EnvEditor
+                ref={envEditorRef}
+                scope="business"
+                businessId={id}
+                hideActions
+              />
+            </Card>
+          )}
+        </div>
+
+        {/* 运行策略：行式布局（左名称+小字说明 / 右控件），继承可视化——
+            留空 = 继承全局默认，小字直接显示当前继承到的值 */}
+        <div id="sec-runtime">
+          <Card
+            title={
+              <SectionHelp
+                title="运行策略配置"
+                tip="超时/配额留空 = 继承全局默认（当前值见各项小字，通用配置页可改），业务级覆盖优先。"
+              />
+            }
+            style={{ marginBottom: 16 }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 16,
+                padding: "10px 0",
+                borderBottom: "1px solid #f5f5f5",
+              }}
+            >
+              <div style={{ flex: 1 }}>
+                <div>失败传播</div>
+                <div style={{ color: "#999", fontSize: 12, marginTop: 2 }}>
+                  开启后，本业务失败也会派生事件（带失败状态）扇出给下游与出口；默认关闭下失败静默，下游需要感知失败做善后时才开启。
+                </div>
+              </div>
+              <Form.Item name="on_failure" valuePropName="checked" noStyle>
+                <Switch aria-label="失败传播" />
+              </Form.Item>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 16,
+                padding: "10px 0",
+                borderBottom: "1px solid #f5f5f5",
+              }}
+            >
+              <div style={{ flex: 1 }}>
+                <div>run 超时覆盖（分钟）</div>
+                <div style={{ color: "#999", fontSize: 12, marginTop: 2 }}>
+                  {globalDefaults.task_timeout_minutes !== undefined
+                    ? `留空 = 继承全局默认（当前 ${globalDefaults.task_timeout_minutes} 分钟，通用配置页可改）。`
+                    : "留空 = 继承全局默认（通用配置页可改）。"}
+                  过短 = 正常业务被强杀；过长 = 失控任务长期占用并发闸门。
+                </div>
+                {(formValues?.timeout_minutes ?? null) != null &&
+                  (formValues.timeout_minutes as number) < 5 && (
+                    <div
+                      style={{ color: "#faad14", fontSize: 12, marginTop: 2 }}
+                    >
+                      小于 5 分钟的超时对多数 agent 任务偏紧，请确认是有意为之
+                    </div>
+                  )}
+              </div>
+              <Form.Item name="timeout_minutes" noStyle>
+                <InputNumber
+                  aria-label="超时覆盖"
+                  min={1}
+                  placeholder="继承全局"
+                />
+              </Form.Item>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 16,
+                padding: "10px 0",
+              }}
+            >
+              <div style={{ flex: 1 }}>
+                <div>agent 调用配额覆盖</div>
+                <div style={{ color: "#999", fontSize: 12, marginTop: 2 }}>
+                  {globalDefaults.max_agent_calls !== undefined
+                    ? `留空 = 继承全局默认（当前 ${globalDefaults.max_agent_calls} 次/单 run，通用配置页可改）。`
+                    : "留空 = 继承全局默认（通用配置页可改）。"}
+                  过低 = 正常流程被配额强杀；过高 = 失控循环烧钱。
+                </div>
+                {(formValues?.max_agent_calls ?? null) != null &&
+                  (formValues.max_agent_calls as number) > 100 && (
+                    <div
+                      style={{ color: "#faad14", fontSize: 12, marginTop: 2 }}
+                    >
+                      超过 100 次的配额偏高，失控循环的成本风险请留意
+                    </div>
+                  )}
+              </div>
+              <Form.Item name="max_agent_calls" noStyle>
+                <InputNumber
+                  aria-label="配额覆盖"
+                  min={1}
+                  placeholder="继承全局"
+                />
+              </Form.Item>
+            </div>
+          </Card>
+        </div>
+      </Form>
 
       {/* 编辑模式的全部资料/环境修改经统一更新队列生效（不展示队列状态，只给统一说明） */}
       {isEdit && <EffectivenessNote />}
 
-      {/* 唯一保存按钮固定页面最底部（编辑模式在 key-value 卡片之下） */}
+      {/* 唯一保存按钮固定页面最底部 */}
       <Button
         type="primary"
         size="large"

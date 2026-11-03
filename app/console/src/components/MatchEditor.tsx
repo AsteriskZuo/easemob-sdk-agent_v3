@@ -1,5 +1,10 @@
-import { Alert, Button, Input, Select, Tabs, Tooltip } from "antd";
-import { DeleteOutlined, QuestionCircleOutlined } from "@ant-design/icons";
+import { Alert, Button, Drawer, Input, Select, Tabs, Tooltip } from "antd";
+import {
+  DeleteOutlined,
+  QuestionCircleOutlined,
+  ReadOutlined,
+} from "@ant-design/icons";
+import { useState } from "react";
 import type {
   BusinessProfile,
   EntryAdapterView,
@@ -17,6 +22,13 @@ export const EVENT_SOURCES: EventSource[] = [
   "internal",
   "manual",
 ];
+
+/** 来源下拉的显示标签（仅改显示不动值）：
+ *  jira 的适配器真名是 jira-polling（adapter id / AGENT_ENTRY_JIRA_POLLING_ENABLED），显示对齐真名；
+ *  webhook 是通用通道——「属于哪个平台」是 match 行 entry_config（path 等）的事，不在标签里 */
+const SOURCE_LABELS: Partial<Record<EventSource, string>> = {
+  jira: "jira-polling",
+};
 
 /** 匹配行编辑状态：entry_config 以 JSON 文本承载（提交时解析，空 = 不传） */
 export interface MatchRow {
@@ -98,28 +110,47 @@ function entryConfigValue(row: MatchRow, key: string): string {
   return typeof value === "string" ? value : JSON.stringify(value);
 }
 
-/** markdown 原文展示块（不引渲染器依赖：<pre> 原样展示，换行/围栏可读） */
-function DocPre({ label, doc }: { label: string; doc: string }) {
+/** 入口事件文档抽屉按钮（eventDoc 较长，不内联占版面；pre-wrap 原文展示不引渲染器） */
+function EventDocButton({
+  adapterName,
+  doc,
+}: {
+  adapterName: string;
+  doc: string;
+}) {
+  const [open, setOpen] = useState(false);
   return (
-    <div style={{ marginTop: 8 }}>
-      <div style={{ color: "#666", marginBottom: 4 }}>{label}</div>
-      <pre
-        style={{
-          margin: 0,
-          padding: 12,
-          background: "#fafafa",
-          border: "1px solid #f0f0f0",
-          borderRadius: 6,
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-          fontSize: 12,
-          maxHeight: 320,
-          overflow: "auto",
-        }}
+    <>
+      <Button
+        type="link"
+        size="small"
+        style={{ padding: 0 }}
+        icon={<ReadOutlined />}
+        onClick={() => setOpen(true)}
       >
-        {doc}
-      </pre>
-    </div>
+        查看入口事件文档
+      </Button>
+      <Drawer
+        title={`${adapterName} · 入口事件文档`}
+        placement="right"
+        width={520}
+        open={open}
+        onClose={() => setOpen(false)}
+      >
+        <pre
+          style={{
+            margin: 0,
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            fontSize: 12,
+            lineHeight: 1.7,
+            fontFamily: "monospace",
+          }}
+        >
+          {doc}
+        </pre>
+      </Drawer>
+    </>
   );
 }
 
@@ -155,7 +186,7 @@ export default function MatchEditor({
       <>
         <Input.TextArea
           aria-label={`匹配行 ${index + 1} 入口配置`}
-          rows={2}
+          rows={4}
           placeholder='入口配置（JSON object，可空），如 {"repo": "org/name"}'
           value={row.entry_config_text}
           status={parsed.ok ? "" : "error"}
@@ -203,7 +234,10 @@ export default function MatchEditor({
                 aria-label={`匹配行 ${index + 1} 来源`}
                 style={{ width: 160 }}
                 value={row.source}
-                options={EVENT_SOURCES.map((s) => ({ value: s, label: s }))}
+                options={EVENT_SOURCES.map((s) => ({
+                  value: s,
+                  label: SOURCE_LABELS[s] ?? s,
+                }))}
                 onChange={(source) => updateRow(index, { source })}
               />
               <Input
@@ -359,10 +393,15 @@ export default function MatchEditor({
                     message={`适配器「${adapter.name}」当前未启用（开关 AGENT_ENTRY_${adapter.id.toUpperCase().replace(/-/g, "_")}_ENABLED），启用前本行收不到事件`}
                   />
                 )}
-                <DocPre
-                  label={`入口事件文档（${adapter.name}）：本行事件长什么样、payload 什么形状`}
-                  doc={adapter.eventDoc}
-                />
+                <div style={{ marginTop: 8 }}>
+                  <EventDocButton
+                    adapterName={adapter.name}
+                    doc={adapter.eventDoc}
+                  />
+                  <span style={{ color: "#999", fontSize: 12, marginLeft: 8 }}>
+                    本行事件长什么样、payload 什么形状
+                  </span>
+                </div>
               </>
             )}
           </div>

@@ -393,8 +393,8 @@ describe("业务表单", () => {
 
     // 先等路由页渲染完（auth 加载是异步的，同步查询会撞上加载态 spinner）
     await screen.findByLabelText("业务名称");
-    // 打开 Agent 下拉：mock 的 pi 在
-    const candidates = screen.getAllByLabelText("Agent");
+    // 打开 Agent 内核下拉：mock 的 pi 在
+    const candidates = screen.getAllByLabelText("Agent 内核");
     const combobox =
       candidates.find((el) => el.tagName === "INPUT") ?? candidates[0];
     await user.click(combobox);

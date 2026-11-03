@@ -165,9 +165,10 @@ describe("入口区：适配器 eventDoc 与 entry_config schema 表单", () => 
     await fillRequiredFields(user, "webhook 业务");
     await selectOption(user, "匹配行 1 来源", "webhook");
 
-    // eventDoc 原文渲染（含标题与契约行）
+    // eventDoc 移入抽屉：按钮在，点击后展示原文（含契约行）
+    await user.click(screen.getByRole("button", { name: /查看入口事件文档/ }));
     expect(
-      await screen.findByText(/入口事件文档（自定义 Webhook）/),
+      await screen.findByText(/自定义 Webhook · 入口事件文档/),
     ).toBeTruthy();
     expect(screen.getByText(/POST \/hooks\/\{path\}/)).toBeTruthy();
 
@@ -211,7 +212,7 @@ describe("入口区：适配器 eventDoc 与 entry_config schema 表单", () => 
     const user = setupUser();
 
     await screen.findByLabelText("业务名称");
-    await selectOption(user, "匹配行 1 来源", "jira");
+    await selectOption(user, "匹配行 1 来源", "jira-polling");
 
     expect(
       await screen.findByText(/适配器「Jira 定时轮询」当前未启用/),
@@ -345,7 +346,7 @@ describe("出口区：「表单」/「JSON」Tab 双视图", () => {
 });
 
 describe("出口区：resultDoc 渲染", () => {
-  it("勾选出口工具 → 下方渲染其 resultDoc", async () => {
+  it("勾选出口工具 → 抽屉按钮在，点击后展示其 resultDoc", async () => {
     installPageMocks();
     renderApp("/businesses/new");
     const user = setupUser();
@@ -355,11 +356,14 @@ describe("出口区：resultDoc 渲染", () => {
       screen.getByRole("checkbox", { name: /企业微信群机器人/ }),
     );
 
+    // resultDoc 较长移入抽屉：按钮文案提示 + 点击后展示原文
+    await user.click(
+      screen.getByRole("button", {
+        name: /查看该出口期望 sdk.return 返回的形状/,
+      }),
+    );
     expect(
-      await screen.findByText(/该出口期望 sdk.return 返回的形状/),
-    ).toBeTruthy();
-    expect(
-      screen.getByText(/企业微信群机器人：sdk.return 期望形状/),
+      await screen.findByText(/企业微信群机器人：sdk.return 期望形状/),
     ).toBeTruthy();
   });
 });
