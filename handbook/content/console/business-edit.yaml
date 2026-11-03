@@ -1,0 +1,59 @@
+version: 1
+title: 控制台 · 业务编辑页
+entries:
+  # P0 仅登记 surface 清单（控制台需要哪些内容位），正文 P1 填充（status: draft）。
+  - id: console.business-edit.overview
+    kind: section
+    title:
+      cn: 业务编辑页概览
+    body:
+      cn: |
+        （待补充）
+    surfaces:
+      - console:
+          at: business-edit
+          display: drawer
+    status: draft
+    verify: app/console/src
+
+  - id: console.business-edit.assets.tip
+    kind: section
+    title:
+      cn: 资产钉定
+    body:
+      cn: |
+        （待补充）
+    surfaces:
+      - console: business-edit.assets
+    related:
+      see_also: [console.business-edit.assets.detail]
+    status: draft
+    verify: app/console/src
+
+  - id: console.business-edit.assets.detail
+    kind: section
+    title:
+      cn: 资产钉定详解
+    body:
+      cn: |
+        （待补充）
+    surfaces:
+      - console:
+          at: business-edit.assets
+          display: drawer
+    related:
+      see_also: [console.business-edit.assets.tip]
+    status: draft
+    verify: app/console/src
+
+  - id: console.business-edit.matches.tip
+    kind: section
+    title:
+      cn: 匹配规则
+    body:
+      cn: |
+        （待补充）
+    surfaces:
+      - console: business-edit.matches
+    status: draft
+    verify: app/console/src

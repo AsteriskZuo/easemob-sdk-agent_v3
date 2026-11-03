@@ -1,0 +1,76 @@
+{
+  "console.business-edit.overview": {
+    "kind": "section",
+    "title": {
+      "cn": "业务编辑页概览"
+    },
+    "body": {
+      "cn": "（待补充）\n"
+    },
+    "surfaces": [
+      {
+        "type": "console",
+        "at": "business-edit",
+        "display": "drawer"
+      }
+    ],
+    "status": "draft"
+  },
+  "console.business-edit.assets.tip": {
+    "kind": "section",
+    "title": {
+      "cn": "资产钉定"
+    },
+    "body": {
+      "cn": "（待补充）\n"
+    },
+    "surfaces": [
+      {
+        "type": "console",
+        "at": "business-edit.assets",
+        "display": "tip"
+      }
+    ],
+    "status": "draft",
+    "see_also": [
+      "console.business-edit.assets.detail"
+    ]
+  },
+  "console.business-edit.assets.detail": {
+    "kind": "section",
+    "title": {
+      "cn": "资产钉定详解"
+    },
+    "body": {
+      "cn": "（待补充）\n"
+    },
+    "surfaces": [
+      {
+        "type": "console",
+        "at": "business-edit.assets",
+        "display": "drawer"
+      }
+    ],
+    "status": "draft",
+    "see_also": [
+      "console.business-edit.assets.tip"
+    ]
+  },
+  "console.business-edit.matches.tip": {
+    "kind": "section",
+    "title": {
+      "cn": "匹配规则"
+    },
+    "body": {
+      "cn": "（待补充）\n"
+    },
+    "surfaces": [
+      {
+        "type": "console",
+        "at": "business-edit.matches",
+        "display": "tip"
+      }
+    ],
+    "status": "draft"
+  }
+}
