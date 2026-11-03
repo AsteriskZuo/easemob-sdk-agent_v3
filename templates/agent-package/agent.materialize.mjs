@@ -9,8 +9,8 @@
  * （转译/构建/codegen/资源下载等），跑完后 programs 声明的产物必须就位。
  *
  * 默认实现：esbuild 转译 apps/ 与 packages/ 下的 .ts/.js → dist/（ESM / node24 / sourcemap，
- * 逐文件不 bundle、保持目录结构——native 模块、动态 require、__dirname 资源因此正常），
- * 与 `npm run build`（tsc）同产物布局。
+ * 逐文件不 bundle、保持目录结构——native 模块、动态 require、__dirname 资源因此正常；
+ * 运行时依赖资产根 node_modules（物化流程已先跑 npm ci），与 `npm run build`（tsc）同产物布局）。
  * esbuild 用本仓库自己的 devDependency（平台已先跑 npm ci）；简单项目原样可用，复杂项目自行改写本脚本。
  */
 import { execFileSync } from "node:child_process";

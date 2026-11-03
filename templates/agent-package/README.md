@@ -8,7 +8,8 @@
 - **程序（apps/）**：可执行入口，在 `agent-package.json` 的 `programs` 里登记；值 = 转译后的 JS 相对包根路径，平台物化时机械校验每条路径真实存在。模板自带三个程序：`main`（主流程）、`check-input`（入口检查）、`check-output`（出口校验）——`check-input` / `check-output` 是**平台三段编排的保留程序名**，一次 run 依次执行 check-input → main → check-output；包内工具程序（如 jira-fetch）同表登记，名字自取。
 - **库代码（packages/）**：不可直接执行的实现模块（类型、helper、业务逻辑）；apps/ 里的程序保持薄壳（读输入 → 调实现 → 汇报结果）。
 - **requires**：名字级依赖声明（不钉版本）——本包代码 `sdk.run` 引用的外部工具名、`sdk.agent` 引用的 skill 名。控制台在业务绑定配置期机械校验这些名字都被绑定覆盖，缺绑 = 配置期报错。
-- **skill 不在包内**：skill 是独立资产（一个仓库或子路径 = 一个 skill 集合，每个含 SKILL.md 的直接子目录是一个 skill）。想单仓开发：同一仓库注册两次（根 = 包、`skills/` 子路径 = skill 集合）。工具同理——独立 git 仓库登记的工具资产。
+- **skill / 工具是独立资产，不进包产物**：skill 集合（每个含 SKILL.md 的子目录 = 一个 skill）与工具（可复用子程序）都独立登记；想单仓开发就在本仓库的 `skills/`、`tools/` 占位目录里写，登记时按 subpath 拆成独立资产（详见两个目录内的 README）。不需要时删掉即可。
+- **monorepo 纪律**：`apps/` 下各程序**互不依赖**（eslint 强制），共享代码只能下沉到 `packages/`；开发模式 = 本地 `npm install` 后六条检查跑源码与产物，生产模式 = 平台物化（clone → `npm ci` → `agent.materialize.mjs` 转译 → 产物校验）后由平台按 `programs` 拉起——两路产物同布局，运行依赖资产根 node_modules（开发/生产一致，也为业务包脱离平台的独立测试验证留好了路）。
 - 模板内置与平台同构同版本的完整工具链（build/typecheck/lint/format/circular/test），作者只写 `contract.json`、`apps/` 与 `packages/` 业务代码，本地跑绿的检查就是平台要求的全套检查。
 
 ## 2. 快速开始
@@ -43,7 +44,7 @@
 
 - **必带**：package/tool 资产根缺这个文件 = 物化失败；skill 资产（纯文档）不需要。
 - **职责**：完成本仓库的一切初始化——转译、其他语言产物的构建/安装、codegen、资源下载等。平台不传参、不理解过程，只验收产物。
-- **默认实现**（本模板自带）：esbuild 转译 `apps/` 与 `packages/` 下的 `*.{ts,js}` → `dist/`（ESM / node24 / sourcemap，逐文件不 bundle、保持目录结构），与 `npm run build`（tsc）同产物布局；简单项目原样可用。
+- **默认实现**（本模板自带）：esbuild 转译 `apps/` 与 `packages/` 下的 `*.{ts,js}` → `dist/`（ESM / node24 / sourcemap，逐文件不 bundle、保持目录结构，运行时依赖资产根 node_modules——物化流程已先跑 `npm ci`），与 `npm run build`（tsc）同产物布局；简单项目原样可用。
 - **何时自定义**：构建步骤超出「esbuild 转译 apps/ 与 packages/」（如需 codegen、拉取外部资源、构建非 JS 产物）时改写本脚本；注意脚本运行环境只有 node 24 + npm + git（python/rust/go 等谁用谁装，平台不提供）。
 - **本地调试链路不变**：`npm run build`（tsc → dist/）供本地六条检查；平台物化走初始化脚本产出同一 dist/，两路同源同代码。
 
@@ -66,4 +67,6 @@
 - `apps/main/index.ts`：主流程薄壳（单轮审查形态）——取数/大模型/组装产出（注释承载约束四条）。
 - `apps/check-input/index.ts` / `apps/check-output/index.ts`：入口检查 / 出口校验程序——调 SDK 通用校验器解释 contract.json 的薄壳，业务零修改；需要更强校验时自写替换（逃生门）。
 - `packages/`：库代码目录（内含 README 说明使用纪律；模板暂无库代码）。
+- `skills/`：**可选**——skill 集合占位（内含 README 与示例 `your-skill/`）；单仓多资产时按 subpath 登记为独立 skill 资产，不需要可删。
+- `tools/`：**可选**——共享工具占位（内含 README 说明规则）；每个工具一个子目录、独立登记，不需要可删。
 - `tests/`：e2e 测试——check-input / check-output 的契约行为（合法 / 缺失 / 类型错）与 main 的失败路径。
