@@ -26,6 +26,7 @@ import type {
   EffectiveConfigView,
   EntryAdapterView,
   ExitToolMenuItem,
+  HandbookPage,
   MatchBody,
   PatchBusinessBody,
 } from "@asteriskzuo/agent-console-api";
@@ -42,6 +43,7 @@ import type { MatchRow } from "../components/MatchEditor";
 import EffectivenessNote from "../components/EffectivenessNote";
 import PiConfigSection from "../components/PiConfigSection";
 import SectionHelp from "../components/SectionHelp";
+import { handbookBody } from "../handbook";
 
 /** 表单字段（antd Form 承载的部分；匹配行与出口配置走独立 state） */
 interface BusinessFormValues {
@@ -285,6 +287,8 @@ export default function BusinessEditPage() {
   >({});
   // 编辑态大模型配置状态（profile.model 非空 = 已配置；状态条判定用）
   const [modelConfigured, setModelConfigured] = useState(false);
+  // 当前页面的 tip/drawer 内容唯一来源：handbook YAML → generated JSON → console-api
+  const [handbook, setHandbook] = useState<HandbookPage>({});
 
   const reportError = useCallback(
     (err: unknown, fallback: string) => {
@@ -383,8 +387,11 @@ export default function BusinessEditPage() {
     setEnvSecrets([]);
   }, [form]);
 
-  // 初始加载：出口工具菜单 + 三类资产下拉数据源 + 可选内核/入口适配器清单
+  // 初始加载：出口工具菜单 + 三类资产下拉数据源 + 可选内核/入口适配器清单 + 页面说明
   useEffect(() => {
+    apiFetch<HandbookPage>("/api/handbook/business-edit")
+      .then(setHandbook)
+      .catch((err: unknown) => reportError(err, "加载页面说明失败"));
     apiFetch<ExitToolMenuItem[]>("/api/exit-tools")
       .then(setExitTools)
       .catch((err: unknown) => reportError(err, "加载出口工具失败"));
@@ -774,7 +781,13 @@ export default function BusinessEditPage() {
           返回
         </Button>
       </div>
-      <h2 style={{ margin: "0 0 8px" }}>{isEdit ? "编辑业务" : "创建业务"}</h2>
+      <h2 style={{ margin: "0 0 8px" }}>
+        <SectionHelp
+          title={isEdit ? "编辑业务" : "创建业务"}
+          entries={handbook}
+          drawerId="console.business-edit.overview"
+        />
+      </h2>
 
       {/* 顶部状态条：七块配置完整性速览 + 锚点导航（绿=已配置 黄=待完善 蓝=可选/未涉及） */}
       <div
@@ -859,7 +872,8 @@ export default function BusinessEditPage() {
             title={
               <SectionHelp
                 title="大模型配置"
-                tip="是什么：业务推理用的模型来源与执行内核。业务自定义 models.json 是唯一模型来源，改动需在线验证全部通过后确认保存。配错后果：未配置的业务 sdk.agent 调用将失败（纯程序业务可忽略）。"
+                entries={handbook}
+                tipId="console.business-edit.model.tip"
               />
             }
             style={{ marginBottom: 16 }}
@@ -867,7 +881,10 @@ export default function BusinessEditPage() {
             <Form.Item
               name="agent_kind"
               label="Agent 内核"
-              tooltip="是什么：执行大模型调用的内核程序（当前仅 pi）。何时用：一般保持默认。配错后果：不在可选集合的值保存时会被服务端拒绝。"
+              tooltip={handbookBody(
+                handbook,
+                "console.business-edit.model.agent-kind",
+              )}
               rules={[{ required: true, message: "请选择 agent 内核" }]}
               extra={
                 isEdit &&
@@ -907,7 +924,8 @@ export default function BusinessEditPage() {
             title={
               <SectionHelp
                 title="提示词配置"
-                tip="是什么：每次 agent 调用自动注入的业务总纲，说明业务规则、边界与不可做。何时用：业务需要稳定的行为约束时必写。配错后果：总纲缺失或过宽，模型输出质量与边界不可控。"
+                entries={handbook}
+                tipId="console.business-edit.prompt.tip"
               />
             }
             style={{ marginBottom: 16 }}
@@ -915,7 +933,10 @@ export default function BusinessEditPage() {
             <Form.Item
               name="prompt"
               label="提示词总纲"
-              tooltip="是什么：每次 agent 调用自动注入的业务总纲，说明业务规则、边界与不可做。何时用：业务需要稳定的行为约束时必写。配错后果：总纲缺失或过宽，模型输出质量与边界不可控。"
+              tooltip={handbookBody(
+                handbook,
+                "console.business-edit.prompt.tip",
+              )}
               style={{ marginBottom: 0 }}
             >
               <Input.TextArea
@@ -932,20 +953,9 @@ export default function BusinessEditPage() {
             title={
               <SectionHelp
                 title="资产配置"
-                tip="是什么：业务要用的代码资产组合。何时用：创建业务时配置，改了立即作用于后续 run。配错后果：缺绑/名冲突保存时被服务端拒绝（消息会列出全部问题）。"
-                drawerDoc={`包 / 工具 / skill 的关系
-
-包 = 业务代码单位（恰好绑定一个），提供流程程序入口（平台每次执行 spawn 它）与包内程序。
-工具 = 可共享的子程序资产，包代码用 sdk.run('程序名') 按名调用。
-skill = 给大模型的能力集合，sdk.agent 按名注入（白名单校验）。
-
-绑定规则
-- 工具与 skill 可绑多个（自己的 + 他人共享的）；
-- 包清单 requires.tools / requires.skills 声明的外部依赖必须全部绑定，缺绑保存时被拒绝；
-- 程序名 / skill 名冲突会被拒绝；
-- 运行期按名找不到程序则 run 失败；缺绑 skill 则 agent 调用被白名单拦截。
-
-生效方式：改动经统一更新队列作用于后续 run。`}
+                entries={handbook}
+                tipId="console.business-edit.assets.tip"
+                drawerId="console.business-edit.assets.detail"
               />
             }
             style={{ marginBottom: 16 }}
@@ -953,7 +963,10 @@ skill = 给大模型的能力集合，sdk.agent 按名注入（白名单校验�
             <Form.Item
               name="package_asset_id"
               label="包绑定"
-              tooltip="是什么：业务代码单位（恰好一个），提供流程程序入口与包内程序。何时用：创建业务必选。配错后果：不绑定包业务无法运行；绑错包 = 执行错误的流程。"
+              tooltip={handbookBody(
+                handbook,
+                "console.business-edit.assets.package-asset-id",
+              )}
               rules={[
                 { required: true, message: "必须绑定包资产，否则业务无法运行" },
               ]}
@@ -980,7 +993,10 @@ skill = 给大模型的能力集合，sdk.agent 按名注入（白名单校验�
             <Form.Item
               name="entry_program"
               label="入口程序"
-              tooltip="是什么：包清单 programs 中作为流程入口的程序名，平台每次执行 spawn 它。何时用：选定包后必选。配错后果：选错入口 = 执行了错误的程序。"
+              tooltip={handbookBody(
+                handbook,
+                "console.business-edit.assets.entry-program",
+              )}
               rules={[{ required: true, message: "请选择入口程序" }]}
             >
               <Select
@@ -992,7 +1008,10 @@ skill = 给大模型的能力集合，sdk.agent 按名注入（白名单校验�
             <Form.Item
               name="tool_asset_ids"
               label="工具绑定"
-              tooltip="是什么：可共享的子程序资产，包代码用 sdk.run('程序名') 按名调用。何时用：包清单 requires.tools 声明了外部工具时必须绑定对应资产。配错后果：缺绑/程序名冲突保存时被拒绝；运行期按名找不到程序则 run 失败。"
+              tooltip={handbookBody(
+                handbook,
+                "console.business-edit.assets.tool-asset-ids",
+              )}
               extra={
                 tools.length === 0 ? (
                   <span>
@@ -1014,7 +1033,10 @@ skill = 给大模型的能力集合，sdk.agent 按名注入（白名单校验�
             <Form.Item
               name="skill_asset_ids"
               label="Skill 绑定"
-              tooltip="是什么：给大模型的能力集合，sdk.agent 按名注入（白名单校验）。何时用：包代码调 sdk.agent 引用 skill 时。配错后果：缺绑时 agent 调用被白名单拦截而失败。"
+              tooltip={handbookBody(
+                handbook,
+                "console.business-edit.assets.skill-asset-ids",
+              )}
               extra={
                 skills.length === 0 ? (
                   <span>
@@ -1041,27 +1063,9 @@ skill = 给大模型的能力集合，sdk.agent 按名注入（白名单校验�
             title={
               <SectionHelp
                 title="入口配置"
-                tip="是什么：决定什么事件触发本业务。三种入口：外部事件 = 入口适配器推送（如 webhook）；内部队列事件 = 关注上游业务的产出类型（业务id.产出类型）；定时 = 周期/绝对时间触发。何时用：每个业务至少一条匹配行。配错后果：事件类型写错 = 业务永远不触发；关注错上游 = 误触发。"
-                drawerDoc={`入口（匹配行）决定什么事件触发本业务。一个业务可有多条匹配行（多入口并行），任一命中即触发。
-
-三种入口来源
-
-1. 外部事件（入口适配器推送）
-   webhook：上游系统 HTTP 推送到平台 /hooks/{path}；jira 等：平台周期轮询。
-   选中适配器后，下方按其 configSchema 生成配置表单，并可查看该入口的事件文档（报文形状）。
-   entry_config 的必配项缺失会在入队时被拒绝（如 webhook 必配 path 与 session_id_key）。
-
-2. 内部队列事件（internal）
-   关注上游业务的产出：event_type = {业务id}.completed | {业务id}.failed，
-   payload 为上游业务 sdk.return 的 output 原样。处理链（下游关注上游）就靠它串起来。
-
-3. 定时（cron）与手动（manual）
-   cron = 周期/绝对时间触发；manual = 手动触发。
-
-匹配语义
-- event_type 留空 = 接收该来源全部事件；填写 = 精确过滤；
-- 串行键 = 会话标识 × 业务：同一会话同一业务的 run 串行，其余组合并行；
-- 配错后果：事件类型写错 = 永远不触发；关注错上游 = 误触发。`}
+                entries={handbook}
+                tipId="console.business-edit.entry.tip"
+                drawerId="console.business-edit.entry.detail"
               />
             }
             style={{ marginBottom: 16 }}
@@ -1083,7 +1087,8 @@ skill = 给大模型的能力集合，sdk.agent 按名注入（白名单校验�
             title={
               <SectionHelp
                 title="出口配置"
-                tip="是什么：业务结果的投递目的地（企微/邮件/webhook 等），投递不过大模型。何时用：结果需要通知人或系统时勾选并按 schema 填配置，敏感值建议填 {{key}} 占位（真值存环境配置）。配错后果：地址/账号填错 = 运行时投递失败进死信；占位键不存在 = 保存时被服务端拒绝。"
+                entries={handbook}
+                tipId="console.business-edit.exit.tip"
               />
             }
             style={{ marginBottom: 16 }}
@@ -1230,7 +1235,13 @@ skill = 给大模型的能力集合，sdk.agent 按名注入（白名单校验�
               items={[
                 {
                   key: "env",
-                  label: "环境配置（可选，随业务一并创建）",
+                  label: (
+                    <SectionHelp
+                      title="环境配置（可选，随业务一并创建）"
+                      entries={handbook}
+                      tipId="console.business-edit.env.tip"
+                    />
+                  ),
                   children: (
                     <CreateEnvEditor
                       vars={envVars}
@@ -1253,7 +1264,8 @@ skill = 给大模型的能力集合，sdk.agent 按名注入（白名单校验�
               title={
                 <SectionHelp
                   title="环境配置"
-                  tip="是什么：按业务注入的 key-value 配置——普通桶明文回显，安全桶只写不读（掩码）。何时用：包代码 sdk.config()/sdk.secret() 要读的参数与凭据；入口/出口配置里 {{key}} 占位的真值也在这里建键。配错后果：键名写错 = 业务代码取不到值或占位解析失败；机密放普通桶 = 明文泄漏。"
+                  entries={handbook}
+                  tipId="console.business-edit.env.tip"
                 />
               }
               style={{ marginBottom: 16 }}
@@ -1276,7 +1288,8 @@ skill = 给大模型的能力集合，sdk.agent 按名注入（白名单校验�
             title={
               <SectionHelp
                 title="运行策略配置"
-                tip="超时/配额留空 = 继承全局默认（当前值见各项小字，通用配置页可改），业务级覆盖优先。"
+                entries={handbook}
+                tipId="console.business-edit.runtime.tip"
               />
             }
             style={{ marginBottom: 16 }}

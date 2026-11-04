@@ -9,9 +9,9 @@
 每个 YAML 文件：
 
 ```yaml
-version: 1            # 必填，目前恒为 1（结构演进时递增，codegen 按版本解析）
-title: 页面标题        # 可选（cn），生成 md 的 H1；缺省用文件名
-entries:              # 必填，条目列表（可为空数组）
+version: 1 # 必填，目前恒为 1（结构演进时递增，codegen 按版本解析）
+title: 页面标题 # 可选（cn），生成 md 的 H1；缺省用文件名
+entries: # 必填，条目列表（可为空数组）
   - id: ...
 ```
 
@@ -19,19 +19,19 @@ entries:              # 必填，条目列表（可为空数组）
 
 ## 2. 条目字段总表
 
-| 字段 | 必填 | 类型 | 说明 |
-|---|---|---|---|
-| `id` | ✅ | string | 稳定 ID，见 §3 |
-| `kind` | ✅ | enum | 条目类型，见 §4 |
-| `title` | ✅ | lang-map | `{ cn: "标题" }`，见 §6 |
-| `body` | ✅ | lang-map | `{ cn: "markdown 正文" }`，见 §6 |
-| `surfaces` | ✅ | list | 消费面声明，见 §5 |
-| `status` | 可选 | enum | 生命周期，默认 `stable`，见 §7 |
-| `related` | 可选 | map | 引用关系，见 §8 |
-| `verify` | 见 §9 | string | 可验证出处（相对仓库根的路径） |
-| `name` | field 必填 | string | 字段名（英文标识符） |
-| `type` | field 必填 | enum | `string` / `number` / `boolean` / `object` / `array` |
-| `required` | 可选 | boolean | 字段是否必填，默认 false |
+| 字段       | 必填       | 类型     | 说明                                                 |
+| ---------- | ---------- | -------- | ---------------------------------------------------- |
+| `id`       | ✅         | string   | 稳定 ID，见 §3                                       |
+| `kind`     | ✅         | enum     | 条目类型，见 §4                                      |
+| `title`    | ✅         | lang-map | `{ cn: "标题" }`，见 §6                              |
+| `body`     | ✅         | lang-map | `{ cn: "markdown 正文" }`，见 §6                     |
+| `surfaces` | ✅         | list     | 消费面声明，见 §5                                    |
+| `status`   | 可选       | enum     | 生命周期，默认 `stable`，见 §7                       |
+| `related`  | 可选       | map      | 引用关系，见 §8                                      |
+| `verify`   | 见 §9      | string   | 可验证出处（相对仓库根的路径）                       |
+| `name`     | field 必填 | string   | 字段名（英文标识符）                                 |
+| `type`     | field 必填 | enum     | `string` / `number` / `boolean` / `object` / `array` |
+| `required` | 可选       | boolean  | 字段是否必填，默认 false                             |
 
 未在本表出现的字段 = 非法，codegen 报错。
 
@@ -44,12 +44,12 @@ entries:              # 必填，条目列表（可为空数组）
 
 ## 4. kind 枚举
 
-| kind | 语义 | 渲染 | 额外约束 |
-|---|---|---|---|
-| `section` | 普通段落/章节 | md 正文小节 | — |
-| `field` | 字段级参考（契约/配置项） | md 中带 name/type/required 元信息；json 中结构化 | 必填 `name`、`type` |
-| `concept` | 术语定义（会被多处引用） | 同 section | 命名取 `*.concept.<术语>` 为宜 |
-| `guide` | 操作指南/流程（步骤性内容） | 同 section | — |
+| kind      | 语义                        | 渲染                                             | 额外约束                       |
+| --------- | --------------------------- | ------------------------------------------------ | ------------------------------ |
+| `section` | 普通段落/章节               | md 正文小节                                      | —                              |
+| `field`   | 字段级参考（契约/配置项）   | md 中带 name/type/required 元信息；json 中结构化 | 必填 `name`、`type`            |
+| `concept` | 术语定义（会被多处引用）    | 同 section                                       | 命名取 `*.concept.<术语>` 为宜 |
+| `guide`   | 操作指南/流程（步骤性内容） | 同 section                                       | —                              |
 
 新增 kind：先在本表登记（含语义与渲染约定），codegen 加支持后才可使用。kind 可用于过滤（如「导出所有 field」）。
 
@@ -59,11 +59,11 @@ entries:              # 必填，条目列表（可为空数组）
 
 ```yaml
 surfaces:
-  - doc: bizpkg/contract              # 进生成的文档页：<页面路径>[#锚点]
-  - console: business-edit.contract   # 进控制台，简写 = display: tip
-  - console:                          # 完整写法
-      at: business-edit.contract      #   控制台位置：页面.区域（点分 kebab）
-      display: drawer                 #   tip | drawer（缺省 tip）
+  - doc: bizpkg/contract # 进生成的文档页：<页面路径>[#锚点]
+  - console: business-edit.contract # 进控制台，简写 = display: tip
+  - console: # 完整写法
+      at: business-edit.contract #   控制台位置：页面.区域（点分 kebab）
+      display: drawer #   tip | drawer（缺省 tip）
 ```
 
 - `doc`：字符串，格式 `<页面路径>`（可带 `#锚点`）。页面路径决定条目汇入哪篇生成文档的哪个位置。
@@ -71,7 +71,9 @@ surfaces:
 - `display`：
   - `tip` —— 内联提示。操作导向，宜一两句话（风格建议，不机械限制）。
   - `drawer` —— 右侧弹出抽屉。可承载长内容：详细解释、示例、链接。重叠的详细内容进 drawer，不进 tip。
-- 同一主题可同时注册 tip 与 drawer 两个条目（如 `…​.tip` 一句话 + `….detail` 抽屉详述），互相 `see_also`。
+- 同一主题可同时注册 tip 与 drawer 两个条目，**命名固定为 `<区域路径>.tip` / `<区域路径>.detail`**（如 `console.business-edit.assets.tip` / `.detail`），互相 `see_also`。因为两态需要不同详略，所以拆两条目而非共用 body；UI 上它们是同一标题旁的两个按钮。
+- **区块 tip 与字段 tip 同文时只建一个条目**（如 prompt 区块与 prompt 字段是同一段说明）：一个条目，UI 多处引用同一 id，不复制。
+- 字段级提示：`kind: field`，`console.at` 定位到 `页面.区域.字段`（字段段 kebab，如 `business-edit.assets.package-asset-id`），真实字段名写 `name`。
 
 ## 6. 语言（i18n）
 
@@ -79,9 +81,9 @@ surfaces:
 
 ```yaml
 title:
-  cn: 契约的作用        # 必填
+  cn: 契约的作用 # 必填
 body:
-  cn: |                 # 必填，markdown
+  cn: | # 必填，markdown
     ……
   # en: |              # 可选预留；缺省语言回落 cn
 ```
@@ -104,8 +106,8 @@ draft（撰写中）→ stable（正式）→ deprecated（已作废）
 
 ```yaml
 related:
-  see_also: [bizpkg.layout.monorepo]     # 相关条目 id 列表
-  replaced_by: bizpkg.contract.v2        # 仅 status=deprecated 时有意义
+  see_also: [bizpkg.layout.monorepo] # 相关条目 id 列表
+  replaced_by: bizpkg.contract.v2 # 仅 status=deprecated 时有意义
 ```
 
 - 只引用、不复制：需要别处内容时用 `see_also`，body 内禁止整段搬抄。
@@ -120,11 +122,11 @@ related:
 
 ## 10. 命名空间与文体
 
-| 命名空间 | 内容 | 文体约束 |
-|---|---|---|
-| `bizpkg.*` | 业务包规范与使用（开发者最关心） | 专业、详细：概念 + 机制 + 示例 |
-| `console.*` | 控制台页面说明 | 操作导向，一看便知；长内容放 drawer |
-| `platform.*` | 平台机制（P2 考古填充） | 机制 + 地图，凡现状必 verify |
+| 命名空间     | 内容                             | 文体约束                                                                        |
+| ------------ | -------------------------------- | ------------------------------------------------------------------------------- |
+| `bizpkg.*`   | 业务包规范与使用（开发者最关心） | 专业、详细：概念 + 机制 + 示例                                                  |
+| `console.*`  | 控制台页面说明                   | 操作导向，一看便知；长内容放 drawer；tip 用「是什么/何时用/配错后果」三段式模板 |
+| `platform.*` | 平台机制与运维边界               | 机制 + 地图，凡现状必 verify；设计目标与代码现状分开表述                        |
 
 新增顶层命名空间：先在本表登记。
 
@@ -134,6 +136,7 @@ related:
 2. **术语唯一**：一个概念一个名字，与 `docs/designs/2026-09-14-skill-platform-spec-v3/design/glossary.md` 的既有定义对齐；冲突时先对齐再写。
 3. **标识符精确**：代码符号、配置键、事件类型与仓库实际命名一致。
 4. **示例真实**：示例中的工单号、路径、命令必须来自仓库真实存在的事物。
+5. **以下内容不进 handbook**（业务编辑页复验确认的边界）：空态引导（"还没有包资产，先去登记"）、校验错误文案、含动态值的操作小字（如"继承全局默认（当前 X 分钟）"）——它们是代码逻辑不是文档，留在组件里。
 
 ## 12. codegen 校验清单（与本文件一一对应）
 

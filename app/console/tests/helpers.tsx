@@ -62,7 +62,12 @@ export function installFetchMock(handler: MockHandler): RecordedCall[] {
       body: init?.body !== undefined ? JSON.parse(init.body) : undefined,
       ...(init?.headers !== undefined ? { headers: init.headers } : {}),
     });
-    const result = handler(path, { method, body: init?.body });
+    const result =
+      handler(path, { method, body: init?.body }) ??
+      // 可选说明文档缺省为空，避免每个表单用例重复 mock；文档测试可显式覆盖。
+      (path === "/api/handbook/business-edit"
+        ? { status: 200, body: {} }
+        : undefined);
     const status = result?.status ?? 500;
     const payload =
       result?.body !== undefined

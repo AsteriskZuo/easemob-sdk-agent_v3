@@ -1,0 +1,142 @@
+<!-- 本文件由 handbook/tools/codegen.mjs 生成，禁止手改；请编辑 content/ 下的 YAML 源 -->
+
+
+# 业务包 · 概念与目录布局
+
+
+## 业务包：可独立开发的业务程序集合
+
+> `bizpkg.layout.overview`
+
+业务包是平台执行业务的代码单元。平台登记它的 git 地址、commit 和子路径，物化后按 `check-input → main → check-output` 调用；业务创建者再在控制台配置模型、资产、入口、出口和运行策略。
+
+**业务 = 包 + 配置**。包负责确定性的代码编排，配置负责环境差异。平台不要求业务代码继承框架基类，双方只通过 stdin/stdout JSON 契约通信。
+一个包可以放在独立 git 仓库，也可以与工具、skill 放在同一仓库的不同子路径，分别登记为资产。
+
+
+_参见：`bizpkg.contract.overview`、`bizpkg.integration.overview`_
+
+
+## 包内目录：apps 与 packages
+
+> `bizpkg.layout.monorepo`
+
+标准模板本身是一个小型 monorepo：
+```text
+agent-package/
+├── agent-package.json       # 程序与依赖清单
+├── contract.json            # 输入/输出契约
+├── agent.materialize.mjs    # 平台物化入口
+├── package.json
+├── package-lock.json        # 拷贝模板后在业务仓库生成并提交
+├── apps/
+│   ├── check-input/index.ts
+│   ├── main/index.ts
+│   └── check-output/index.ts
+├── packages/                # 可共享的流程、解析、领域代码
+├── tests/
+├── skills/                  # 可选：同仓 skill 集合
+└── tools/                   # 可选：同仓工具资产
+```
+
+`apps/*` 是平台或 `sdk.run` 可调用的程序入口，彼此之间**禁止互相 import**；共享实现只能下沉到 `packages/`。模板 eslint 会拦截跨 app 引用。
+`apps` 是多个程序的复数目录，`packages` 是共享库的复数目录；不要再额外包一层 `src/` 或把 `apps` 放进 `packages`。
+
+
+_参见：`bizpkg.layout.programs`、`bizpkg.development.testing`_
+
+
+## 程序入口：薄壳与实现分离
+
+> `bizpkg.layout.programs`
+
+`main`、`check-input`、`check-output` 是三段编排的保留程序名。建议 app 入口只负责读输入、调用流程、映射唯一出口，复杂逻辑放 `packages/`，便于注入替身做单元测试。
+
+除三个保留程序外，包还可以在 `programs` 声明其他子程序。包内代码优先直接 import 同仓实现；需要进程隔离、独立超时或跨语言时才通过 `sdk.run` 调用。
+所有 program 最终必须指向 Node.js 可执行的 `.js` 文件；其他语言需由 JS 薄壳启动，并在物化脚本中准备运行环境与产物。
+
+
+_参见：`bizpkg.contract.pipeline`、`bizpkg.layout.manifest`_
+
+
+## agent-package.json：程序与外部依赖清单
+
+> `bizpkg.layout.manifest`
+
+```json
+{
+  "name": "my-package",
+  "version": "0.1.0",
+  "programs": {
+    "main": "dist/apps/main/index.js",
+    "check-input": "dist/apps/check-input/index.js",
+    "check-output": "dist/apps/check-output/index.js"
+  },
+  "requires": {
+    "tools": ["jira-fetch"],
+    "skills": ["ticket-review"]
+  }
+}
+```
+
+`programs` 的值是物化后、相对于资产根目录的产物路径，必须是相对 `.js` 路径且不能含 `..`。`requires` 只声明代码引用的外部名字，不写仓库地址、路径或版本；实际绑定和版本由控制台配置决定。
+工具资产使用同一清单格式，但工具是叶子，不能声明 `requires`。
+
+
+_参见：`bizpkg.layout.requires`、`bizpkg.integration.materialization`_
+
+
+## requires：名字级依赖，不是路径级耦合
+
+> `bizpkg.layout.requires`
+
+主程序用 `sdk.run("jira-fetch", ...)` 调用外部工具，用 `sdk.agent({ skills: ["ticket-review"], ... })` 引用 skill；清单必须同步声明这些名字。
+
+创建或更新业务绑定时，平台检查 `requires` 是否被绑定覆盖，并拒绝工具程序名或 skill 名冲突。这使错误尽量停在配置期，而不是运行到一半才暴露。
+外部工具的版本跟随其资产登记 commit；业务代码不因工具换版而修改仓库路径。
+
+
+_参见：`bizpkg.development.tools`、`bizpkg.integration.binding`_
+
+
+## 一仓多资产：package、tools 与 skills
+
+> `bizpkg.layout.assets`
+
+小型业务可以把三族资产放在同一个 git 仓库：
+```text
+business-repo/
+├── package/   # 登记为 package，subpath=package
+├── tools/     # 登记为 tool，subpath=tools
+└── skills/    # 登记为 skill 集合，subpath=skills
+```
+每个资产独立登记 git 三元组并独立物化。包代码引用工具或 skill 的**名字**，不能 import 兄弟资产目录。规模扩大后可拆仓，业务代码无需因物理位置变化而改写。
+
+模板的 `skills/`、`tools/` 只是可选占位；不使用时可以删除，同时移除清单中不再适用的 `requires` 示例。
+
+
+_参见：`bizpkg.integration.registration`_
+
+
+## 运行依赖：保留 node_modules，不做单文件 bundle
+
+> `bizpkg.layout.runtime-deps`
+
+当前模板把 TypeScript 逐文件转译到 `dist/`，运行时继续使用物化阶段 `npm ci` 安装的 `node_modules`。这与普通 Node.js 服务一致，能保留正常的依赖解析、source map 和独立开发体验。
+
+平台验收的是 `programs` 声明的产物是否可执行，不要求业务打成单文件。不要为了“看起来独立”擅自改变模板构建方式；真正需要独立验证时，应补齐输入信封和资产解析，而不是简单复制一个 `dist` 文件。
+
+
+_参见：`bizpkg.development.independent-boundary`、`bizpkg.integration.materialization`_
+
+
+## 当前参考实现：jira-ticket-review
+
+> `bizpkg.layout.example`
+
+平台仓 `business/jira-ticket-review/` 是一仓三资产的完整例子。其主编排位于 `package/packages/review-flow.ts`，`package/apps/main/index.ts` 只负责 SDK 边界与结果映射；审查记录实现位于 `package/packages/review-records.ts`。
+
+阅读旧运维资料时，如果看到 `package/src/review-flow.ts` 等路径，应以当前 `apps/` + `packages/` 结构为准，不要按旧路径新建文件。
+
+
+_参见：`bizpkg.development.testing`、`bizpkg.operations.business-dedup`_

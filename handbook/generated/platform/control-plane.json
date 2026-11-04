@@ -1,0 +1,182 @@
+{
+  "platform.control-plane.console-api": {
+    "kind": "concept",
+    "title": {
+      "cn": "控制面职责：配置写入与运行读面分离"
+    },
+    "body": {
+      "cn": "console-api 提供认证后的业务、资产、环境、Pi 配置、平台配置、出口工具和监控接口。业务写权限是 creator 本人或 admin；资产由 member 持有，admin 可读取但不代替 member 持有或绑定资产。\n读接口可以直接查询注册表和 SQLite；会影响业务执行的写操作不直接改生效状态，而是提交统一更新命令。配置期校验与应用时变更因此是两个阶段：前者尽可能提前拒绝坏输入，后者等待安全窗口后修改注册表或资产。\n`/api/config` 只展示启动配置的非敏感子集，不是通用配置写入接口；控制台可见某一项不等于可以在线修改它。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "platform/control-plane"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "platform.control-plane.update-coordinator",
+      "platform.control-plane.startup-config"
+    ]
+  },
+  "platform.control-plane.write-validation": {
+    "kind": "concept",
+    "title": {
+      "cn": "配置期校验：在落库前尽可能发现组合错误"
+    },
+    "body": {
+      "cn": "业务 create/patch 涉及绑定时，会集中检查资产存在性与可用性、绑定权限、私有凭据、entry_program、程序名冲突、skill 名冲突和 requires.tools/requires.skills 覆盖，问题一次性全部返回。patch 只改非绑定字段时跳过整组资产校验。\n已下架资产不能被新增绑定；已有下架绑定不会阻断其他字段保存，但真正运行时仍会 asset_disabled。webhook path 另做全平台唯一性检查，入口和出口 `{{key}}` 占位也会检查对应环境键存在。\n校验中的 assets.get 可能同步触发 clone 和构建，会阻塞管理 API 的 Node.js 事件循环；当前把这类操作视为低频管理动作接受该成本，不应把配置接口当作高并发物化服务。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "platform/control-plane"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "platform.runtime.context-loader",
+      "platform.control-plane.asset-lifecycle"
+    ]
+  },
+  "platform.control-plane.asset-identity": {
+    "kind": "concept",
+    "title": {
+      "cn": "资产身份：asset_id 不含 commit"
+    },
+    "body": {
+      "cn": "`asset_id = ast_ + sha256(owner_id + url + kind + subpath) 的前 16 位 hex`，不包含 ref 或 commit。相同属主、仓库、类型和子路径始终指向同一资产身份；同一仓库可通过不同 subpath 分别登记 package、tools、skills 等多个资产。\n登记时先把 ref 解析为 40 位 commit，再物化并验证；失败会回滚登记行和缓存。相同 asset_id 已存在时 register 幂等返回既有记录，不自动上架，也不因再次登记另一个 ref 而静默换版本。\n因此资产身份回答“这是哪一个资产”，登记行中的 commit 回答“它当前是哪个版本”。不要把 asset_id 当成内容不可变哈希。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "platform/control-plane"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "platform.control-plane.asset-versioning",
+      "bizpkg.layout.assets"
+    ]
+  },
+  "platform.control-plane.asset-versioning": {
+    "kind": "concept",
+    "title": {
+      "cn": "版本更新：非共享资产原地换 commit，绑定不断"
+    },
+    "body": {
+      "cn": "对 package 和非共享 tool/skill，控制台更新版本会把 ref 预解析为固定 commit，再经更新队列调用 `updateRef`：**asset_id 不变，既有业务绑定不需要重绑**。相同 commit 直接幂等返回；排队期间分支继续移动也不会改变本次已固定版本。\n更新会先清缓存、物化并校验新版本；失败时登记 commit 回滚到旧值，但旧缓存已经删除，之后使用旧版本会懒重建。共享 tool/skill 禁止 updateRef，避免一个属主静默改变其他业务的运行内容；需要新形态时使用不同 url/subpath 登记新资产并显式调整绑定。\n更新命令会等待全部引用业务空闲，所以“绑定不断”不等于“更新穿过正在执行的 run”。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "platform/control-plane"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "platform.control-plane.update-coordinator",
+      "platform.runtime.materialization-cache"
+    ]
+  },
+  "platform.control-plane.asset-lifecycle": {
+    "kind": "concept",
+    "title": {
+      "cn": "上下架、删除与缓存：三种操作不要混用"
+    },
+    "body": {
+      "cn": "**下架**只把 enabled 置 false，不删登记、不改 commit、不解绑、不清缓存；绑定它的业务下一次 run 会 asset_disabled，重新上架后恢复。**删除**会物理删除登记行和该资产的物化缓存，仍有业务绑定时接口返回冲突，排队期间新增绑定也会在应用时复检。\n**清缓存**删除全部物化内容但保留登记，下一次取用重新 clone/构建，可能耗时分钟级；它使用全业务屏障，仅 admin 可发起。缓存清理适合处理缓存损坏或强制重建，不会修复仓库缺文件、错误 commit 或错误契约。\n资产写操作仅限 member 中该资产属主；共享属性在登记后不作为普通版本更新手段修改。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "platform/control-plane"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "platform.runtime.context-loader",
+      "platform.operations.deletion-current"
+    ]
+  },
+  "platform.control-plane.update-coordinator": {
+    "kind": "concept",
+    "title": {
+      "cn": "统一更新队列：持久 FIFO + 业务空闲屏障"
+    },
+    "body": {
+      "cn": "业务、环境、资产和 Pi 配置的在线写命令进入 `business_update_commands`，记录 update_id、全局 seq、完整参数、受影响业务和操作者。协调器等待影响范围内没有活动 run，再设置应用屏障并执行 handler；新 run 在屏障期间等待，不提前占 task_concurrency 名额。\n普通命令严格按全局 FIFO，队首未空闲时后续有影响集合的命令不能插队；空影响集合命令有豁免，但仍不能与全平台应用窗口并行。资产命令应用前会重算引用方，防止排队期间的新绑定逃过屏障。\n提交结果分 `applied`（已等待应用完成）与 `accepted`（已持久化、等待业务空闲，HTTP 通常为 202）。应用失败标 failed且不自动重试；启动时 processing 恢复 pending，并在事件循环开放前先补应用。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "platform/control-plane"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "platform.overview.loops",
+      "platform.operations.failure-matrix"
+    ]
+  },
+  "platform.control-plane.startup-config": {
+    "kind": "concept",
+    "title": {
+      "cn": "启动配置：环境变量 > config.json > 代码默认"
+    },
+    "body": {
+      "cn": "启动时只解析一次配置，优先级为**环境变量 > `{workspace}/platform/config.json` 同名 AGENT_ 键 > 代码默认值**。`AGENT_WORKSPACE` 只能来自环境变量，因为需要先知道 workspace 才能定位配置文件。\n常用默认值：hop_limit=8、task_concurrency=4、result_concurrency=16、task_timeout_minutes=60、max_agent_calls=20、console_port=6100、webhook_port=6200；webhook 默认启用，jira-polling 默认关闭。\n修改环境变量或 config.json 后需要重启才能改变生效配置。`/api/config` 和启动日志用于核对实际值；配置文件存在但同名环境变量也存在时，环境变量优先。配置缺失或非法会在启动前集中报错，而不是逐项静默降级。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "platform/control-plane"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "platform.eventing.adapters",
+      "platform.operations.restart-recovery"
+    ]
+  },
+  "platform.control-plane.pi-config-workflow": {
+    "kind": "guide",
+    "title": {
+      "cn": "Pi 配置生效流程：在线验证与确认是两个动作"
+    },
+    "body": {
+      "cn": "大模型配置先做结构和掩码占位检查，再创建 validation_id，后台按声明顺序对每个模型发起真实探针；单模型探针当前 30 秒，全部模型通过才允许确认。异步接口立即返回 202，前端轮询进度，避免长验证被普通 HTTP 请求超时截断。\n验证记录只在内存和短期目录中保存，完成后凭据有效 10 分钟，过期或重启必须重新验证。确认操作把同一份已验证配置与派生默认模型一起提交 `pi.set` 更新命令；删除配置则提交 `pi.remove`，生效后业务进入未配置状态。\n管理读面递归脱敏，敏感字段不能用返回的掩码直接再次提交。验证、确认、排队是三个不同状态，看到“全部模型通过”不等于配置已经生效。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "platform/control-plane"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "platform.runtime.models-config",
+      "platform.control-plane.update-coordinator"
+    ]
+  },
+  "platform.control-plane.monitoring-api": {
+    "kind": "concept",
+    "title": {
+      "cn": "监控读面：队列、任务与 run 分开查询"
+    },
+    "body": {
+      "cn": "当前监控接口包括：`GET /api/monitor/queues` 汇总入口/出口四态计数；`GET /api/monitor/tasks?queue=entry|exit` 按 status、event_id、correlation_id 过滤任务；`GET /api/businesses/:id/runs` 查询业务 lifecycle；`GET /api/runs/:id` 查询单个 run。\n队列计数当前通过全量 query 后按状态聚合，生命周期默认返回最近 50 条、上限 500 条。它们都是只读接口，不提供通用 abort、retry、dead-letter 重投或生产 purge 操作。\n队列任务回答“事件消化到哪一步”，lifecycle 回答“某业务某次执行结果如何”，更新命令回答“管理变更是否应用”；排障时应组合三种读面，而不是寻找一张万能状态表。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "platform/control-plane"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "platform.operations.status-model",
+      "platform.operations.queue-retention"
+    ]
+  }
+}

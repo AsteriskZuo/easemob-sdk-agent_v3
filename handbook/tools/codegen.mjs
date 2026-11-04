@@ -12,7 +12,14 @@
  *                                             源变了没重新生成 / 手改了生成物）
  * 退出码：有 error 为 1（warning 不阻断）。
  */
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
@@ -62,18 +69,30 @@ function listYamlFiles(dir) {
 }
 
 function isLangMap(v) {
-  return v && typeof v === "object" && !Array.isArray(v) && typeof v.cn === "string" && v.cn.trim() !== "";
+  return (
+    v &&
+    typeof v === "object" &&
+    !Array.isArray(v) &&
+    typeof v.cn === "string" &&
+    v.cn.trim() !== ""
+  );
 }
 
 /** surfaces 归一化为 [{ type: "doc"|"console", at, display? }] */
 function normalizeSurface(where, raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    err(where, `surface 必须是单键对象（{ doc: ... } 或 { console: ... }），得到 ${JSON.stringify(raw)}`);
+    err(
+      where,
+      `surface 必须是单键对象（{ doc: ... } 或 { console: ... }），得到 ${JSON.stringify(raw)}`,
+    );
     return null;
   }
   const keys = Object.keys(raw);
   if (keys.length !== 1 || !["doc", "console"].includes(keys[0])) {
-    err(where, `surface 有且仅有一个键（doc | console），得到 ${JSON.stringify(keys)}`);
+    err(
+      where,
+      `surface 有且仅有一个键（doc | console），得到 ${JSON.stringify(keys)}`,
+    );
     return null;
   }
   const type = keys[0];
@@ -88,16 +107,25 @@ function normalizeSurface(where, raw) {
   // console
   if (typeof value === "string") {
     if (!AT_PATTERN.test(value)) {
-      err(where, `console surface 简写值 "${value}" 非法（应为 页面.区域 点分格式）`);
+      err(
+        where,
+        `console surface 简写值 "${value}" 非法（应为 页面.区域 点分格式）`,
+      );
       return null;
     }
     return { type, at: value, display: "tip" };
   }
   if (value && typeof value === "object" && !Array.isArray(value)) {
-    const unknown = Object.keys(value).filter((k) => !["at", "display"].includes(k));
-    if (unknown.length > 0) err(where, `console surface 含未知键：${unknown.join(", ")}`);
+    const unknown = Object.keys(value).filter(
+      (k) => !["at", "display"].includes(k),
+    );
+    if (unknown.length > 0)
+      err(where, `console surface 含未知键：${unknown.join(", ")}`);
     if (typeof value.at !== "string" || !AT_PATTERN.test(value.at)) {
-      err(where, `console surface 的 at "${value.at}" 非法（应为 页面.区域 点分格式）`);
+      err(
+        where,
+        `console surface 的 at "${value.at}" 非法（应为 页面.区域 点分格式）`,
+      );
       return null;
     }
     const display = value.display ?? "tip";
@@ -144,11 +172,15 @@ for (const file of files) {
       return;
     }
     for (const k of Object.keys(entry)) {
-      if (!KNOWN_ENTRY_KEYS.has(k)) err(where, `未知字段 "${k}"（合法字段见 META.md §2）`);
+      if (!KNOWN_ENTRY_KEYS.has(k))
+        err(where, `未知字段 "${k}"（合法字段见 META.md §2）`);
     }
     // id
     if (typeof entry.id !== "string" || !ID_PATTERN.test(entry.id)) {
-      err(where, `id "${entry.id}" 非法（小写点分、段内 kebab，如 bizpkg.contract.overview）`);
+      err(
+        where,
+        `id "${entry.id}" 非法（小写点分、段内 kebab，如 bizpkg.contract.overview）`,
+      );
       return;
     }
     if (allEntries.has(entry.id)) {
@@ -156,7 +188,10 @@ for (const file of files) {
       return;
     }
     if (!entry.id.startsWith(`${namespace}.`)) {
-      err(where, `id 命名空间与文件路径不符：位于 ${namespace}/ 的条目，id 须以 "${namespace}." 开头`);
+      err(
+        where,
+        `id 命名空间与文件路径不符：位于 ${namespace}/ 的条目，id 须以 "${namespace}." 开头`,
+      );
     }
     // kind
     if (!KINDS.includes(entry.kind)) {
@@ -177,10 +212,14 @@ for (const file of files) {
     }
     // status
     const status = entry.status ?? "stable";
-    if (!STATUSES.includes(status)) err(where, `status "${entry.status}" 非法（${STATUSES.join(" | ")}）`);
+    if (!STATUSES.includes(status))
+      err(where, `status "${entry.status}" 非法（${STATUSES.join(" | ")}）`);
     // related（引用存在性在全局阶段校验）
     const related = entry.related ?? {};
-    if (entry.related !== undefined && (typeof entry.related !== "object" || Array.isArray(entry.related))) {
+    if (
+      entry.related !== undefined &&
+      (typeof entry.related !== "object" || Array.isArray(entry.related))
+    ) {
       err(where, "related 必须是对象");
     }
     if (related.replaced_by && status !== "deprecated") {
@@ -191,8 +230,13 @@ for (const file of files) {
     }
     // field 专属
     if (entry.kind === "field") {
-      if (typeof entry.name !== "string" || entry.name.trim() === "") err(where, "kind=field 必须有非空 name");
-      if (!FIELD_TYPES.includes(entry.type)) err(where, `kind=field 的 type "${entry.type}" 非法（${FIELD_TYPES.join(" | ")}）`);
+      if (typeof entry.name !== "string" || entry.name.trim() === "")
+        err(where, "kind=field 必须有非空 name");
+      if (!FIELD_TYPES.includes(entry.type))
+        err(
+          where,
+          `kind=field 的 type "${entry.type}" 非法（${FIELD_TYPES.join(" | ")}）`,
+        );
       if (!entry.verify) err(where, "kind=field 必须填 verify（META.md §9）");
     }
     // verify 存在性（warning）
@@ -203,38 +247,56 @@ for (const file of files) {
         warn(where, `verify 指向的文件不存在：${entry.verify}`);
       }
     }
-    allEntries.set(entry.id, { entry, file: rel, absFile: file, docTitle: doc.title ?? null, surfaces, status, related });
+    allEntries.set(entry.id, {
+      entry,
+      file: rel,
+      absFile: file,
+      docTitle: doc.title ?? null,
+      surfaces,
+      status,
+      related,
+    });
   });
 }
 
 // 引用全局校验
 for (const [id, rec] of allEntries) {
   for (const ref of rec.related.see_also ?? []) {
-    if (!allEntries.has(ref)) err(`${rec.file} → ${id}`, `see_also 悬空引用：${ref}`);
+    if (!allEntries.has(ref))
+      err(`${rec.file} → ${id}`, `see_also 悬空引用：${ref}`);
   }
   if (rec.related.replaced_by && !allEntries.has(rec.related.replaced_by)) {
-    err(`${rec.file} → ${id}`, `replaced_by 悬空引用：${rec.related.replaced_by}`);
+    err(
+      `${rec.file} → ${id}`,
+      `replaced_by 悬空引用：${rec.related.replaced_by}`,
+    );
   }
 }
 
 // ---------- ② render ----------
 
-const GENERATED_HEADER = "<!-- 本文件由 handbook/tools/codegen.mjs 生成，禁止手改；请编辑 content/ 下的 YAML 源 -->\n\n";
+const GENERATED_HEADER =
+  "<!-- 本文件由 handbook/tools/codegen.mjs 生成，禁止手改；请编辑 content/ 下的 YAML 源 -->\n\n";
 
 function renderMd(docTitle, records) {
   const lines = [GENERATED_HEADER, `# ${docTitle ?? records[0].file}\n`];
   for (const { entry, surfaces, status, related } of records) {
-    const badge = status === "stable" ? "" : status === "draft" ? "（草稿）" : "（已作废）";
+    const badge =
+      status === "stable" ? "" : status === "draft" ? "（草稿）" : "（已作废）";
     lines.push(`\n## ${entry.title.cn}${badge}\n`);
     lines.push(`> \`${entry.id}\``);
     if (entry.kind === "field") {
       const req = entry.required ? "必填" : "可选";
-      lines.push(`\n**字段** \`${entry.name}\` · 类型 \`${entry.type}\` · ${req}\n`);
+      lines.push(
+        `\n**字段** \`${entry.name}\` · 类型 \`${entry.type}\` · ${req}\n`,
+      );
     }
     lines.push(`\n${entry.body.cn.trim()}\n`);
     const refs = related.see_also ?? [];
-    if (related.replaced_by) lines.push(`\n> ⚠️ 本条目已作废，继任：\`${related.replaced_by}\``);
-    if (refs.length > 0) lines.push(`\n_参见：${refs.map((r) => `\`${r}\``).join("、")}_\n`);
+    if (related.replaced_by)
+      lines.push(`\n> ⚠️ 本条目已作废，继任：\`${related.replaced_by}\``);
+    if (refs.length > 0)
+      lines.push(`\n_参见：${refs.map((r) => `\`${r}\``).join("、")}_\n`);
     void surfaces;
   }
   return lines.join("\n");
@@ -271,7 +333,10 @@ function produceAll() {
     byFile.get(rec.absFile).push(rec);
   }
   for (const [absFile, records] of byFile) {
-    const base = join(GENERATED_DIR, relative(CONTENT_DIR, absFile)).replace(/\.yaml$/, "");
+    const base = join(GENERATED_DIR, relative(CONTENT_DIR, absFile)).replace(
+      /\.yaml$/,
+      "",
+    );
     outputs.set(`${base}.md`, renderMd(records[0].docTitle, records));
     outputs.set(`${base}.json`, renderJson(records));
   }
@@ -287,9 +352,14 @@ if (errors.length === 0 && !checkOnly) {
     writeFileSync(absPath, content);
   }
   // 清理失源产物（源文件删除/改名后残留的生成物）
-  const stale = listGeneratedFiles(GENERATED_DIR).filter((f) => !outputs.has(f));
+  const stale = listGeneratedFiles(GENERATED_DIR).filter(
+    (f) => !outputs.has(f),
+  );
   for (const f of stale) rmSync(f);
-  if (stale.length > 0) console.log(`已清理失源产物 ${stale.length} 个：${stale.map((f) => relative(HANDBOOK_DIR, f)).join(", ")}`);
+  if (stale.length > 0)
+    console.log(
+      `已清理失源产物 ${stale.length} 个：${stale.map((f) => relative(HANDBOOK_DIR, f)).join(", ")}`,
+    );
 }
 
 if (errors.length === 0 && checkOnly) {
@@ -298,11 +368,17 @@ if (errors.length === 0 && checkOnly) {
   const outputs = produceAll();
   const drifted = [];
   for (const [absPath, content] of outputs) {
-    if (!existsSync(absPath) || readFileSync(absPath, "utf8") !== content) drifted.push(absPath);
+    if (!existsSync(absPath) || readFileSync(absPath, "utf8") !== content)
+      drifted.push(absPath);
   }
-  const stale = listGeneratedFiles(GENERATED_DIR).filter((f) => !outputs.has(f));
+  const stale = listGeneratedFiles(GENERATED_DIR).filter(
+    (f) => !outputs.has(f),
+  );
   for (const f of [...drifted, ...stale]) {
-    err(relative(HANDBOOK_DIR, f), "生成物与源不一致（请运行 yarn docs:gen 重新生成并提交；禁止手改生成物）");
+    err(
+      relative(HANDBOOK_DIR, f),
+      "生成物与源不一致（请运行 yarn docs:gen 重新生成并提交；禁止手改生成物）",
+    );
   }
 }
 
@@ -312,7 +388,8 @@ function listGeneratedFiles(dir) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, e.name);
     if (e.isDirectory()) out.push(...listGeneratedFiles(p));
-    else if (e.isFile() && (e.name.endsWith(".md") || e.name.endsWith(".json"))) out.push(p);
+    else if (e.isFile() && (e.name.endsWith(".md") || e.name.endsWith(".json")))
+      out.push(p);
   }
   return out;
 }
@@ -322,7 +399,9 @@ function listGeneratedFiles(dir) {
 for (const w of warnings) console.warn(`⚠️  ${w}`);
 if (errors.length > 0) {
   for (const e of errors) console.error(`❌ ${e}`);
-  console.error(`\n校验失败：${errors.length} 个 error，${warnings.length} 个 warning`);
+  console.error(
+    `\n校验失败：${errors.length} 个 error，${warnings.length} 个 warning`,
+  );
   process.exit(1);
 }
 console.log(

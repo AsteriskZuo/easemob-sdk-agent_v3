@@ -21,3 +21,6 @@ docs
 AGENTS.md
 AI.md
 README.md
+
+# handbook 生成物：样式由 codegen 全权负责，格式化会与再生成互相覆盖
+handbook/generated

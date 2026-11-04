@@ -22,6 +22,7 @@ import { authRoutes } from "./routes-auth.js";
 import { businessRoutes } from "./routes-businesses.js";
 import { configRoutes } from "./routes-config.js";
 import { envRoutes } from "./routes-env.js";
+import { handbookRoutes } from "./routes-handbook.js";
 import { monitoringRoutes } from "./routes-monitoring.js";
 import { piConfigRoutes } from "./routes-pi-config.js";
 import type { BusinessPiConfigService } from "./routes-pi-config.js";
@@ -115,6 +116,7 @@ export function createConsoleApi(
       exitQueue: deps.exitQueue,
       lifecycle: deps.lifecycle,
     }),
+    ...handbookRoutes(),
   ];
   const compiled = compileRoutes(routes);
 

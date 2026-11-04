@@ -1,0 +1,202 @@
+{
+  "platform.runtime.run-lifecycle": {
+    "kind": "concept",
+    "title": {
+      "cn": "一次 run：四步时序与独立执行实例"
+    },
+    "body": {
+      "cn": "Lifecycle 每次执行都生成新的 `run_${ULID}`，插入一条直接处于 running 的 lifecycle 行，然后执行：\n```text\n① ContextLoader.load：组装本次 RunContext\n  → ② AgentService.serve：建立 per-run socket 与 token\n  → ③ WorkflowRunner.run：运行契约三段\n  → ④ AgentService.close：中止在飞 Pi、关闭 socket、使 token 失效\n  → lifecycle 写入 success / failed / timeout\n```\nclose 位于 finally，runner 抛错也会执行。loader 或 serve 失败、runner 平台自身错误会标 failed 并继续抛出，由入口循环兜底；业务 failed/timeout 则作为正常 ExecutionResult 返回给调度层。\nrun_id 同时是 lifecycle_id、run 目录名和业务日志文件名的一部分；一个事件触发多个业务时会有多个独立 run。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "platform/runtime"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "platform.eventing.entry-pipeline",
+      "platform.runtime.agent-service"
+    ]
+  },
+  "platform.runtime.context-loader": {
+    "kind": "concept",
+    "title": {
+      "cn": "RunContext：每次执行重新解析生效配置"
+    },
+    "body": {
+      "cn": "ContextLoader 每次 run 重新读取业务 profile、两桶环境配置和资产登记，不长期缓存一份业务上下文。它依次完成：绑定资产上下架检查与物化、entry_program 名解析、合并包和工具的 programs、合并 skill 白名单、解析 quota，以及从当前业务 Pi 配置原子派生 models.json 目录。\nprograms 同名时按包在前、工具随后顺序首个命中，skill 同名也按集合顺序去重；但控制台配置期本应拒绝这些冲突，运行时只保留兜底语义。任一绑定资产已下架会以 `asset_disabled` 失败，未绑包或 entry_program 缺失也会在进入业务程序前失败。\n业务级 timeout_minutes、max_agent_calls 覆盖全局默认；配置或资产更新生效后，下一个 run 会重新读取，而不是沿用旧 RunContext。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "platform/runtime"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "platform.control-plane.write-validation",
+      "platform.control-plane.update-coordinator"
+    ]
+  },
+  "platform.runtime.materialization-cache": {
+    "kind": "concept",
+    "title": {
+      "cn": "物化与缓存：平台验收产物，不理解业务构建细节"
+    },
+    "body": {
+      "cn": "package/tool 在缓存缺失时执行固定物化链：clone 指定 commit → 校验清单与契约 → 有 package.json 时 npm ci → 执行 `agent.materialize.mjs` → 校验 programs 产物 → 写 `.materialized-ok` → 原子 rename。skill 只校验形态，不执行构建。\n平台只要求 Node.js、npm、git 和最终产物，不要求模板必须采用某一种转译器。npm ci 与物化脚本各有 10 分钟上限，构建子进程只继承 PATH、HOME 和可选 NPM_CONFIG_REGISTRY；失败消息带阶段名和 stderr 尾部。\n缓存以 asset_id 为目录，marker 命中即复用。清缓存不删除登记行，下次取用懒重建；更新版本失败会回滚登记 commit，但旧缓存已被移除，因此旧版本下次使用也可能重新物化。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "platform/runtime"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "bizpkg.integration.materialization",
+      "platform.control-plane.asset-versioning"
+    ]
+  },
+  "platform.runtime.workflow-contract": {
+    "kind": "concept",
+    "title": {
+      "cn": "三段编排：check-input → main → check-output"
+    },
+    "body": {
+      "cn": "WorkflowRunner 从 programs 映射寻找 `check-input`、`check-output`，并从 check 程序近端祖先目录定位 contract.json。新资产在物化闸必须提供合法契约和两个保留程序；运行期仍对旧结构资产保留软迁移：无 check 程序、无契约或契约不可读时记录日志并跳过 check，而不是一律拒绝旧包。\n`input:null` 跳过 check-input；`output:null` 不跳过 check-output，而是让 check-output 验证 main 确实返回空。任一已计划阶段失败都会终止后续阶段并写 `failed_at`；check 超时归 failed，main 超时归 timeout。\ncheck 只做入口/出口验收，main 成功且 check-output 通过后，main 的 output 才交回调度层扇出。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "platform/runtime"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "bizpkg.contract.pipeline",
+      "bizpkg.contract.check-discipline"
+    ]
+  },
+  "platform.runtime.process-contract": {
+    "kind": "concept",
+    "title": {
+      "cn": "业务子进程边界：stdin 输入、stdout 结果、stderr 日志"
+    },
+    "body": {
+      "cn": "每个阶段都是独立 Node.js 子进程，cwd 是本 run workspace，环境变量采用 exact 空表，平台环境不会自然泄漏。main 接收完整信封，包括 event、workspace、config、secrets、endpoint、programs 和 dataDir；check-input 不接收 secrets/endpoint/programs/dataDir，check-output 只额外接收 main output。\nstdout 用于扫描首个合法结果对象；stdout 与 stderr 各自超过默认 1 MiB 保留上限都会终止进程并判 output_limit。stderr 逐行识别 SDK 结构化日志并写入本 run 业务日志。进程退出码非零、缺结果、输出超限都按 fail-closed 规则收敛，已出现的合法结果在判定优先级中先于 timeout/退出码。\n因环境被清空，业务不应依赖 `process.env` 读取配置或凭据；也不能把 stdout 当普通日志通道。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "platform/runtime"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "bizpkg.contract.transport",
+      "bizpkg.development.logging"
+    ]
+  },
+  "platform.runtime.timeout-matrix": {
+    "kind": "concept",
+    "title": {
+      "cn": "超时矩阵：main 超时不覆盖整个 Lifecycle"
+    },
+    "body": {
+      "cn": "| 环节 | 当前时限 | 说明 |\n| --- | --- | --- |\n| check-input / check-output | 各 60 秒 | 平台常量，v1 不开放业务覆盖；超时状态为 failed |\n| main | 业务 timeout_minutes 或全局默认 | 全局默认 60 分钟；main 超时状态为 timeout |\n| agent op | 24 小时进程原语兜底 | 实际通常受 main wall-clock 与 AgentService.close 中止约束 |\n| loader / serve / close | 不受 main timeout_minutes 覆盖 | 资产物化、socket 启动和清理可能发生在 main 计时之外 |\n\n因此 `timeout_minutes` 不是“从事件到 lifecycle 终态”的总预算。若 run 看似超过配置仍未结束，应先区分它处在物化、check、main 还是 close，而不是直接调大 main 超时。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "platform/runtime"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "platform.runtime.run-lifecycle",
+      "platform.runtime.agent-sessions-quota"
+    ]
+  },
+  "platform.runtime.agent-service": {
+    "kind": "concept",
+    "title": {
+      "cn": "AgentService：业务与 Pi 之间的 per-run 受控边界"
+    },
+    "body": {
+      "cn": "每个 run 启动一个 Unix socket 服务和随机 token，业务 SDK 不直接 spawn Pi。服务支持 `agent`、`models`、`compact`、`clear` 四类操作：agent 执行推理，models 返回不含凭据的模型枚举，compact 压缩通道会话，clear 解除通道与 Pi 会话映射。\nsocket 位于系统临时目录以避免路径长度超限；模型配置在 serve 时解析一次。run 收尾的 close 幂等，会拒绝对已关闭服务的新请求、中止在飞 agent/compact、drain 并关闭 socket。\n这种边界让平台统一实施模型白名单、skill 白名单、会话映射、调用配额和请求审计，业务包只面对 SDK 契约。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "platform/runtime"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "platform.overview.process-topology",
+      "platform.runtime.agent-sessions-quota"
+    ]
+  },
+  "platform.runtime.models-config": {
+    "kind": "concept",
+    "title": {
+      "cn": "大模型配置：业务级 models.json 是唯一来源"
+    },
+    "body": {
+      "cn": "当前生效模型来自业务级 Pi 配置，ContextLoader 每次 run 将其原子派生为 `businesses/{business_id}/cache/pi/agent/models.json`，AgentService 通过 `PI_CODING_AGENT_DIR` 使用它。默认模型是配置中第一个 provider 的第一个模型；单次 agent 可显式选择同配置枚举内的其他 provider/id。\n未配置时 model 为空，agent/compact 返回 `model_not_configured`，models 返回空枚举；删除业务配置后也不会回退到某个隐式全局模型。业务 API 的 `model` 字段不可直接 patch，只能随验证通过的 Pi 配置一起派生更新。\n配置写库前需要经过在线验证与确认，具体管理流程见控制面章节。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "platform/runtime"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "platform.control-plane.pi-config-workflow",
+      "bizpkg.development.agent"
+    ]
+  },
+  "platform.runtime.skill-injection": {
+    "kind": "concept",
+    "title": {
+      "cn": "skill 注入：白名单全文内联，而非 Pi 自动发现"
+    },
+    "body": {
+      "cn": "agent 请求引用的每个 skill 名必须属于本业务绑定集合。平台关闭 Pi 的 skills、extensions、prompt templates、context files 和 tools 自动能力，仅显式加载平台审计 extension；通过校验的 skill 以 `--append-system-prompt <dir>/SKILL.md` 全文内联进系统提示词。\n当前不是“把 skill 目录交给 Pi 后按需读取”的渐进披露模式，因为 Pi 工具也被关闭。`--no-tools` 不妨碍 main 通过 `sdk.run` 调用业务工具——那是业务子进程与 SDK 的另一条调用路径，不是模型自主工具调用。\nSKILL.md 缺失或名称不在白名单会在 spawn 前失败，避免把残缺提示词静默交给模型。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "platform/runtime"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "bizpkg.development.agent",
+      "bizpkg.development.tools"
+    ]
+  },
+  "platform.runtime.agent-sessions-quota": {
+    "kind": "concept",
+    "title": {
+      "cn": "会话与配额：通道可续聊，超限不直接杀 run"
+    },
+    "body": {
+      "cn": "`mode:\"channel\"` 按业务通道恢复或创建 Pi 会话，映射写入 ChannelStore；`mode:\"fresh\"` 每次创建新会话且不写映射。由于映射键包含 business_id，同工单在两个业务中的模型上下文天然隔离。\n每次 agent 请求不论成败都计一次配额，models/compact/clear 不计。超过 `max_agent_calls` 时服务返回 `quota_exceeded`，**不会直接强杀整个 run**；main 可以捕获错误、换路径或最终失败。业务自行实现多模型重试时，要把最长调用链计入配额。\nagent 输入序列化后上限 512 KiB；模型未配置、模型或 skill 不在白名单、空输出和 Pi 异常分别返回结构化错误。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "platform/runtime"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "platform.eventing.channel",
+      "platform.runtime.agent-service"
+    ]
+  }
+}

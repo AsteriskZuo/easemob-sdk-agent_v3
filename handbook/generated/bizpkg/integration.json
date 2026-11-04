@@ -1,0 +1,142 @@
+{
+  "bizpkg.integration.overview": {
+    "kind": "section",
+    "title": {
+      "cn": "接入平台：登记资产，再创建业务"
+    },
+    "body": {
+      "cn": "接入分两层：**资产登记**让平台获得可物化的代码或 skill，**业务绑定**把包、模型、工具、skill、入口和出口组合成可运行配置。只上传仓库而没有创建业务，不会处理事件；只创建业务而没有满足清单依赖，也不能通过绑定校验。\n推荐先本地六条检查全绿并推送 git，再依次完成资产登记、业务绑定、入口出口配置和受控冒烟。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "bizpkg/integration"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "bizpkg.development.overview",
+      "bizpkg.integration.smoke"
+    ]
+  },
+  "bizpkg.integration.registration": {
+    "kind": "guide",
+    "title": {
+      "cn": "资产登记：url + commit + subpath"
+    },
+    "body": {
+      "cn": "package、tool、skill 都以 git 三元组登记：仓库 URL、完整 commit、资产根子路径。包位于仓库根时 subpath 留空；一仓多资产时分别填 `package`、`tools`、`skills` 等路径。\nskill 资产根下的每个含 `SKILL.md` 的直接子目录是一个 skill，目录名就是代码引用名；skill 不构建。package/tool 必须有清单和物化脚本。\n工具与 skill 可设置共享，包不共享；共享属性登记后不可改。私有仓库凭据使用资产登记的 `credential_key`，它指向通用层安全桶，不等于某个业务的安全桶。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "bizpkg/integration"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "bizpkg.layout.assets",
+      "bizpkg.integration.versioning"
+    ]
+  },
+  "bizpkg.integration.materialization": {
+    "kind": "concept",
+    "title": {
+      "cn": "物化：平台如何得到可执行程序"
+    },
+    "body": {
+      "cn": "package/tool 的固定流程是：\n```text\ngit clone\n  → 校验 agent-package.json 与 contract.json\n  → 有 package.json 时执行 npm ci\n  → node agent.materialize.mjs\n  → 校验 programs 的每个 .js 产物真实存在\n  → 写入完成标记\n```\n因此 lockfile 必须进 git，`agent.materialize.mjs` 必须位于资产根。模板脚本默认转译 apps/packages 到 dist，与原构建产物一致；需要 codegen 或资源准备时在同一脚本内完成。\n平台只保证 Node.js 24、npm、git，脚本子进程仅保留 PATH/HOME/NPM_CONFIG_REGISTRY 等最小环境。产物与 node_modules 随资产缓存管理，清缓存后的下次运行会懒重建。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "bizpkg/integration"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "bizpkg.operations.materialization-failure",
+      "bizpkg.layout.runtime-deps"
+    ]
+  },
+  "bizpkg.integration.binding": {
+    "kind": "guide",
+    "title": {
+      "cn": "业务绑定：模型、包、工具与 skill"
+    },
+    "body": {
+      "cn": "创建业务时绑定包及入口程序 `main`，再绑定清单 `requires` 声明的工具和 skill。模型配置中的第一个 provider 的第一个模型是默认模型；业务代码按次指定的模型也必须在该枚举内。\n环境配置分普通桶和安全桶：站点地址等非机密值用 `sdk.config()`，token/password 用 `sdk.secret()`。入口或出口配置字符串可写 `{{key}}` 占位，由平台在使用前从两桶做纯字符串替换；秘钥本身不要写进入口 JSON、出口 URL 或仓库。\n\n运行策略可覆盖全局主程序超时和 agent 调用配额。check 固定 60 秒、子程序默认 5 分钟，不把三者混为一个超时。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "bizpkg/integration"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "bizpkg.development.tools",
+      "bizpkg.development.agent"
+    ]
+  },
+  "bizpkg.integration.entry-exit": {
+    "kind": "concept",
+    "title": {
+      "cn": "入口与出口：多入口并行，结果自动扇出"
+    },
+    "body": {
+      "cn": "一个业务可以配置多条 match 行，每个入口独立接收事件；支持入口适配器，也支持 `internal` 关注上游业务产出。`event_type` 留空表示通配该来源，配置前应确认 payload 契约能覆盖所有事件。\nwebhook 入口必须配置全平台唯一的 `path` 和 `session_id_key`，可选 `event_id_key` 与 token。其地址为 `POST http://<host>:<port>/hooks/{path}`，不是任意上游网关路径；body 必须是 JSON object。\n出口可以绑定多个平台内置工具。业务只负责 return 符合契约的 output，平台负责派生下游事件、出口投递、有界重试和死信；不要在主程序中重复实现通知投递。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "bizpkg/integration"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "bizpkg.contract.output-consumer",
+      "bizpkg.operations.no-event"
+    ]
+  },
+  "bizpkg.integration.versioning": {
+    "kind": "concept",
+    "title": {
+      "cn": "更新与版本：同一资产换 commit，绑定保持"
+    },
+    "body": {
+      "cn": "资产版本是登记的 commit，不是清单里的 `version` 字符串。代码更新后推送仓库，在控制台把非共享资产更新到新 ref：平台固定 commit、等待引用业务空闲、重新物化并校验，**asset_id 和业务绑定都保持不变**。\n共享 tool/skill 不允许原地换版本；需要新形态时用不同 url/subpath 登记新资产并显式改绑定。物化失败会回滚登记 commit，但旧缓存已删除，旧版本下次使用可能懒重建。\nSDK 在 package.json 按 npm 语义化版本锁定。修改输入输出契约时，同时评估旧事件、下游订阅和出口兼容性；更新后用新事件冒烟，并核对实际 run 使用的版本，避免把旧 run 日志当成新版本结果。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "bizpkg/integration"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "bizpkg.integration.smoke",
+      "platform.control-plane.asset-versioning"
+    ]
+  },
+  "bizpkg.integration.smoke": {
+    "kind": "guide",
+    "title": {
+      "cn": "冒烟：从模拟事件到真实事件"
+    },
+    "body": {
+      "cn": "先构造一条满足 contract.input 的模拟事件，确认三段都 success、output 形状正确、出口只投递到测试目标；再切到真实入口做最小验证。观察顺序为：入口是否落队 → 通道是否获得执行 → 三个阶段各自状态 → 派生/出口结果。\n使用真实 webhook 时，先向上游确认注册的完整 URL、token 和响应码；用 curl 直接请求平台 path 可以区分“上游未推送”和“平台处理失败”。\n测试业务的去重状态可能使第二次相同事件合法地 `return(null)`。重验前先看日志中的跳过原因，不要看到没有通知就判定链路故障。\n"
+    },
+    "surfaces": [
+      {
+        "type": "doc",
+        "at": "bizpkg/integration"
+      }
+    ],
+    "status": "stable",
+    "see_also": [
+      "bizpkg.operations.overview",
+      "bizpkg.operations.no-event"
+    ]
+  }
+}

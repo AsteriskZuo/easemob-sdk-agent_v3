@@ -190,6 +190,30 @@ export interface LoginResult {
   expires_at: string;
 }
 
+/** handbook 条目的消费面；console.at 为页面逻辑位置，display 决定短提示或抽屉。 */
+export interface HandbookSurface {
+  type: "doc" | "console";
+  at: string;
+  display?: "tip" | "drawer";
+}
+
+/** GET /api/handbook/:page 的条目值；key 为永不复用的 handbook 条目 id。 */
+export interface HandbookEntry {
+  kind: "section" | "field" | "concept" | "guide";
+  title: { cn: string; [lang: string]: string };
+  body: { cn: string; [lang: string]: string };
+  surfaces: HandbookSurface[];
+  status: "draft" | "stable" | "deprecated";
+  name?: string;
+  type?: "string" | "number" | "boolean" | "object" | "array";
+  required?: boolean;
+  see_also?: string[];
+  replaced_by?: string;
+}
+
+/** 一个控制台页面的全部说明，形状与 handbook/generated/console/<page>.json 一致。 */
+export type HandbookPage = Record<string, HandbookEntry>;
+
 /** GET /api/businesses/:id 响应：业务详情 = 资料 + 匹配行 + 出口绑定 */
 export interface BusinessDetail {
   /** 业务资料（业务级字段完整读面） */
