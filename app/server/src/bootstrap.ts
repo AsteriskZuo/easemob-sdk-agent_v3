@@ -336,6 +336,7 @@ export async function bootstrap(overrides?: {
       {
         port: config.console_port,
         timeout_ms: config.http_timeout_ms,
+        handbook_dir: config.handbook_dir,
         ...(config.bootstrap_admin !== undefined
           ? { bootstrap_admin: config.bootstrap_admin }
           : {}),

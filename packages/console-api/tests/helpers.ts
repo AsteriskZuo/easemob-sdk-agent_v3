@@ -1,7 +1,14 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createAssetRegistry } from "@asteriskzuo/agent-asset-registry";
 import type { AssetRegistry } from "@asteriskzuo/agent-asset-registry";
 import type { EventEnvelope } from "@asteriskzuo/agent-contracts";
@@ -280,11 +287,25 @@ function createStubPiConfig(
   };
 }
 
+/** 从编译测试产物向上定位真实生成物，避免把测试目录层级写进生产路由。 */
+function testHandbookDir(): string {
+  let dir = dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 10; i += 1) {
+    const candidate = join(dir, "handbook", "generated", "console");
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  throw new Error("测试找不到 handbook/generated/console");
+}
+
 /** 起测试服务。deps 全真实（无 mock）；bootstrap_admin 注入首启 admin；static_dir 开启静态托管 */
 export async function startTestServer(
   options: {
     bootstrap_admin?: { username: string; password: string };
     static_dir?: string;
+    handbook_dir?: string;
   } = {},
 ): Promise<TestServer> {
   ensureTestLogger();
@@ -315,6 +336,7 @@ export async function startTestServer(
     },
     {
       port: 0,
+      handbook_dir: options.handbook_dir ?? testHandbookDir(),
       ...(options.bootstrap_admin
         ? { bootstrap_admin: options.bootstrap_admin }
         : {}),

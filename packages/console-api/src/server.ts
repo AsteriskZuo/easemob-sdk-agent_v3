@@ -67,6 +67,8 @@ export interface ConsoleApiOptions {
    *  设置后：非 /api 请求按文件托管（GET/HEAD），未命中回退 index.html（SPA 路由）；
    *  不设置 = 纯 API 服务（开发期形态） */
   static_dir?: string;
+  /** handbook 控制台生成物目录（handbook/generated/console），由装配根解析并自检 */
+  handbook_dir: string;
 }
 
 export interface ConsoleApi {
@@ -116,7 +118,7 @@ export function createConsoleApi(
       exitQueue: deps.exitQueue,
       lifecycle: deps.lifecycle,
     }),
-    ...handbookRoutes(),
+    ...handbookRoutes(options.handbook_dir),
   ];
   const compiled = compileRoutes(routes);
 

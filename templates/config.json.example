@@ -38,6 +38,9 @@
   "AGENT_LOG_ENABLED": true,
   "__AGENT_LOG_ENABLED": "可选。日志总开关，默认 true",
 
+  "AGENT_HANDBOOK_DIR": "replace-with-absolute-path-to-handbook-generated-console-or-delete-this-key",
+  "__AGENT_HANDBOOK_DIR": "可选。handbook 控制台生成物目录（handbook/generated/console 的绝对路径）；不设置时从仓库自动定位，设置后只使用该目录；启动自检验目录存在且可读，Docker 等部署建议显式配置",
+
   "AGENT_CONSOLE_STATIC_DIR": "replace-with-absolute-path-to-console-dist-or-delete-this-key",
   "__AGENT_CONSOLE_STATIC_DIR": "可选。控制台静态产物目录（vite build 输出的绝对路径），设置后 server 同进程托管控制台；不设置 = 纯 API 模式，此时请删除本键",
 

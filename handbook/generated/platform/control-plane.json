@@ -125,7 +125,7 @@
       "cn": "启动配置：环境变量 > config.json > 代码默认"
     },
     "body": {
-      "cn": "启动时只解析一次配置，优先级为**环境变量 > `{workspace}/platform/config.json` 同名 AGENT_ 键 > 代码默认值**。`AGENT_WORKSPACE` 只能来自环境变量，因为需要先知道 workspace 才能定位配置文件。\n常用默认值：hop_limit=8、task_concurrency=4、result_concurrency=16、task_timeout_minutes=60、max_agent_calls=20、console_port=6100、webhook_port=6200；webhook 默认启用，jira-polling 默认关闭。\n修改环境变量或 config.json 后需要重启才能改变生效配置。`/api/config` 和启动日志用于核对实际值；配置文件存在但同名环境变量也存在时，环境变量优先。配置缺失或非法会在启动前集中报错，而不是逐项静默降级。\n"
+      "cn": "启动时只解析一次配置，优先级为**环境变量 > `{workspace}/platform/config.json` 同名 AGENT_ 键 > 代码默认值**。`AGENT_WORKSPACE` 只能来自环境变量，因为需要先知道 workspace 才能定位配置文件。\n常用默认值：hop_limit=8、task_concurrency=4、result_concurrency=16、task_timeout_minutes=60、max_agent_calls=20、console_port=6100、webhook_port=6200；webhook 默认启用，jira-polling 默认关闭。\n`AGENT_HANDBOOK_DIR` 指向控制台说明生成目录 `handbook/generated/console`。未配置时 server 从当前仓库自动定位，配置后严格使用唯一路径；启动自检要求目录存在且可读，因此编译后的 dist 与 Docker 部署使用同一配置规则，不需要在路由中猜测目录层级。\n修改环境变量或 config.json 后需要重启才能改变生效配置。`/api/config` 和启动日志用于核对实际值；配置文件存在但同名环境变量也存在时，环境变量优先。配置缺失或非法会在启动前集中报错，而不是逐项静默降级。\n"
     },
     "surfaces": [
       {

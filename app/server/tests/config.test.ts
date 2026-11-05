@@ -197,6 +197,31 @@ describe("resolveServerConfig", () => {
     ).toThrow(EnvError);
   });
 
+  it("handbook_dir：缺省定位生成目录；env 优先于 config.json；trim 空 = 未设置", () => {
+    const defaultDir = resolveServerConfig(requiredEnv()).handbook_dir;
+    expect(defaultDir.endsWith(join("handbook", "generated", "console"))).toBe(
+      true,
+    );
+
+    writeFileSync(
+      configPath(),
+      JSON.stringify({ AGENT_HANDBOOK_DIR: "/srv/handbook-from-file" }),
+      { flag: "wx" },
+    );
+    expect(resolveServerConfig(requiredEnv()).handbook_dir).toBe(
+      "/srv/handbook-from-file",
+    );
+    expect(
+      resolveServerConfig(
+        requiredEnv({ AGENT_HANDBOOK_DIR: "/opt/handbook-from-env" }),
+      ).handbook_dir,
+    ).toBe("/opt/handbook-from-env");
+    expect(
+      resolveServerConfig(requiredEnv({ AGENT_HANDBOOK_DIR: "   " }))
+        .handbook_dir,
+    ).toBe("/srv/handbook-from-file");
+  });
+
   it("console_static_dir：默认 undefined；env/config.json 生效；trim 空 = 未设置", () => {
     expect(
       resolveServerConfig(requiredEnv()).console_static_dir,

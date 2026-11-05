@@ -47,6 +47,8 @@ export interface ServerConfig {
   npm_registry: string;
   /** 控制台静态资源目录（vite build 产物绝对路径；可缺省 = 纯 API 服务，开发期形态） */
   console_static_dir?: string;
+  /** handbook 控制台生成物目录；缺省从仓库定位，Docker 等部署可显式配置 */
+  handbook_dir: string;
   /** 首启 admin 注入（AGENT_ADMIN_USERNAME/AGENT_ADMIN_PASSWORD 成对设置才生效；
    *  不回显、不进日志；不进 config.json 之外的任何地方） */
   bootstrap_admin?: { username: string; password: string };
@@ -79,6 +81,19 @@ function resolvePiCliPathFromDeps(): string | undefined {
       const abs = bin === undefined ? undefined : join(root, bin);
       return abs !== undefined && existsSync(abs) ? abs : undefined;
     }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return undefined;
+}
+
+/** 缺省从当前安装位置向上定位仓库内生成物；src/dist/dist-test 层级均可，其他部署显式配置。 */
+function resolveDefaultHandbookDir(): string | undefined {
+  let dir = dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 10; i += 1) {
+    const candidate = join(dir, "handbook", "generated", "console");
+    if (existsSync(candidate)) return candidate;
     const parent = dirname(dir);
     if (parent === dir) break;
     dir = parent;
@@ -358,6 +373,14 @@ export function resolveServerConfig(
   });
   // 控制台静态资源目录：string 键、可缺省（trim 空 = 未设置，由 KeyResolver.envRaw 保证）
   const consoleStaticDir = resolver.string("AGENT_CONSOLE_STATIC_DIR");
+  // handbook 生成物：显式配置唯一生效；缺省从仓库定位，找不到时拒绝启动
+  const handbookDir =
+    resolver.string("AGENT_HANDBOOK_DIR") ?? resolveDefaultHandbookDir();
+  if (handbookDir === undefined) {
+    problems.push(
+      "handbook 生成目录不可用：未设置 AGENT_HANDBOOK_DIR，且无法从当前安装位置定位 handbook/generated/console",
+    );
+  }
   // 首启 admin 注入：两个键成对出现才生效；只给一个 = 配置错误（密码不回显、不进日志）
   const adminUsername = resolver.string("AGENT_ADMIN_USERNAME");
   const adminPassword = resolver.string("AGENT_ADMIN_PASSWORD");
@@ -398,6 +421,7 @@ export function resolveServerConfig(
     entry_webhook_enabled: entryWebhookEnabled ?? true,
     entry_jira_polling_enabled: entryJiraPollingEnabled ?? false,
     npm_registry: npmRegistry as string,
+    handbook_dir: handbookDir as string,
     ...(consoleStaticDir !== undefined
       ? { console_static_dir: consoleStaticDir }
       : {}),

@@ -57,6 +57,8 @@ generated/ 生成物（提交进 git，禁止手改）
 
 控制台通过 `GET /api/handbook/:page` 读取 `generated/console/<page>.json`，页面挂载时请求一次，再按稳定条目 id 渲染 tip、字段提示和 drawer。当前业务编辑页对应 `GET /api/handbook/business-edit`；draft/deprecated 条目仅保留追溯，不进入页面。
 
+server 通过 `AGENT_HANDBOOK_DIR` 定位生成目录：未配置时从仓库自动定位，配置后严格使用唯一路径，启动自检要求目录存在且可读。源码、编译 dist 和 Docker 部署因此共用同一规则；console-api 路由不再包含目录层级候选值。
+
 因此更新控制台说明的完整链路是：修改 YAML → `yarn docs:gen` → API 下次请求直接读取新生成物。无需重启 console-api，也无需在页面组件中同步修改正文。
 
 ## 工作流

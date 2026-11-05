@@ -134,6 +134,7 @@ rm -rf "$AGENT_WORKSPACE/platform/data" "$AGENT_WORKSPACE/platform/cache" "$AGEN
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
+| `AGENT_HANDBOOK_DIR` | 自动定位仓库 `handbook/generated/console` | 控制台说明生成物目录；显式设置后只使用该路径，启动自检验目录存在且可读；Docker 等部署建议设置为绝对路径 |
 | `AGENT_CONSOLE_STATIC_DIR` | 不设 = 纯 API | 控制台静态产物目录（vite build 输出），设置后 server 同进程托管控制台 |
 | `AGENT_ADMIN_USERNAME` / `AGENT_ADMIN_PASSWORD` | 不设 = 不建号 | **控制台唯一建号入口**（平台不开放注册）：users 表为空时创建首个 admin。两键必须成对，只给一个 = 配置解析失败；不注入不影响 server 启动（记 error 日志），但控制台无人能登录，只能下次启动时注入或删 `data/` 重来 |
 

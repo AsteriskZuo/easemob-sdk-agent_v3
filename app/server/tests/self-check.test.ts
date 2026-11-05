@@ -80,6 +80,7 @@ function makeConfig(over: Partial<ServerConfig> = {}): ServerConfig {
     pi_env: { PATH: "/usr/bin", HOME: "/home/tester" },
     http_timeout_ms: 30_000,
     npm_registry: registryUrl,
+    handbook_dir: tmpDir,
     ...over,
   };
 }
@@ -87,6 +88,19 @@ function makeConfig(over: Partial<ServerConfig> = {}): ServerConfig {
 describe("runSelfCheck", () => {
   it("全绿通过（临时 workspace + fixture pi + 本地 registry）", async () => {
     await expect(runSelfCheck(makeConfig())).resolves.toBeUndefined();
+  });
+
+  it("handbook_dir 不存在或不是目录 → 拒绝启动且 message 含路径", async () => {
+    const missing = join(tmpDir, "missing-handbook");
+    await expect(
+      runSelfCheck(makeConfig({ handbook_dir: missing })),
+    ).rejects.toThrow(missing);
+
+    const file = join(tmpDir, "handbook-file");
+    writeFileSync(file, "not a directory");
+    await expect(
+      runSelfCheck(makeConfig({ handbook_dir: file })),
+    ).rejects.toThrow(/路径不是目录/);
   });
 
   it("pi_cli_path 不存在 → 抛错且 message 含路径", async () => {
