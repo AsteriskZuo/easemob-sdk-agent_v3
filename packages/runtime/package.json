@@ -17,6 +17,7 @@
     "@asteriskzuo/agent-database": "0.1.0",
     "@asteriskzuo/agent-logger": "0.1.0",
     "@asteriskzuo/agent-registry": "0.1.0",
+    "@asteriskzuo/agent-run-core": "0.1.0",
     "@asteriskzuo/agent-scheduler": "0.1.0",
     "@asteriskzuo/agent-service": "0.1.0",
     "@asteriskzuo/agent-workflow-runner": "0.1.0"

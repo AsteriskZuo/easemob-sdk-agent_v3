@@ -6,27 +6,11 @@ import type {
   ResolvedAsset,
 } from "@asteriskzuo/agent-asset-registry";
 import type { BusinessRegistry } from "@asteriskzuo/agent-registry";
+import type { RunContext } from "@asteriskzuo/agent-run-core";
 import type { SkillRef } from "@asteriskzuo/agent-service";
 import type { EnvProvider } from "./env-provider.js";
 
-/** 可执行上下文：四步时序第①步的产物，Lifecycle 据此装配 serve 与 run 的入参 */
-export interface RunContext {
-  business_id: string;
-  channel_id: string; // buildBusinessChannelId 计算结果（回显用）
-  program: string; // 流程程序入口绝对路径（名解析命中）
-  programs: Record<string, string>; // 程序名→物化绝对路径全量映射（本包 ∪ 绑定工具；runner 注入信封）
-  prompt: string; // 总纲（可空串，agent-service 原样传）
-  skills: SkillRef[]; // 白名单全集：绑定 skill 集合的技能并集（name + 物化绝对路径）
-  /** agent 缺省模型（provider/id，= 生效配置第一个 provider 的第一个模型，随配置保存派生）；
-   *  '' = 业务未配置大模型（agent/compact 将被 agent-service 拒绝 model_not_configured） */
-  model: string;
-  /** 业务自定义 Pi 配置的派生 agent 目录（cache/pi/agent）——模型的唯一来源；
-   *  未配置 = undefined（agent-service 拒绝 agent/compact，models op 回空枚举）。只带目录，不带原始 JSON */
-  pi_agent_dir?: string;
-  vars: Record<string, string>;
-  secrets: Record<string, string>;
-  quota: { timeout_minutes: number; max_agent_calls: number }; // 已解析（业务优先于全局默认）
-}
+export type { RunContext } from "@asteriskzuo/agent-run-core";
 
 /** 业务自定义 Pi 配置的运行时解析器（平台装配根注入）：读当前生效配置并原子生成派生目录 */
 export interface BusinessPiRuntimeResolver {

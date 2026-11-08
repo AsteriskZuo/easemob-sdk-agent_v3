@@ -100,6 +100,8 @@ function makeStubs(
     outcome?: RunOutcome;
     runImpl?: (req: RunRequest) => Promise<RunOutcome>;
     loadImpl?: (business_id: string, channel_id: string) => RunContext;
+    serveImpl?: AgentService["serve"];
+    closeImpl?: RunningAgentService["close"];
     runner?: WorkflowRunner;
   } = {},
 ) {
@@ -121,10 +123,12 @@ function makeStubs(
     serve: async (serveCtx) => {
       calls.push("serve");
       recorder.serveArg = serveCtx;
+      if (over.serveImpl) return over.serveImpl(serveCtx);
       const handle: RunningAgentService = {
         endpoint: { socket_path: "/tmp/fake-agent.sock", token: "tok-1" },
         close: async () => {
           calls.push("close");
+          await over.closeImpl?.();
         },
       };
       return handle;
@@ -217,8 +221,8 @@ describe("close 无条件", () => {
     expect(calls.filter((c) => c === "close")).toHaveLength(1);
   });
 
-  it("runner 抛错 → close 被调且仅一次，错误原样上抛", async () => {
-    const { calls, lifecycle } = makeStubs({
+  it("runner 抛错 → close 被调且仅一次，错误原样上抛且打标 failed", async () => {
+    const { calls, recorder, lifecycle } = makeStubs({
       runImpl: async () => {
         throw new Error("program 不存在或不可读: /x");
       },
@@ -227,15 +231,59 @@ describe("close 无条件", () => {
       /^program 不存在或不可读/,
     );
     expect(calls.filter((c) => c === "close")).toHaveLength(1);
+    const record = createLifecycleStore(db).get(recorder.runArg!.run_id!);
+    expect(record?.status).toBe("failed");
+    expect(record?.finished_at).toBeDefined();
   });
 
-  it("runner 返回 timeout → close 被调且仅一次", async () => {
-    const { calls, lifecycle } = makeStubs({
-      outcome: { status: "timeout", output: undefined, reason: "timeout" },
+  it("runner 返回 timeout → close 被调且仅一次，failed_at=main 落库", async () => {
+    const { calls, recorder, lifecycle } = makeStubs({
+      outcome: {
+        status: "timeout",
+        output: undefined,
+        reason: "timeout",
+        failed_at: "main",
+      },
     });
     const result = await lifecycle.execute(makeTask(), makeWatcher());
-    expect(result.status).toBe("timeout");
+    expect(result).toEqual({ status: "timeout", output: undefined });
     expect(calls.filter((c) => c === "close")).toHaveLength(1);
+    const record = createLifecycleStore(db).get(recorder.runArg!.run_id!);
+    expect(record?.status).toBe("timeout");
+    expect(record?.failed_at).toBe("main");
+  });
+
+  it("serve 抛错 → 不执行 runner/close，原错误上抛且打标 failed", async () => {
+    const serveError = new Error("serve unavailable");
+    const { calls, recorder, lifecycle } = makeStubs({
+      serveImpl: async () => {
+        throw serveError;
+      },
+    });
+
+    await expect(lifecycle.execute(makeTask(), makeWatcher())).rejects.toBe(
+      serveError,
+    );
+    expect(calls).toEqual(["load", "serve"]);
+    const record = createLifecycleStore(db).get(recorder.serveArg!.run_id);
+    expect(record?.status).toBe("failed");
+    expect(record?.finished_at).toBeDefined();
+  });
+
+  it("runner 返回后 close 失败 → 原错误上抛，不覆盖 running 为正常终态", async () => {
+    const closeError = new Error("close failed");
+    const { recorder, lifecycle } = makeStubs({
+      closeImpl: async () => {
+        throw closeError;
+      },
+    });
+
+    await expect(lifecycle.execute(makeTask(), makeWatcher())).rejects.toBe(
+      closeError,
+    );
+    const record = createLifecycleStore(db).get(recorder.runArg!.run_id!);
+    expect(record?.status).toBe("running");
+    expect(record?.finished_at).toBeUndefined();
   });
 });
 

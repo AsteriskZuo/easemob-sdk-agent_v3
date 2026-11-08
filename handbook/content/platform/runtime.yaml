@@ -18,6 +18,7 @@ entries:
           → ④ AgentService.close：中止在飞 Pi、关闭 socket、使 token 失效
           → lifecycle 写入 success / failed / timeout
         ```
+        ②–④ 由 `@asteriskzuo/agent-run-core` 的 `executeRun` 统一执行；它只接收装配完成的 RunContext，不依赖数据库、注册表、调度器或平台目录策略。Lifecycle 保留 run_id、目录、状态、日志和 scheduler 结果适配，供平台与未来本地运行复用同一执行核。
         close 位于 finally，runner 抛错也会执行。loader 或 serve 失败、runner 平台自身错误会标 failed 并继续抛出，由入口循环兜底；业务 failed/timeout 则作为正常 ExecutionResult 返回给调度层。
         run_id 同时是 lifecycle_id、run 目录名和业务日志文件名的一部分；一个事件触发多个业务时会有多个独立 run。
     related:
@@ -34,7 +35,7 @@ entries:
       cn: RunContext：每次执行重新解析生效配置
     body:
       cn: |
-        ContextLoader 每次 run 重新读取业务 profile、两桶环境配置和资产登记，不长期缓存一份业务上下文。它依次完成：绑定资产上下架检查与物化、entry_program 名解析、合并包和工具的 programs、合并 skill 白名单、解析 quota，以及从当前业务 Pi 配置原子派生 models.json 目录。
+        RunContext 的权威定义位于 `packages/run-core/src/context.ts`；ContextLoader 是平台侧装配方，每次 run 重新读取业务 profile、两桶环境配置和资产登记，不长期缓存一份业务上下文。它依次完成：绑定资产上下架检查与物化、entry_program 名解析、合并包和工具的 programs、合并 skill 白名单、解析 quota，以及从当前业务 Pi 配置原子派生 models.json 目录。
         programs 同名时按包在前、工具随后顺序首个命中，skill 同名也按集合顺序去重；但控制台配置期本应拒绝这些冲突，运行时只保留兜底语义。任一绑定资产已下架会以 `asset_disabled` 失败，未绑包或 entry_program 缺失也会在进入业务程序前失败。
         业务级 timeout_minutes、max_agent_calls 覆盖全局默认；配置或资产更新生效后，下一个 run 会重新读取，而不是沿用旧 RunContext。
     related:

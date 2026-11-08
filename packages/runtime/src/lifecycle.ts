@@ -3,14 +3,9 @@ import { dirname, join } from "node:path";
 import { buildBusinessChannelId, newUlid } from "@asteriskzuo/agent-contracts";
 import type { Database } from "@asteriskzuo/agent-database";
 import { logger } from "@asteriskzuo/agent-logger";
-import type {
-  AgentService,
-  RunningAgentService,
-} from "@asteriskzuo/agent-service";
-import type {
-  RunOutcome,
-  WorkflowRunner,
-} from "@asteriskzuo/agent-workflow-runner";
+import { executeRun } from "@asteriskzuo/agent-run-core";
+import type { AgentService } from "@asteriskzuo/agent-service";
+import type { WorkflowRunner } from "@asteriskzuo/agent-workflow-runner";
 import type { EntryDriver } from "@asteriskzuo/agent-scheduler";
 import type { ContextLoader, RunContext } from "./context-loader.js";
 import { createLifecycleStore } from "./lifecycle-store.js";
@@ -75,64 +70,49 @@ export function createLifecycle(deps: LifecycleDeps): EntryDriver {
         session_id,
       );
       const audit_log_path = join(workspace, "audit", "llm-requests.jsonl");
+      const onSetupError = (err: unknown): void => {
+        store.markTerminal(run_id, "failed");
+        log.error("run 失败：上下文组装或 serve 失败", {
+          event_id: task.event.event_id,
+          error: errorMessage(err),
+        });
+      };
+
       let ctx: RunContext;
-      let handle: RunningAgentService;
       try {
         mkdirSync(workspace, { recursive: true });
         mkdirSync(session_dir, { recursive: true });
         mkdirSync(dirname(audit_log_path), { recursive: true }); // serve 内还会兜底
         // ① 组装静态上下文（此时尚无 endpoint）
         ctx = deps.loader.load(business_id, channel_id);
-        // ② per-run socket 服务：监听就绪后返回 endpoint
-        handle = await deps.agentService.serve({
-          run_id,
-          channel_id,
-          workspace,
-          prompt: ctx.prompt,
-          skills: ctx.skills,
-          model: ctx.model,
-          session_dir,
-          audit_log_path,
-          quota: { max_agent_calls: ctx.quota.max_agent_calls },
-          ...(ctx.pi_agent_dir !== undefined
-            ? { pi_agent_dir: ctx.pi_agent_dir }
-            : {}),
-        });
       } catch (err) {
-        store.markTerminal(run_id, "failed");
-        log.error("run 失败：上下文组装或 serve 失败", {
-          event_id: task.event.event_id,
-          error: errorMessage(err),
-        });
+        onSetupError(err);
         throw err;
       }
 
-      // ③ 执行业务流程程序（endpoint 注入）；close 必须无条件执行（含 runner 抛错路径）
-      let outcome: RunOutcome;
-      try {
-        outcome = await deps.runner.run({
-          program: ctx.program,
-          programs: ctx.programs,
+      // ②–④ 共用平台无关执行核；hook 只接入平台状态与日志，不改变错误语义。
+      const outcome = await executeRun(
+        {
+          context: ctx,
           event: task.event,
-          business_id,
-          config: ctx.vars,
-          secrets: ctx.secrets,
-          endpoint: handle.endpoint,
-          quota: { timeout_minutes: ctx.quota.timeout_minutes },
           run_id,
-        });
-      } catch (err) {
-        // runner 抛错 = 平台自身错误：打标 failed → 原样抛
-        store.markTerminal(run_id, "failed");
-        log.error("run 失败：runner 平台错误", {
-          event_id: task.event.event_id,
-          error: errorMessage(err),
-        });
-        throw err;
-      } finally {
-        // ④ 进程退出后 serve 关闭（杀在飞 pi、删 socket、token 失效）
-        await handle.close();
-      }
+          workspace,
+          session_dir,
+          audit_log_path,
+        },
+        { agentService: deps.agentService, runner: deps.runner },
+        {
+          onServeError: onSetupError,
+          onRunnerError: (err) => {
+            // runner 抛错 = 平台自身错误：close 前打标 failed 并记录日志。
+            store.markTerminal(run_id, "failed");
+            log.error("run 失败：runner 平台错误", {
+              event_id: task.event.event_id,
+              error: errorMessage(err),
+            });
+          },
+        },
+      );
 
       // runner 返回 failed/timeout 不抛错（EntryDriver 契约：业务失败返回而非抛）
       store.markTerminal(run_id, outcome.status, outcome.failed_at);
