@@ -38,6 +38,9 @@
   "AGENT_LOG_ENABLED": true,
   "__AGENT_LOG_ENABLED": "可选。日志总开关，默认 true",
 
+  "AGENT_CONTEXT_SNAPSHOT": false,
+  "__AGENT_CONTEXT_SNAPSHOT": "可选。RunContext 调试快照开关，默认 false；开启后每次 run 把装配完成的上下文（含 secrets 原值）落盘到 businesses/{业务}/logs/context-snapshots/{run_id}.json，供本地运行上下文 diff 作基准；写失败仅告警不影响 run",
+
   "AGENT_HANDBOOK_DIR": "replace-with-absolute-path-to-handbook-generated-console-or-delete-this-key",
   "__AGENT_HANDBOOK_DIR": "可选。handbook 控制台生成物目录（handbook/generated/console 的绝对路径）；不设置时从仓库自动定位，设置后只使用该目录；启动自检验目录存在且可读，Docker 等部署建议显式配置",
 

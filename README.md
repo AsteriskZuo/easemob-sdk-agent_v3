@@ -120,6 +120,7 @@ rm -rf "$AGENT_WORKSPACE/platform/data" "$AGENT_WORKSPACE/platform/cache" "$AGEN
 | `AGENT_MAX_AGENT_CALLS` | `20` | 单次执行的大模型调用配额（业务可覆盖） |
 | `AGENT_LOG_LEVEL` | `info` | 系统日志级别（error/warn/info/debug） |
 | `AGENT_LOG_ENABLED` | `true` | 日志总开关 |
+| `AGENT_CONTEXT_SNAPSHOT` | `false` | RunContext 调试快照开关（排障/本地运行 diff 基准用）：开启后每次 run 把装配完成的上下文落盘到 `businesses/{业务}/logs/context-snapshots/{run_id}.json`（含 secrets 原值）；写失败仅告警，不影响 run |
 
 ### 入口与物化（均有默认值，env 或 config.json 均可）
 

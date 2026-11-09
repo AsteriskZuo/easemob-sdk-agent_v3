@@ -16,6 +16,9 @@ export interface ServerConfig {
   log_level: "error" | "warn" | "info" | "debug";
   /** 系统级日志开关 */
   log_enabled: boolean;
+  /** RunContext 调试快照开关（AGENT_CONTEXT_SNAPSHOT，默认关）：开启后每次 run 把装配完成的上下文
+   *  （含 secrets 原值）落盘 businesses/{业务}/logs/context-snapshots/{run_id}.json，供本地运行 diff 基准 */
+  context_snapshot_enabled: boolean;
   /** 派生事件 hop 上限（入口循环判循环） */
   hop_limit: number;
   /** 入口业务闸门 */
@@ -320,6 +323,9 @@ export function resolveServerConfig(
     oneOf: LOG_LEVELS,
   });
   const logEnabled = resolver.boolean("AGENT_LOG_ENABLED", { default: true });
+  const contextSnapshotEnabled = resolver.boolean("AGENT_CONTEXT_SNAPSHOT", {
+    default: false,
+  });
   const hopLimit = resolver.number("AGENT_HOP_LIMIT", { default: 8, min: 1 });
   const taskConcurrency = resolver.number("AGENT_TASK_CONCURRENCY", {
     default: 4,
@@ -408,6 +414,7 @@ export function resolveServerConfig(
     workspace: workspace as string,
     log_level: (logLevel ?? "info") as LogLevel,
     log_enabled: logEnabled ?? true,
+    context_snapshot_enabled: contextSnapshotEnabled ?? false,
     hop_limit: hopLimit as number,
     task_concurrency: taskConcurrency as number,
     result_concurrency: resultConcurrency as number,

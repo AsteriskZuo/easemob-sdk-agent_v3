@@ -1,7 +1,7 @@
 # 业务包本地运行（第一期：最小本地闭环）Spec
 
 > 日期：2026-11-09
-> 状态：待评审
+> 状态：已实施（2026-11-09，实施计划 docs/plans/2026-11-09-local-run-plan.md）
 > 范围：本地装配器 + 配置文件 + 回放文件 + 上下文等值 diff + 本地 CLI；不做 npm 发布与二期共享资产。
 > 前置：`docs/specs/2026-11-06-shared-run-execution-spec.md`（已实施），本 spec 的本地运行必须复用其 `executeRun` 与 `RunContext` 契约。
 
@@ -95,6 +95,8 @@ packages/local-runner/
 @asteriskzuo/agent-run-core
 @asteriskzuo/agent-service
 @asteriskzuo/agent-workflow-runner
+@asteriskzuo/agent-logger   # 实施期补充：agent-service 的 serve 使用 logger 全局外观，
+                            # 本地 CLI 装配根必须 initLogger（对齐平台 bootstrap）；叶子包，无平台耦合
 ```
 
 禁止依赖（与 run-core 同纪律，用 package.json + 测试检查）：
@@ -166,6 +168,9 @@ app/server
   // 配额（对应平台业务覆盖 ?? 全局默认的最终生效值）
   "quota": { "timeout_minutes": 30, "max_agent_calls": 50 },
 
+  // 本地运行根目录（§6.3；可选，缺省 = 配置文件所在目录的 workspace/）
+  "workspace_root": "./.local-run/workspace",
+
   // 出口护栏（§9）：被 stub 的工具不真实执行；stub_outputs 配置各替身的固定输出（未配置默认 {}）
   "stub_tools": ["wecom-notify"],
   "stub_outputs": { "wecom-notify": { "delivered": true } }
@@ -235,16 +240,18 @@ app/server
 
 ### 6.3 本地目录策略
 
+本地复用平台的目录派生规则（`packages/runtime/src/lifecycle.ts:63-72`），只替换根目录。设本地运行根 `local_root`（默认 `.local-run/workspace/`，可用配置 `workspace_root` 覆盖）：
+
 ```text
-.local-run/
-├── config.json
-├── events/<name>.json
-├── workspace/<run_id>/        # executeRun 的 workspace
-├── sessions/<channel_id>/     # session_dir（按通道持久，与平台语义一致）
-└── audit/<run_id>.jsonl       # audit_log_path
+businessRoot  = {local_root}/businesses/{business_id}
+workspace     = {businessRoot}/runs/{event.source}/{event.session_id}/{run_id}
+session_dir   = {businessRoot}/cache/agent-sessions/{event.source}/{event.session_id}
+audit_log_path= {workspace}/audit/llm-requests.jsonl
 ```
 
-`run_id` 由 CLI 每次生成（`run_` + 26 位 ULID，与平台同规则）。三个目录由 CLI 在调用 `executeRun` 前创建（执行核契约要求调用方创建）。
+关键点：`createWorkflowRunner({ workspaceRoot: local_root })` 内部会按同一规则自行派生 `runs/`、`logs/`、`data/`（`packages/workflow-runner/src/runner.ts:182-196`）并注入 `dataDir`，因此 CLI 只需把**同一个 local_root** 同时传给 WorkflowRunner 和上述三处路径派生，布局即与平台逐层一致。CLI 在调用 `executeRun` 前创建 workspace、session_dir 与 audit 父目录（执行核契约要求调用方创建）。`run_id` 由 CLI 每次生成（`run_` + 26 位 ULID，与平台同规则）。
+
+**注意**：这同时意味着本地会真实创建业务级 `data/` 持久目录——回放重复执行时业务状态（如去重记录）会同平台一样累积，属预期行为；需要干净重放时由开发者自行删除对应 `data/{source}/{session_id}/` 目录。
 
 ## 7. 上下文等值 diff
 
@@ -254,14 +261,14 @@ diff 需要平台侧的真实上下文作为基准。本期在 `packages/runtime
 
 快照由平台 Lifecycle 层写入、内容就是 `RunContext` 本身，天然业务无关——满足 §3 决策 4 的统一性约束。不采用「从 run 日志的 RunRequest 调试行解析」的替代方案：那是 Runner 入参视角，缺 prompt/skills/model/pi_agent_dir 等 serve 侧字段，不完整。
 
-### 7.2 规范化规则
+### 7.2 规范化规则：内容 digest 比较（不做路径字符串比较）
 
-平台与本地上下文都先规范化再比较，规则：
+平台与本地的程序/skill 物理路径必然不同（物化缓存根 vs 本地 path 根），字符串重写既脆弱又需要额外维护 asset_id ↔ 本地名映射。因此等值的精确定义采用**内容等值**：
 
-1. **路径重写**：`program`、`programs.*`、`skills.*.path`、`pi_agent_dir` 中的资产根前缀重写为逻辑占位符——平台物化根（`platform/cache/assets/{asset_id}/...`）与本地 path 资产根都重写为 `<asset:名>/相对路径`；无法归入任何资产根的路径报错（说明资产边界不一致）。
-2. **剔除执行期字段**：`run_id`、`workspace`、`session_dir`、`audit_log_path` 本不属于 `RunContext`，无需剔除；规范化只作用于 RunContext 本身。
-3. **键序与数组序**：JSON 序列化排序键；`skills` 数组按 `name` 排序后比较（平台并集顺序与本地配置顺序不保证一致）。
-4. **secrets 脱敏**：比较值是否相等，但 diff 输出中 secrets 值一律替换为 `"***"`，只报告「一致 / 不一致 / 缺失」。
+1. **路径类字段转 digest**：`program`、`programs.*`（文件）→ 目标文件内容的 sha256；`skills.*.path`（目录）→ 目录内全部文件的 `(相对路径, 文件 sha256)` 按路径排序后再取 sha256；`pi_agent_dir` → 其内 `models.json` 内容 sha256。比较键 = 程序名 / 技能名，值 = digest。键集合不同或同名 digest 不同都算差异。
+2. **数组序**：`skills` 数组按 `name` 排序后比较。
+3. **secrets 脱敏**：比较值是否相等，diff 输出中值一律替换为 `"***"`，只报告「一致 / 不一致 / 缺失」。
+4. **直比字段**：`business_id`、`channel_id`、`prompt`、`model`、`vars`、`quota` 直接比较值。
 
 ### 7.3 diff 输出
 
@@ -290,7 +297,7 @@ agent-local export-event --db <platform.db> --event-id <id> --out <file>
 
 本地回放真实事件时，业务 main 里对出口工具的 `sdk.run` 调用会**真实再执行一遍**（发企微、回写 Jira），造成重复外发。上下文等值挡不住这个——出口调用是契约允许的正常路径。
 
-机制：配置文件 `stub_tools` 列出的工具名，在装配后被替换为 local-runner 内置替身程序。替身程序行为：从 stdin 读入参，打印到 stdout（标记 `[stub]`），按配置返回该工具的固定输出（已确认，原决策点 D2 取 b 方案：每工具可配置固定输出，配置于 `stub_outputs`，键 = 工具名、值 = 替身 stdout 的 JSON），退出码 0。未在 `stub_outputs` 中配置输出的被 stub 工具默认返回 `{}`。
+机制：配置文件 `stub_tools` 列出的工具名，在装配后被替换为 local-runner 内置替身程序。替身程序行为遵守 SDK 结果协议（`packages/sdk/src/result.ts` 的 `exitWith` 同形）：从 stdin 读入参；**stdout 只写结果信封** `{contract_version:"v1", ok:true, output: <固定输出>}` 并以退出码 0 结束；`[stub]` 标记与被 stub 的工具名、入参摘要写 **stderr**（平台采集进业务日志，不污染结果通道）。固定输出按 `stub_outputs` 配置（键 = 工具名、值 = output 的 JSON，已确认，原决策点 D2 取 b 方案）；未配置的被 stub 工具默认 `output: {}`。
 
 ## 10. 测试要求
 

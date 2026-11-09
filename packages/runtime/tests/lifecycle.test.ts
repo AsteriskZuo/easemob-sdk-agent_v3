@@ -1,4 +1,11 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -103,6 +110,8 @@ function makeStubs(
     serveImpl?: AgentService["serve"];
     closeImpl?: RunningAgentService["close"];
     runner?: WorkflowRunner;
+    /** 透传 LifecycleDeps.contextSnapshotEnabled（undefined = 不传，走缺省关闭） */
+    snapshotEnabled?: boolean;
   } = {},
 ) {
   const calls: string[] = [];
@@ -148,6 +157,9 @@ function makeStubs(
     agentService,
     workspaceRoot,
     db,
+    ...(over.snapshotEnabled !== undefined
+      ? { contextSnapshotEnabled: over.snapshotEnabled }
+      : {}),
   });
   return { calls, ctx, recorder, lifecycle };
 }
@@ -348,6 +360,51 @@ describe("打标", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].status).toBe("failed");
     expect(rows[0].finished_at).toBeDefined();
+  });
+});
+
+describe("上下文快照钩子", () => {
+  const snapshotDir = () =>
+    join(
+      workspaceRoot,
+      "businesses",
+      BUSINESS_ID,
+      "logs",
+      "context-snapshots",
+    );
+
+  it("默认关闭（未传开关）→ 不产生快照文件", async () => {
+    const { lifecycle } = makeStubs();
+    await lifecycle.execute(makeTask(), makeWatcher());
+    expect(existsSync(snapshotDir())).toBe(false);
+  });
+
+  it("显式关闭（false）→ 不产生快照文件", async () => {
+    const { lifecycle } = makeStubs({ snapshotEnabled: false });
+    await lifecycle.execute(makeTask(), makeWatcher());
+    expect(existsSync(snapshotDir())).toBe(false);
+  });
+
+  it("开启 → 落盘内容等于 load 返回的 RunContext（pretty JSON）", async () => {
+    const ctx = makeRunContext();
+    const { recorder, lifecycle } = makeStubs({ ctx, snapshotEnabled: true });
+    await lifecycle.execute(makeTask(), makeWatcher());
+    const path = join(snapshotDir(), `${recorder.serveArg!.run_id}.json`);
+    expect(existsSync(path)).toBe(true);
+    expect(readFileSync(path, "utf8")).toBe(JSON.stringify(ctx, null, 2));
+  });
+
+  it("快照写失败（logs 路径被同名文件占用）→ 仅 warn，run 终态不受影响", async () => {
+    // 用文件占住 businesses/{bid}/logs，使快照目录 mkdirSync 抛 ENOTDIR
+    mkdirSync(join(workspaceRoot, "businesses", BUSINESS_ID), {
+      recursive: true,
+    });
+    writeFileSync(join(workspaceRoot, "businesses", BUSINESS_ID, "logs"), "x");
+    const { recorder, lifecycle } = makeStubs({ snapshotEnabled: true });
+    const result = await lifecycle.execute(makeTask(), makeWatcher());
+    expect(result).toEqual({ status: "success", output: { ok: 1 } });
+    const record = createLifecycleStore(db).get(recorder.runArg!.run_id!);
+    expect(record?.status).toBe("success");
   });
 });
 

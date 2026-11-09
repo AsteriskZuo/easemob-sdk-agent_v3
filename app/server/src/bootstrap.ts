@@ -209,6 +209,7 @@ export async function bootstrap(overrides?: {
       agentService,
       workspaceRoot: config.workspace,
       db,
+      contextSnapshotEnabled: config.context_snapshot_enabled,
     });
     const exits = createExitRegistry();
     const exitDriver = createExitDriver({ exits, env: envProvider });

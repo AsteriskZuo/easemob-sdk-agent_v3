@@ -276,6 +276,24 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@asteriskzuo/agent-local-runner@workspace:packages/local-runner":
+  version: 0.0.0-use.local
+  resolution: "@asteriskzuo/agent-local-runner@workspace:packages/local-runner"
+  dependencies:
+    "@asteriskzuo/agent-contracts": "npm:0.1.0"
+    "@asteriskzuo/agent-logger": "npm:0.1.0"
+    "@asteriskzuo/agent-run-core": "npm:0.1.0"
+    "@asteriskzuo/agent-service": "npm:0.1.0"
+    "@asteriskzuo/agent-workflow-runner": "npm:0.1.0"
+    "@jest/globals": "npm:^29.7.0"
+    esbuild: "npm:^0.28.1"
+    jest: "npm:^29.7.0"
+    typescript: "npm:^5.9.0"
+  bin:
+    agent-local: ./dist/src/cli.js
+  languageName: unknown
+  linkType: soft
+
 "@asteriskzuo/agent-logger@npm:0.1.0, @asteriskzuo/agent-logger@workspace:packages/logger":
   version: 0.0.0-use.local
   resolution: "@asteriskzuo/agent-logger@workspace:packages/logger"

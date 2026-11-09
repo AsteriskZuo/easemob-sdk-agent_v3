@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { buildBusinessChannelId, newUlid } from "@asteriskzuo/agent-contracts";
 import type { Database } from "@asteriskzuo/agent-database";
@@ -16,6 +16,10 @@ export interface LifecycleDeps {
   agentService: AgentService; // 第②/④步：per-run socket 服务（serve / close）
   workspaceRoot: string; // 平台工作目录 {workspace}（业务三类在 businesses/{business_id}/ 下，布局与 runner 对齐）
   db: Database; // 打标表（lifecycles，迁移 module 'runtime'）
+  /** 上下文快照调试开关（AGENT_CONTEXT_SNAPSHOT，装配根注入；缺省 = 关）：
+   *  开启时 load 成功后把 RunContext 落盘 {businessRoot}/logs/context-snapshots/{run_id}.json，
+   *  供本地运行上下文 diff 作基准；写失败仅 warn，不影响 run */
+  contextSnapshotEnabled?: boolean;
 }
 
 function errorMessage(err: unknown): string {
@@ -88,6 +92,25 @@ export function createLifecycle(deps: LifecycleDeps): EntryDriver {
       } catch (err) {
         onSetupError(err);
         throw err;
+      }
+
+      // 上下文快照调试钩子（默认关）：load 成功后落盘 RunContext 供本地运行 diff 基准；
+      // 独立 try/catch——写失败只 warn，绝不改变 run 行为
+      if (deps.contextSnapshotEnabled === true) {
+        try {
+          const snapshotPath = join(
+            businessRoot,
+            "logs",
+            "context-snapshots",
+            `${run_id}.json`,
+          );
+          mkdirSync(dirname(snapshotPath), { recursive: true });
+          writeFileSync(snapshotPath, JSON.stringify(ctx, null, 2));
+        } catch (err) {
+          log.warn("上下文快照写入失败（忽略，不影响本次 run）", {
+            error: errorMessage(err),
+          });
+        }
       }
 
       // ②–④ 共用平台无关执行核；hook 只接入平台状态与日志，不改变错误语义。
