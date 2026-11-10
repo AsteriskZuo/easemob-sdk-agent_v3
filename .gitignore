@@ -403,3 +403,6 @@ workspace/
 
 # 业务仓目录（business/ 下每个业务是独立 git 仓库，与平台仓无关联，永不跟踪）
 business/
+
+# 本地运行配置与工作区（含 secrets，永不进 git；见 docs/refs/2026-11-09-local-run-guide.md）
+.local-run/

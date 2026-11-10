@@ -1,0 +1,29 @@
+{
+  "business_id": "jira-ticket-review",
+  "channel_id": "jira:HIM-12345",
+  "prompt": "",
+  "entry_program": "main",
+  "model": "qwen/qwen3.8-max",
+
+  "assets": {
+    "package": { "path": "../../business/jira-ticket-review" },
+    "tools": [
+      { "name": "wecom-notify", "path": "../shared-tools/wecom-notify" }
+    ],
+    "skills": []
+  },
+
+  "vars": { "JIRA_PROJECT": "HIM" },
+  "secrets": { "JIRA_PASSWORD": "填真实值，本文件严禁提交 git" },
+
+  "pi_agent_dir": "../../.easemob-agent-workspace/platform/cache/pi/agent",
+  "pi_cli_path": null,
+  "pi_env": {},
+
+  "quota": { "timeout_minutes": 30, "max_agent_calls": 50 },
+
+  "workspace_root": "./workspace",
+
+  "stub_tools": ["wecom-notify"],
+  "stub_outputs": { "wecom-notify": { "delivered": true } }
+}

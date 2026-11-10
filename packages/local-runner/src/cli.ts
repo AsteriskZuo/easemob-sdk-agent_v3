@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
@@ -19,10 +20,7 @@ import { createWorkflowRunner } from "@asteriskzuo/agent-workflow-runner";
 import { loadConfig } from "./config.js";
 import type { LocalRunConfig } from "./config.js";
 import { exportEventFromDb, loadReplayEvent } from "./replay.js";
-import {
-  applyStubTools,
-  assembleRunContext,
-} from "./local-context-loader.js";
+import { applyStubTools, assembleRunContext } from "./local-context-loader.js";
 import { diffContexts } from "./context-diff.js";
 import type { FieldDiff } from "./context-diff.js";
 
@@ -225,7 +223,13 @@ function assertRunContextShape(raw: unknown, where: string): RunContext {
   if (!isPlainObject(raw)) {
     throw fail("顶层必须是 JSON 对象");
   }
-  for (const key of ["business_id", "channel_id", "program", "prompt", "model"]) {
+  for (const key of [
+    "business_id",
+    "channel_id",
+    "program",
+    "prompt",
+    "model",
+  ]) {
     if (typeof raw[key] !== "string") {
       throw fail(`字段 "${key}" 必须为字符串`);
     }
@@ -255,7 +259,9 @@ function assertRunContextShape(raw: unknown, where: string): RunContext {
     typeof raw.quota.timeout_minutes !== "number" ||
     typeof raw.quota.max_agent_calls !== "number"
   ) {
-    throw fail('字段 "quota" 必须为 { timeout_minutes: number, max_agent_calls: number }');
+    throw fail(
+      '字段 "quota" 必须为 { timeout_minutes: number, max_agent_calls: number }',
+    );
   }
   if (raw.pi_agent_dir !== undefined && typeof raw.pi_agent_dir !== "string") {
     throw fail('字段 "pi_agent_dir" 存在时必须为字符串');
@@ -468,9 +474,11 @@ export async function runLocal(
   }
 }
 
-// main 守卫：仅作为独立进程入口时执行（被 import 时不跑）
+// main 守卫：仅作为独立进程入口时执行（被 import 时不跑）。
+// argv[1] 必须取 realpath：经 node_modules/.bin 软链调用时 argv[1] 是链接路径，
+// 而 import.meta.url 是符号链接解析后的真实路径，不还原会导致 bin 调用静默空跑。
 const invokedAs =
-  process.argv[1] !== undefined ? path.resolve(process.argv[1]) : "";
+  process.argv[1] !== undefined ? realpathSync(process.argv[1]) : "";
 if (invokedAs !== "" && fileURLToPath(import.meta.url) === invokedAs) {
   process.exitCode = await runLocal(process.argv.slice(2));
 }
