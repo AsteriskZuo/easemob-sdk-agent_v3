@@ -1,29 +1,37 @@
 {
-  "business_id": "jira-ticket-review",
-  "channel_id": "jira:HIM-12345",
-  "prompt": "",
+  "business_id": "<平台分配的业务 id，如 b01M4QSEAC5MZA2N2RTNMEDDCX1>",
+  "channel_id": "webhook__<工单号>__<平台业务 id>",
+  "prompt": "<与平台业务资料一致，建议从平台快照 JSON 复制>",
   "entry_program": "main",
   "model": "qwen/qwen3.8-max",
 
   "assets": {
-    "package": { "path": "../../business/jira-ticket-review" },
+    "package": { "path": "../../business/jira-ticket-review/package" },
     "tools": [
-      { "name": "wecom-notify", "path": "../shared-tools/wecom-notify" }
+      { "name": "jira-fetch", "path": "../../business/jira-ticket-review/tools/jira-fetch" }
     ],
-    "skills": []
+    "skills": [
+      { "name": "jira-ticket-review", "path": "../../business/jira-ticket-review/skills" }
+    ]
   },
 
-  "vars": { "JIRA_PROJECT": "HIM" },
-  "secrets": { "JIRA_PASSWORD": "填真实值，本文件严禁提交 git" },
+  "vars": { "jira_url": "https://jira.example.com" },
+  "secrets": {
+    "jira_username": "<platform.db env_entries 真值，严禁提交 git>",
+    "jira_password": "<真值>",
+    "jira_redirect_username": "<真值>",
+    "jira_redirect_password": "<真值>",
+    "wecom_key": "<真值>"
+  },
 
-  "pi_agent_dir": "../../.easemob-agent-workspace/platform/cache/pi/agent",
+  "pi_agent_dir": "../../.easemob-agent-workspace/businesses/<平台业务 id>/cache/pi/agent",
   "pi_cli_path": null,
   "pi_env": {},
 
-  "quota": { "timeout_minutes": 30, "max_agent_calls": 50 },
+  "quota": { "timeout_minutes": 60, "max_agent_calls": 20 },
 
   "workspace_root": "./workspace",
 
-  "stub_tools": ["wecom-notify"],
-  "stub_outputs": { "wecom-notify": { "delivered": true } }
+  "stub_tools": [],
+  "stub_outputs": {}
 }

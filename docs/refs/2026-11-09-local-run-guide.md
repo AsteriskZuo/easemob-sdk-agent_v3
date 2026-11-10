@@ -19,7 +19,7 @@
 
 - Node ≥ 24（`export-event` 用 `node:sqlite`，会打一条 ExperimentalWarning 到 stderr，无害）；
 - 仓库已构建：`yarn build`（产物 `packages/local-runner/dist/src/cli.js`）；
-- 被跑的业务包已构建：`assets.package` 目录内 `agent-package.json` 的 `programs[entry_program]` 指向的 `.js` 产物存在；
+- 被跑的业务包已构建：`assets.package` 目录内 `agent-package.json` 的 `programs[entry_program]` 指向的 `.js` 产物存在。**构建方式影响 diff**：要与平台 digest 对齐，必须用资产根下的 `node agent.materialize.mjs`（esbuild，与平台物化同款；需先 `npm ci` 装资产自己的 devDependencies），不要用 `npm run build`（tsc）——产物布局相同但字节不同；
 - `pi_agent_dir` 指向的目录内含生效的 `models.json`（模型 apiKey 在此，不在本地配置里）。
 
 ## 3. 推荐目录布局
@@ -68,7 +68,7 @@ cp packages/local-runner/config.example.json .local-run/config.json
 ```json
 {
   "business_id": "e2e-template",
-  "channel_id": "manual:e2e-session",
+  "channel_id": "manual__e2e-session__e2e-template",
   "entry_program": "main",
   "model": "qwen/qwen3.8-max",
   "assets": {
@@ -132,19 +132,39 @@ agent-local export-event \
 
 ### 6.2 编写业务配置
 
-以 `packages/local-runner/config.example.json` 为模板，关键字段对齐方式：
+以 `packages/local-runner/config.example.json` 为模板。原则：**每个字段都对应平台侧的一份真实数据，照抄，不要凭记忆填**。vars / secrets 用这条 SQL 从 platform.db 查（只读）：
 
-| 字段 | 取值来源 |
+```bash
+# scope='' 的行是全局兜底，同键被业务 scope 行覆盖；bucket 只有 vars / secrets 两种
+node -e "
+const {DatabaseSync}=require('node:sqlite');
+const db=new DatabaseSync('.easemob-agent-workspace/platform/data/platform.db',{readOnly:true});
+for (const r of db.prepare(\"SELECT scope,bucket,key,value FROM env_entries WHERE scope IN ('', ?) ORDER BY bucket,key\").all('<business_id>'))
+  console.log(r.bucket, r.key, '=', r.value);
+"
+```
+
+> secrets 在 platform.db 里是明文（v1 设计），查询结果不要贴进 git、日志、群聊。
+
+字段详解（逐条对应 config.example.json）：
+
+| 字段 | 规则与取值来源 |
 | --- | --- |
-| `business_id` | 平台该业务的 business_id（注意：是平台分配的 id，工作区下 `businesses/{id}/` 目录名就是它） |
-| `channel_id` | **与平台该次 run 一致**（影响会话映射键，可从导出事件的 source/session_id 推） |
-| `entry_program` / `prompt` / `model` | 与平台业务资料（BusinessProfile）一致 |
-| `assets.package.path` | 业务仓根目录（含 agent-package.json 与构建产物），如 `../business/jira-ticket-review` |
-| `assets.tools` / `assets.skills` | 业务依赖的工具/skill 资产本地目录，**顺序即名解析优先级**（包→工具→skill，与平台一致） |
-| `vars` / `secrets` | 与平台 env 中该业务的两桶配置一致（secrets 只在本地，严禁提交） |
-| `quota` | 填**最终生效值**（业务覆盖 ?? 平台全局默认 的推导结果；本地不做推导） |
-| `pi_agent_dir` | 可直接引用平台派生产物目录（含 models.json） |
-| `stub_tools` | **务必**把有外部副作用的出口工具（发企微、回写 Jira 等）列进来，见 §6.4 |
+| `business_id` | 平台分配的业务 id（工作区 `businesses/{id}/` 目录名就是它），**不是**业务英文名 |
+| `channel_id` | 三段式 `source__session_id__business_id`（`packages/contracts/src/channel-id.ts`）：前两段从导出的事件 json 照抄（`source`、`session_id`），第三段就是本配置的 `business_id`。jira webhook 业务即 `webhook__<工单号>__<business_id>`。填错 run 不报错，但 diff 会 different，会话目录也与平台对不上 |
+| `entry_program` | 不是保留字、不必叫 `main`：必须命中 `assets.package` 内 `agent-package.json` 的 `programs` 映射，且指向的 `.js` 产物存在。照平台业务资料的 entry_program 填 |
+| `prompt` / `model` | 与平台业务资料（BusinessProfile）一致；prompt 较长，建议从平台快照 JSON 或控制台复制 |
+| `assets.package.path` | 指向**含 agent-package.json 的资产目录**——jira-ticket-review 是业务仓的 `package/` 子目录，不是业务仓根目录 |
+| `assets.tools` / `assets.skills` | 业务依赖的工具 / skill 资产目录；`name` 即程序 / 技能解析名。数组顺序即名解析优先级（包→工具→skill，与平台一致） |
+| 路径通用规则 | 所有路径字段（`assets.*.path` / `pi_agent_dir` / `workspace_root`）都可写**绝对路径**；相对路径基于**配置文件所在目录**解析，与执行命令时所在目录无关 |
+| `vars` / `secrets` | 用上面的 SQL 照抄。**secrets 必须填真值**：run 时 `jira_*` 要真实调 Jira；diff 对 secrets 逐键比较真实值（展示才脱敏为 `***`）。像 `wecom_key` 这种只有平台出口适配用、业务程序不读的键，run 随便填能跑通，但 diff 会 different——要 diff 全绿就全抄真值 |
+| `quota` | 填**最终生效值**，本地不做推导。当前平台只有全局值：默认 `60 / 20`（`app/server/src/config.ts`，可被 `AGENT_TASK_TIMEOUT_MINUTES` / `AGENT_MAX_AGENT_CALLS` 覆盖）。最省事：开快照后从快照 JSON 的 `quota` 字段照抄 |
+| `pi_agent_dir` | 含生效 models.json 的目录（模型 apiKey 在这里，不在本地配置里）。可直接引用平台派生产物：业务级 `.easemob-agent-workspace/businesses/{id}/cache/pi/agent`，或全局 `platform/cache/pi/agent` |
+| `pi_cli_path` | `null` 或不写 = 用**内置** npm 依赖 `@earendil-works/pi-coding-agent` 的 bin（版本由 yarn.lock 锁定，与平台缺省一致），**不是**系统 PATH 里的 pi；只有要强制换 pi 时才填字符串 |
+| `pi_env` | 传给 pi 子进程的环境变量覆盖，**一般不需要**——模型与密钥走 models.json，不经环境变量 |
+| `stub_tools` / `stub_outputs` | 出口护栏，机制见 §6.4 |
+
+> **构建方式影响 digest 对齐**：业务包要用资产根下的 `node agent.materialize.mjs` 构建（esbuild，与平台物化同款；先 `npm ci` 装资产自己的 devDependencies）。`npm run build`（tsc）产物布局相同但字节不同，diff 会报 `programs.*` different。
 
 ### 6.3 用 diff 验证准备工作（强烈建议先 diff 再 run）
 
@@ -180,6 +200,8 @@ diff 是**内容等值**比较：程序/技能路径两侧必然不同（平台�
 - 未配置 `stub_outputs` 的替身默认输出 `{}`；
 - 替身的 `[stub]` 标记和入参摘要进业务日志（stderr 通道），不污染结果。
 
+> jira-ticket-review 的对外写（企微通知）是平台 exit_binding 出口适配发的，不经业务程序，业务内没有需要护栏的出口工具，所以它的 `stub_tools` 是 `[]`；上面的示例针对「业务程序自己调外部写接口」的情况。
+
 ```bash
 agent-local run --config .local-run/config.json --event .local-run/events/HIM-xxxxx.json
 ```
@@ -194,10 +216,13 @@ rm -rf .local-run/workspace/businesses/<business_id>/data/<source>/<session_id>
 
 ## 7. 常见问题
 
-- **`programs["main"]` 指向的产物不存在** → 先构建业务包（业务仓内 `npm run build`）。
+- **`programs["main"]` 指向的产物不存在** → 先在资产目录构建业务包（`node agent.materialize.mjs`，需先 `npm ci`）。
+- **diff 报 `program` / `programs.*` different** → 构建方式不一致：本地须用资产根的 `node agent.materialize.mjs`（与平台物化同款 esbuild）重建；`npm run build`（tsc）产物 digest 与平台不等。
+- **`目录内缺少 agent-package.json`** → `assets.package.path` 指错了层级：要指向含清单的资产目录（jira-ticket-review 是业务仓的 `package/` 子目录），不是业务仓根目录。
+- **`配置字段 config.secrets 非法：必须为对象`** → `secrets` / `vars` / `pi_env` 都是「键值均为字符串」的扁平对象，不能写成数组或嵌套对象。
 - **`pi 可执行文件不可用`** → 先 `yarn install`（缺省从 npm 依赖解析 pi bin），或在配置里显式指定 `pi_cli_path`。
 - **diff 报 `vars`/`quota` 不等** → 本地配置要求填平台最终生效值；去平台侧确认该业务的实际生效配置（控制台或 platform.db）。
-- **diff 报 secrets 不一致** → 本地 `secrets` 与平台 env 不一致；diff 不会打印真实值，自行核对。
+- **diff 报 secrets 不一致** → 本地 `secrets` 与平台 env 不一致；diff 不会打印真实值，用 §6.2 的 SQL 自行核对。
 - **run 卡住或 timeout** → 检查 `quota.timeout_minutes`、模型可用性（models.json 的 apiKey）、网络；业务日志与 `llm-requests.jsonl` 审计日志有完整调用记录。
 - **stderr 的 `ExperimentalWarning: SQLite`** → Node 24 对 `node:sqlite` 的实验性提示，无害。
 - **事件导出后平台侧 purge 了** → 导出文件是独立快照，不受影响；但**快照基准**需要开开关后重新跑出的 run，老 run 没有快照。
