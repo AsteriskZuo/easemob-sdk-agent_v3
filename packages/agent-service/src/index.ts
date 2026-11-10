@@ -54,6 +54,31 @@ export interface AgentSessionMapping {
   clear(channelId: string): void;
 }
 
+/** LLM 调用统计写口（装配根注入；缺省 = 不采集）。
+ *  实现纪律：写失败必须自行消化（warn 日志），不得抛回——agent op 不因统计失败 */
+export interface LlmCallSink {
+  record(call: {
+    run_id: string;
+    business_id: string;
+    ts: string;
+    op: "agent";
+    model: string;
+    skills: string[];
+    mode: "channel" | "fresh";
+    ok: boolean;
+    error?: string;
+    duration_ms: number;
+    usage?: {
+      input_tokens: number;
+      output_tokens: number;
+      cache_read_tokens: number;
+      cache_write_tokens: number;
+      total_tokens: number;
+      cost_total: number;
+    };
+  }): void;
+}
+
 /** 装配根注入的依赖 */
 export interface AgentServiceDeps {
   /** pi 可执行文件绝对路径（测试指向 fixture 脚本） */
@@ -62,6 +87,9 @@ export interface AgentServiceDeps {
   pi_env: Record<string, string>;
   /** 通道会话映射 */
   mapping: AgentSessionMapping;
+  /** LLM 调用统计写口（装配根注入；缺省 = 不采集，本地运行不注入）。
+   *  实现必须自行消化写异常（fail-open），调用点另有一层防御 try/catch 兜底 */
+  llm_call_sink?: LlmCallSink;
 }
 
 /** serve 返回的运行句柄 */

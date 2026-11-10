@@ -191,6 +191,7 @@ __metadata:
     "@types/react-dom": "npm:^18.3.0"
     "@vitejs/plugin-react": "npm:^4.3.0"
     antd: "npm:^5.21.0"
+    dayjs: "npm:^1.11.23"
     esbuild: "npm:^0.28.1"
     jest: "npm:^29.7.0"
     jest-environment-jsdom: "npm:^29.7.0"
@@ -444,6 +445,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asteriskzuo/agent-service@workspace:packages/agent-service"
   dependencies:
+    "@asteriskzuo/agent-contracts": "npm:0.1.0"
     "@asteriskzuo/agent-logger": "npm:0.1.0"
     "@asteriskzuo/agent-process-runner": "npm:0.1.0"
     "@jest/globals": "npm:^29.7.0"
@@ -3841,7 +3843,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dayjs@npm:^1.11.11":
+"dayjs@npm:^1.11.11, dayjs@npm:^1.11.23":
   version: 1.11.23
   resolution: "dayjs@npm:1.11.23"
   checksum: 10c0/69ab04bf19c676e44ab50cc2fca223d265f3dafd107151ef3b0f3ad74d360c37caa602abe62f87cb25d90bd9f6bee003698af47df5b0dbf10a998b7b5f3bb3f1

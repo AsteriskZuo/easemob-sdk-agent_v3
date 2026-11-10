@@ -3,10 +3,12 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { CategoryLogger } from "@asteriskzuo/agent-logger";
+import { parseChannelId } from "@asteriskzuo/agent-contracts";
 import { ProcessError, runProcess } from "@asteriskzuo/agent-process-runner";
 import type {
   AgentServeContext,
   AgentServiceDeps,
+  LlmCallSink,
   ValidatedAgentRequest,
 } from "./index.js";
 import type { EffectiveModels } from "./models-json.js";
@@ -95,6 +97,59 @@ function extractAssistantOutput(stdout: string): {
   return last;
 }
 
+/** sink 调用记录的字段类型（契约 A 的 record 参数，一字不差对齐 LlmCallSink） */
+type LlmCallRecord = Parameters<LlmCallSink["record"]>[0];
+
+/** channel_id → business_id：业务通道取第三段；出口通道到不了 agent op、
+ *  解析失败或非 business 一律兜底 "" 并 warn（统计不阻断业务） */
+function resolveBusinessId(channelId: string, log: CategoryLogger): string {
+  try {
+    const parsed = parseChannelId(channelId);
+    if (parsed.kind === "business") return parsed.businessId;
+    log.warn("channel_id 非业务通道，llm_calls 的 business_id 兜底为空", {
+      channel_id: channelId,
+    });
+    return "";
+  } catch {
+    log.warn("channel_id 解析失败，llm_calls 的 business_id 兜底为空", {
+      channel_id: channelId,
+    });
+    return "";
+  }
+}
+
+/** pi Usage（@earendil-works/pi-ai：input/output/cacheRead/cacheWrite/totalTokens/cost.total）
+ *  → sink usage 字段一对一映射；形状不符（提取失败/模型未上报）返回 undefined——
+ *  落行但用量字段缺失（由 llm.calls_without_usage 指标暴露数据质量）。
+ *  reasoning / cacheWrite1h 不采（v1 无消费场景） */
+function mapPiUsage(usage: unknown): LlmCallRecord["usage"] {
+  if (typeof usage !== "object" || usage === null) return undefined;
+  const u = usage as Record<string, unknown>;
+  const cost =
+    typeof u.cost === "object" && u.cost !== null
+      ? (u.cost as Record<string, unknown>)
+      : undefined;
+  const nums = [
+    u.input,
+    u.output,
+    u.cacheRead,
+    u.cacheWrite,
+    u.totalTokens,
+    cost?.total,
+  ];
+  if (!nums.every((n) => typeof n === "number" && Number.isFinite(n))) {
+    return undefined;
+  }
+  return {
+    input_tokens: u.input as number,
+    output_tokens: u.output as number,
+    cache_read_tokens: u.cacheRead as number,
+    cache_write_tokens: u.cacheWrite as number,
+    total_tokens: u.totalTokens as number,
+    cost_total: (cost as Record<string, unknown>).total as number,
+  };
+}
+
 /** agent op：装配命令行 → 经 process-runner 执行 pi（单次推理）→ 提取最终 assistant 文本。
  *  失败路径全部返回 ok:false（input_too_large / skill_not_allowed / model_not_allowed / agent_failed / agent_empty_output） */
 export async function runAgentOp(
@@ -110,16 +165,44 @@ export async function runAgentOp(
   const effectiveModel = req.model ?? ctx.model;
   // 结果埋点：op/skills/model/耗时/usage?/结果前缀（best-effort，不影响契约）
   const done = (resp: ServiceResponse, usage?: unknown): ServiceResponse => {
+    const durationMs = Date.now() - startedAt;
     const fields: Record<string, unknown> = {
       op: "agent",
       skills: req.skills,
       model: effectiveModel,
-      duration_ms: Date.now() - startedAt,
+      duration_ms: durationMs,
       result: resp.ok ? "ok" : resp.error.split(":")[0],
     };
     if (usage !== undefined) fields.usage = usage;
     if (resp.ok) log.info("agent 服务调用", fields);
     else log.warn("agent 服务调用失败", fields);
+    // LLM 调用统计落库（决策 2/3：一行 = 一次 agent op，成功带 usage、失败无 usage）。
+    // fail-open：sink 异常防御 try/catch 消化（warn 后照旧返回），绝不影响 op 结果
+    if (deps.llm_call_sink !== undefined) {
+      try {
+        const call: LlmCallRecord = {
+          run_id: ctx.run_id,
+          business_id: resolveBusinessId(ctx.channel_id, log),
+          ts: new Date().toISOString(),
+          op: "agent",
+          model: effectiveModel,
+          skills: [...req.skills],
+          mode: req.mode,
+          ok: resp.ok,
+          duration_ms: durationMs,
+        };
+        if (resp.ok) {
+          const mapped = mapPiUsage(usage);
+          if (mapped !== undefined) call.usage = mapped;
+        } else {
+          // 与日志埋点同规则：error 取首段错误码
+          call.error = resp.error.split(":")[0];
+        }
+        deps.llm_call_sink.record(call);
+      } catch (e) {
+        log.warn("llm 调用统计 sink 异常已消化", { error: String(e) });
+      }
+    }
     return resp;
   };
   const fail = (error: string): ServiceResponse =>

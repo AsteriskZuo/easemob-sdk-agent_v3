@@ -191,7 +191,7 @@ interface StatsRow {
 | `llm.tokens.input` / `llm.tokens.output` / `llm.tokens.cache_read` / `llm.tokens.cache_write` / `llm.tokens.total` | "" | token 求和（usage 缺失行不计入） | llm_calls |
 | `llm.cost` | "" | cost_total 求和（USD，best-effort，决策 4） | llm_calls |
 | `llm.avg_duration_ms` | "" | op 平均耗时 | llm_calls |
-| `llm.calls_without_usage` | "" | usage 缺失行计数（数据质量指标） | llm_calls |
+| `llm.calls_without_usage` | "" | 成功但 usage 缺失的行计数（提取失败/模型未上报，数据质量指标；失败行本来就不带 usage，不计） | llm_calls |
 
 按日归属：run 指标按 `created_at` 分日；llm 指标按 `ts`（调用结束时刻）分日。跨日 run 的 LLM 消耗落在调用发生日，与 run 指标日期可能不同——语义正确，不强行对齐。
 

@@ -26,6 +26,7 @@ import {
   createEnvProvider,
   createLifecycle,
   createLifecycleStore,
+  createLlmCallStore,
 } from "@asteriskzuo/agent-runtime";
 import type { EnvProvider } from "@asteriskzuo/agent-runtime";
 import { createEntryLoop, createExitLoop } from "@asteriskzuo/agent-scheduler";
@@ -197,11 +198,15 @@ export async function bootstrap(overrides?: {
         },
       },
     });
+    // llm_calls 统计口：同一实例同时作 agent-service 的 sink（结构兼容 LlmCallSink）
+    // 与 console 统计 API 的聚合读口（下方 createConsoleApi options.llm_calls）
+    const llmCallStore = createLlmCallStore(db);
     const runner = createWorkflowRunner({ workspaceRoot: config.workspace });
     const agentService = createAgentService({
       pi_cli_path: config.pi_cli_path,
       pi_env: config.pi_env,
       mapping: channelStore,
+      llm_call_sink: llmCallStore,
     });
     const lifecycle = createLifecycle({
       loader,
@@ -338,6 +343,7 @@ export async function bootstrap(overrides?: {
         port: config.console_port,
         timeout_ms: config.http_timeout_ms,
         handbook_dir: config.handbook_dir,
+        llm_calls: llmCallStore,
         ...(config.bootstrap_admin !== undefined
           ? { bootstrap_admin: config.bootstrap_admin }
           : {}),

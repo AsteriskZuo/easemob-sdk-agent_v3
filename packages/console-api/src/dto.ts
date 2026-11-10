@@ -291,6 +291,31 @@ export interface QueuesStatus {
   exit: QueueCounts;
 }
 
+/** 统计长表行：控制台透视成二维表（行 = date，列 = metric/bucket）。
+ *  一期指标清单：run.*（lifecycles 聚合）与 llm.*（llm_calls 聚合），命名即契约 */
+export interface StatsRow {
+  /** 日历日 YYYY-MM-DD（服务器本地时区，与聚合读口 date(...,'localtime') 同口径） */
+  date: string;
+  /** 指标名（如 run.total / run.failed_phase / llm.tokens.input / llm.errors） */
+  metric: string;
+  /** 维度桶；无维度指标恒 ""（run.failed_phase 的桶 = 阶段名，llm.errors 的桶 = 错误码首段） */
+  bucket: string;
+  /** 指标值（计数/求和/平均，由各指标定义） */
+  value: number;
+}
+
+/** GET /api/stats/daily 响应 */
+export interface DailyStatsResponse {
+  /** 查询业务（回显） */
+  business_id: string;
+  /** 生效区间起（YYYY-MM-DD，回显；缺省 = 13 天前） */
+  from: string;
+  /** 生效区间止（YYYY-MM-DD，回显；缺省 = 今天） */
+  to: string;
+  /** 长表行集，按 (date, metric, bucket) 字典序；零数据日不出行 */
+  rows: StatsRow[];
+}
+
 /** 统一错误体 */
 export interface ApiErrorBody {
   error: {

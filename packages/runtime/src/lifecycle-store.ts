@@ -19,11 +19,36 @@ export interface LifecycleRecord {
   failed_at?: string;
 }
 
+/** run 按日聚合行（统计 API 数据源；分日口径 = 服务器本地时区 date(created_at,'localtime')） */
+export interface DailyRunAggregate {
+  date: string; // 日历日 YYYY-MM-DD（本地时区）
+  total: number; // 当日 run 总数（含 running）
+  success: number;
+  failed: number;
+  timeout: number;
+  running: number; // 查询时点仍 running 的计数（正常应为 0，非 0 = crash 残留信号）
+  /** 失败阶段分布：failed_at NULL 归 unknown（历史行与平台自身错误） */
+  failed_phase: {
+    "check-input": number;
+    main: number;
+    "check-output": number;
+    unknown: number;
+  };
+  avg_duration_ms: number | null; // 当日已完结 run（success/failed/timeout 全含）平均耗时；无已完结 run 为 null
+}
+
 /** 打标读口（控制台任务监控用；最小集） */
 export interface LifecycleStore {
   /** 按业务查执行记录，按 created_at 倒序；limit 缺省 50 */
   listByBusiness(business_id: string, limit?: number): LifecycleRecord[];
   get(lifecycle_id: string): LifecycleRecord | undefined;
+  /** 按日聚合（统计 API 用）：from/to 为 YYYY-MM-DD 闭区间，按本地日历日过滤；
+   *  返回按 date 升序；零数据日不出行 */
+  dailyRuns(
+    business_id: string,
+    from: string,
+    to: string,
+  ): DailyRunAggregate[];
 }
 
 /** 打标写口：Lifecycle 内部用（读口之上的写面） */
@@ -69,6 +94,22 @@ function rowToRecord(row: LifecycleRow): LifecycleRecord {
   return record;
 }
 
+interface DailyRunRow {
+  date: string;
+  total: number;
+  success: number;
+  failed: number;
+  timeout: number;
+  running: number;
+  avg_duration_ms: number | null;
+}
+
+interface DailyFailedPhaseRow {
+  date: string;
+  phase: string;
+  cnt: number;
+}
+
 /** 创建 lifecycles 表读写口（schema 迁移与 EnvProvider 共用 module 'runtime'，幂等） */
 export function createLifecycleStore(
   db: Database,
@@ -110,6 +151,65 @@ export function createLifecycleStore(
         [lifecycle_id],
       );
       return row ? rowToRecord(row) : undefined;
+    },
+
+    dailyRuns(business_id, from, to): DailyRunAggregate[] {
+      const rows = db.all<DailyRunRow>(
+        `SELECT date(created_at, 'localtime') AS date,
+           COUNT(*) AS total,
+           SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS success,
+           SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
+           SUM(CASE WHEN status = 'timeout' THEN 1 ELSE 0 END) AS timeout,
+           SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) AS running,
+           AVG(CASE WHEN finished_at IS NOT NULL
+               THEN (julianday(finished_at) - julianday(created_at)) * 86400000 END) AS avg_duration_ms
+         FROM lifecycles
+         WHERE business_id = ? AND date(created_at, 'localtime') BETWEEN ? AND ?
+         GROUP BY date(created_at, 'localtime')
+         ORDER BY date`,
+        [business_id, from, to],
+      );
+      const phaseRows = db.all<DailyFailedPhaseRow>(
+        `SELECT date(created_at, 'localtime') AS date, COALESCE(failed_at, 'unknown') AS phase, COUNT(*) AS cnt
+         FROM lifecycles
+         WHERE business_id = ? AND status = 'failed' AND date(created_at, 'localtime') BETWEEN ? AND ?
+         GROUP BY date(created_at, 'localtime'), phase`,
+        [business_id, from, to],
+      );
+      const phasesByDate = new Map<
+        string,
+        { "check-input": number; main: number; "check-output": number; unknown: number }
+      >();
+      for (const row of phaseRows) {
+        const buckets = phasesByDate.get(row.date) ?? {
+          "check-input": 0,
+          main: 0,
+          "check-output": 0,
+          unknown: 0,
+        };
+        // 防御：三段之外的意外值归 unknown（正常只有 check-input/main/check-output）
+        if (row.phase === "check-input" || row.phase === "main" || row.phase === "check-output") {
+          buckets[row.phase] += row.cnt;
+        } else {
+          buckets.unknown += row.cnt;
+        }
+        phasesByDate.set(row.date, buckets);
+      }
+      return rows.map((row) => ({
+        date: row.date,
+        total: row.total,
+        success: row.success,
+        failed: row.failed,
+        timeout: row.timeout,
+        running: row.running,
+        failed_phase: phasesByDate.get(row.date) ?? {
+          "check-input": 0,
+          main: 0,
+          "check-output": 0,
+          unknown: 0,
+        },
+        avg_duration_ms: row.avg_duration_ms,
+      }));
     },
   };
 }

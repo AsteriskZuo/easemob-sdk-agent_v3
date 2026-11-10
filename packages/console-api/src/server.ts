@@ -8,6 +8,7 @@ import { logger } from "@asteriskzuo/agent-logger";
 import type { TaskQueue } from "@asteriskzuo/agent-queue";
 import type { BusinessRegistry } from "@asteriskzuo/agent-registry";
 import type { EnvProvider, LifecycleStore } from "@asteriskzuo/agent-runtime";
+import type { LlmCallStore } from "@asteriskzuo/agent-runtime";
 import { createAccountService } from "./accounts.js";
 import type { User } from "./accounts.js";
 import { ApiError, statusOf, toApiError } from "./errors.js";
@@ -26,6 +27,7 @@ import { handbookRoutes } from "./routes-handbook.js";
 import { monitoringRoutes } from "./routes-monitoring.js";
 import { piConfigRoutes } from "./routes-pi-config.js";
 import type { BusinessPiConfigService } from "./routes-pi-config.js";
+import { statsRoutes } from "./routes-stats.js";
 import { userRoutes } from "./routes-users.js";
 import type { UpdateSubmitter } from "./updates.js";
 
@@ -69,6 +71,9 @@ export interface ConsoleApiOptions {
   static_dir?: string;
   /** handbook 控制台生成物目录（handbook/generated/console），由装配根解析并自检 */
   handbook_dir: string;
+  /** LLM 调用统计聚合读口（GET /api/stats/daily 的 llm.* 数据源，由装配根注入 runtime 的 LlmCallStore）；
+   *  缺省 = 降级：统计路由照常注册但 rows 恒空（过渡形态，装配根应注入） */
+  llm_calls?: LlmCallStore;
 }
 
 export interface ConsoleApi {
@@ -117,6 +122,11 @@ export function createConsoleApi(
       entryQueue: deps.entryQueue,
       exitQueue: deps.exitQueue,
       lifecycle: deps.lifecycle,
+    }),
+    ...statsRoutes({
+      lifecycle: deps.lifecycle,
+      registry: deps.registry,
+      ...(options.llm_calls !== undefined ? { llmCalls: options.llm_calls } : {}),
     }),
     ...handbookRoutes(options.handbook_dir),
   ];

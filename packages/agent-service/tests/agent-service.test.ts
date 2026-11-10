@@ -16,8 +16,24 @@ import { createAgentService } from "../src/index.js";
 import type {
   AgentServeContext,
   AgentServiceDeps,
+  LlmCallSink,
   RunningAgentService,
 } from "../src/index.js";
+
+/** sink record 入参类型（与契约 A 同形） */
+type SinkCall = Parameters<LlmCallSink["record"]>[0];
+
+/** 手写 LlmCallSink 假实现：记录 record 调用；throws=true 时每次抛错（验证调用点防御） */
+function makeSink(throws = false) {
+  const calls: SinkCall[] = [];
+  return {
+    calls,
+    record(call: SinkCall): void {
+      if (throws) throw new Error("sink 故障");
+      calls.push(call);
+    },
+  };
+}
 
 interface CapturedRun {
   ts: number;
@@ -730,5 +746,168 @@ describe("AgentService", () => {
     });
     expect(resp).toMatchObject({ ok: false, error: "skill_missing: s1" });
     expect(readCapture(capture).length).toBe(0);
+  });
+
+  it("13. llm_call_sink：成功行字段齐全（usage 一对一映射，business_id 取 channel_id 第三段）", async () => {
+    const sink = makeSink();
+    const ctx = makeCtx({ channel_id: "wework__sess-1__biz-jira" });
+    // 真实 pi Usage 形状（含 reasoning/cacheWrite1h——v1 不采）
+    const piUsage = {
+      input: 100,
+      output: 20,
+      cacheRead: 5,
+      cacheWrite: 3,
+      cacheWrite1h: 1,
+      reasoning: 7,
+      totalTokens: 128,
+      cost: {
+        input: 0.001,
+        output: 0.0004,
+        cacheRead: 0.0001,
+        cacheWrite: 0.0002,
+        total: 0.0017,
+      },
+    };
+    const handle = await serve(
+      {
+        ...makeDeps(makeMapping(), {
+          FAKE_PI_USAGE: JSON.stringify(piUsage),
+        }),
+        llm_call_sink: sink,
+      },
+      ctx,
+    );
+
+    const resp = await call(handle.endpoint, {
+      op: "agent",
+      skills: ["s1", "s2"],
+      input: "x",
+      mode: "fresh",
+    });
+    expect(resp.ok).toBe(true);
+
+    expect(sink.calls.length).toBe(1);
+    const rec = sink.calls[0];
+    expect(rec.run_id).toBe(ctx.run_id);
+    expect(rec.business_id).toBe("biz-jira");
+    expect(rec.op).toBe("agent");
+    expect(rec.model).toBe("test/model");
+    expect(rec.skills).toEqual(["s1", "s2"]);
+    expect(rec.mode).toBe("fresh");
+    expect(rec.ok).toBe(true);
+    expect(rec.error).toBeUndefined();
+    expect(typeof rec.duration_ms).toBe("number");
+    expect(rec.duration_ms).toBeGreaterThanOrEqual(0);
+    expect(Number.isNaN(Date.parse(rec.ts))).toBe(false);
+    expect(rec.usage).toEqual({
+      input_tokens: 100,
+      output_tokens: 20,
+      cache_read_tokens: 5,
+      cache_write_tokens: 3,
+      total_tokens: 128,
+      cost_total: 0.0017,
+    });
+  });
+
+  it("14. llm_call_sink：usage 形状不符 → 成功落行但无 usage；channel_id 解析失败 → business_id 兜底空串", async () => {
+    const sink = makeSink();
+    // 默认 channel_id "ch-1" 非三段格式，parseChannelId 抛错 → 兜底 ""
+    const handle = await serve(
+      { ...makeDeps(makeMapping()), llm_call_sink: sink },
+      makeCtx(),
+    );
+
+    const resp = await call(handle.endpoint, {
+      op: "agent",
+      skills: ["s1"],
+      input: "x",
+    });
+    expect(resp.ok).toBe(true);
+    expect(sink.calls.length).toBe(1);
+    expect(sink.calls[0].business_id).toBe("");
+    expect(sink.calls[0].ok).toBe(true);
+    // 默认 fixture 的 usage 是旧形状（无 cacheRead/totalTokens/cost），映射判缺失
+    expect(sink.calls[0].usage).toBeUndefined();
+  });
+
+  it("15. llm_call_sink：失败行 ok=false 带首段错误码无 usage；quota_exceeded / model_not_configured 不落行", async () => {
+    const sink = makeSink();
+    const ctx = makeCtx({ quota: { max_agent_calls: 1 } });
+    const handle = await serve(
+      {
+        ...makeDeps(makeMapping(), { FAKE_PI_EXIT: "1" }),
+        llm_call_sink: sink,
+      },
+      ctx,
+    );
+
+    const failed = await call(handle.endpoint, {
+      op: "agent",
+      skills: ["s1"],
+      input: "x",
+    });
+    expect(failed.ok).toBe(false);
+    expect(sink.calls.length).toBe(1);
+    expect(sink.calls[0]).toMatchObject({ ok: false, error: "agent_failed" });
+    expect(sink.calls[0].usage).toBeUndefined();
+
+    // 配额超限在 dispatch 层拦截、未消耗 LLM，不落行（决策 3）
+    const over = await call(handle.endpoint, {
+      op: "agent",
+      skills: ["s1"],
+      input: "x",
+    });
+    expect(over).toMatchObject({ ok: false, error: "quota_exceeded" });
+    expect(sink.calls.length).toBe(1);
+    await handle.close();
+    handles.pop();
+
+    // model_not_configured 同样在 dispatch 层拦截，不落行
+    const sink2 = makeSink();
+    const bare = await serve(
+      { ...makeDeps(makeMapping()), llm_call_sink: sink2 },
+      makeCtx({ pi_agent_dir: undefined }),
+    );
+    const rejected = await call(bare.endpoint, {
+      op: "agent",
+      skills: ["s1"],
+      input: "x",
+    });
+    expect(rejected).toMatchObject({ ok: false, error: "model_not_configured" });
+    expect(sink2.calls.length).toBe(0);
+  });
+
+  it("16. llm_call_sink 抛异常：op 返回不受影响（调用点防御 try/catch 消化）", async () => {
+    const handle = await serve(
+      { ...makeDeps(makeMapping()), llm_call_sink: makeSink(true) },
+      makeCtx(),
+    );
+
+    const ok = await call(handle.endpoint, {
+      op: "agent",
+      skills: ["s1"],
+      input: "x",
+    });
+    expect(ok).toMatchObject({ ok: true, output: "fake 回复" });
+    await handle.close();
+    handles.pop();
+
+    // 失败路径上 sink 抛错同样不影响错误返回
+    const handle2 = await serve(
+      {
+        ...makeDeps(makeMapping(), { FAKE_PI_EXIT: "1" }),
+        llm_call_sink: makeSink(true),
+      },
+      makeCtx(),
+    );
+    const failed = await call(handle2.endpoint, {
+      op: "agent",
+      skills: ["s1"],
+      input: "x",
+    });
+    expect(failed.ok).toBe(false);
+    expect((failed as { error: string }).error.startsWith("agent_failed")).toBe(
+      true,
+    );
   });
 });

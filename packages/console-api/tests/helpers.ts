@@ -23,11 +23,13 @@ import type { BusinessRegistry } from "@asteriskzuo/agent-registry";
 import {
   createEnvProvider,
   createLifecycleStore,
+  createLlmCallStore,
 } from "@asteriskzuo/agent-runtime";
 import type {
   EnvProvider,
   LifecycleStore,
   LifecycleWriter,
+  LlmCallStore,
 } from "@asteriskzuo/agent-runtime";
 import { createConsoleApi } from "../src/index.js";
 import type { ConsoleApi, EffectiveConfigView } from "../src/index.js";
@@ -117,6 +119,7 @@ export interface TestServer {
   entryQueue: TaskQueue;
   exitQueue: TaskQueue;
   lifecycle: LifecycleStore & LifecycleWriter;
+  llmCalls: LlmCallStore;
   api: ConsoleApi;
   /** 关 API + close db + 清临时目录（幂等） */
   stop(): Promise<void>;
@@ -319,6 +322,7 @@ export async function startTestServer(
   const entryQueue = createTaskQueue(db, "entry_tasks");
   const exitQueue = createTaskQueue(db, "exit_tasks");
   const lifecycle = createLifecycleStore(db);
+  const llmCalls = createLlmCallStore(db);
   const accounts = createAccountService(db);
   const api = createConsoleApi(
     {
@@ -337,6 +341,7 @@ export async function startTestServer(
     {
       port: 0,
       handbook_dir: options.handbook_dir ?? testHandbookDir(),
+      llm_calls: llmCalls,
       ...(options.bootstrap_admin
         ? { bootstrap_admin: options.bootstrap_admin }
         : {}),
@@ -358,6 +363,7 @@ export async function startTestServer(
     entryQueue,
     exitQueue,
     lifecycle,
+    llmCalls,
     api,
     async stop() {
       if (stopped) return;

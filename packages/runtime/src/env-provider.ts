@@ -42,6 +42,7 @@ export interface EnvProvider {
 // secrets 第一版明文存 platform.db（部署层靠文件权限保护）；纪律：不明文回显、不进日志
 // v2 追加 lifecycles.failed_at：run 失败阶段分类（check-input/main/check-output，契约设计 §5）；
 // 历史行 = NULL（契约机制前的 run，控制台按"无阶段信息"展示）
+// v3 追加 llm_calls：LLM 调用消耗落库（business-stats spec §4.1，DDL 与 spec 原样一致）
 const MIGRATIONS: readonly string[] = [
   `CREATE TABLE env_entries (
      scope TEXT NOT NULL,
@@ -61,6 +62,27 @@ const MIGRATIONS: readonly string[] = [
      finished_at TEXT
    );`,
   `ALTER TABLE lifecycles ADD COLUMN failed_at TEXT;`,
+  `CREATE TABLE llm_calls (
+     id            INTEGER PRIMARY KEY,
+     run_id        TEXT NOT NULL,
+     business_id   TEXT NOT NULL,
+     ts            TEXT NOT NULL,
+     op            TEXT NOT NULL,
+     model         TEXT NOT NULL,
+     skills        TEXT NOT NULL,
+     mode          TEXT NOT NULL,
+     ok            INTEGER NOT NULL,
+     error         TEXT,
+     duration_ms   INTEGER NOT NULL,
+     input_tokens  INTEGER,
+     output_tokens INTEGER,
+     cache_read_tokens  INTEGER,
+     cache_write_tokens INTEGER,
+     total_tokens  INTEGER,
+     cost_total    REAL
+   );
+   CREATE INDEX idx_llm_calls_biz_ts ON llm_calls (business_id, ts);
+   CREATE INDEX idx_llm_calls_run ON llm_calls (run_id);`,
 ];
 
 /** runtime 模块 schema 迁移入口（EnvProvider 与 LifecycleStore 共用，幂等） */

@@ -9,6 +9,7 @@ import BusinessEditPage from "./pages/BusinessEditPage";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import SettingsPage from "./pages/SettingsPage";
+import StatsPage from "./pages/StatsPage";
 import UsersPage from "./pages/UsersPage";
 
 /** 登录守卫：me 加载中显示加载态（不闪现登录页）；未登录弹回 /login */
@@ -48,6 +49,7 @@ export default function App() {
         }
       >
         <Route index element={<DashboardPage />} />
+        <Route path="stats" element={<StatsPage />} />
         <Route path="businesses" element={<BusinessesPage />} />
         <Route path="businesses/new" element={<BusinessEditPage />} />
         <Route path="businesses/:id" element={<BusinessEditPage />} />

@@ -7,6 +7,8 @@
 //  - FAKE_PI_EXIT：非零退出（先向 stderr 写故障文本）；
 //  - --mode json：输出 session header + 两条 message_end，最后一条 assistant 文本来自
 //    FAKE_PI_REPLY（缺省 "fake 回复"）；FAKE_PI_NO_ASSISTANT 置位时不回 assistant 消息；
+//    assistant 消息 usage 缺省为非 pi 旧形状（{input_tokens,output_tokens}，触发"usage 缺失"路径），
+//    FAKE_PI_USAGE 置位时取其 JSON.parse 结果（可注入真实 pi Usage 形状）；
 //  - --mode rpc：读 stdin 行，{type:'compact'} → 回 {id 原样, type:'response',
 //    command:'compact', success:true, data:{}}，随后保持存活直到 stdin 关闭或被 kill。
 import { appendFileSync } from "node:fs";
@@ -57,13 +59,16 @@ async function main() {
       }) + "\n",
     );
     if (!process.env.FAKE_PI_NO_ASSISTANT) {
+      const usage = process.env.FAKE_PI_USAGE
+        ? JSON.parse(process.env.FAKE_PI_USAGE)
+        : { input_tokens: 1, output_tokens: 2 };
       process.stdout.write(
         JSON.stringify({
           type: "message_end",
           message: {
             role: "assistant",
             content: [{ type: "text", text: reply }],
-            usage: { input_tokens: 1, output_tokens: 2 },
+            usage,
           },
         }) + "\n",
       );

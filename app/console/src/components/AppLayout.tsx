@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   DashboardOutlined,
   AppstoreOutlined,
+  BarChartOutlined,
   CloudOutlined,
   SettingOutlined,
   TeamOutlined,
@@ -26,6 +27,7 @@ const { Sider, Header, Content } = Layout;
 /** 主导航（按使用频率序；用户管理仅 admin 可见） */
 const NAV_ITEMS = [
   { key: "/", icon: <DashboardOutlined />, label: "监控仪表盘" },
+  { key: "/stats", icon: <BarChartOutlined />, label: "统计" },
   { key: "/businesses", icon: <AppstoreOutlined />, label: "业务管理" },
   { key: "/assets", icon: <CloudOutlined />, label: "资产管理" },
   { key: "/settings", icon: <SettingOutlined />, label: "通用配置" },
