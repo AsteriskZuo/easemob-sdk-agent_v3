@@ -9,6 +9,7 @@ import type { WorkflowRunner } from "@asteriskzuo/agent-workflow-runner";
 import type { EntryDriver } from "@asteriskzuo/agent-scheduler";
 import type { ContextLoader, RunContext } from "./context-loader.js";
 import { createLifecycleStore } from "./lifecycle-store.js";
+import { createRunMetricsStore } from "./run-metrics-store.js";
 
 export interface LifecycleDeps {
   loader: ContextLoader; // 第①步：组装 RunContext
@@ -32,6 +33,7 @@ function errorMessage(err: unknown): string {
  *  业务标记（created → running → success/failed/timeout）全程落库 */
 export function createLifecycle(deps: LifecycleDeps): EntryDriver {
   const store = createLifecycleStore(deps.db);
+  const runMetricsStore = createRunMetricsStore(deps.db);
 
   return {
     async execute(task, watcher) {
@@ -139,6 +141,19 @@ export function createLifecycle(deps: LifecycleDeps): EntryDriver {
 
       // runner 返回 failed/timeout 不抛错（EntryDriver 契约：业务失败返回而非抛）
       store.markTerminal(run_id, outcome.status, outcome.failed_at);
+      // 业务 metrics 落库（契约 D：仅 success 且形状合法时 outcome.metrics 有值）；
+      // fail-open 归 store 内部消化，调用点不包 try/catch
+      if (
+        outcome.metrics !== undefined &&
+        Object.keys(outcome.metrics).length > 0
+      ) {
+        runMetricsStore.record(
+          run_id,
+          business_id,
+          new Date().toISOString(),
+          outcome.metrics,
+        );
+      }
       if (outcome.status === "success") {
         log.info("run 终态", {
           status: outcome.status,

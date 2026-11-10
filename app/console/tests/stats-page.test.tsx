@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import dayjs from "dayjs";
 import {
   ADMIN_USER,
@@ -92,6 +92,75 @@ describe("统计页", () => {
     // 错误明细小节：llm.errors 动态桶单独出表，不进主表列
     expect(screen.getByText("错误明细")).toBeTruthy();
     expect(screen.getByText("agent_failed")).toBeTruthy();
+
+    // 无 biz.* 行：「业务」列组整体不出现（th 锚定，避开业务下拉占位文案）
+    expect(screen.queryByText("业务", { selector: "th" })).toBeNull();
+  });
+
+  it("biz.* 行渲染「业务」列组：字符串动态列 + 数值三列，缺失日显示 -", async () => {
+    const to = dayjs().format("YYYY-MM-DD");
+    const from = dayjs().subtract(13, "day").format("YYYY-MM-DD");
+    const row = (metric: string, value: number, bucket = ""): StatsRow => ({
+      date: to,
+      metric,
+      bucket,
+      value,
+    });
+    installFetchMock((path) => {
+      if (path === "/api/auth/me") return { status: 200, body: ADMIN_USER };
+      if (path === "/api/businesses") return { status: 200, body: [BUSINESS] };
+      if (path.startsWith("/api/stats/daily?")) {
+        return {
+          status: 200,
+          body: {
+            business_id: BUSINESS.business_id,
+            from,
+            to,
+            rows: [
+              row("run.total", 1),
+              row("biz.decision", 7, "pass"),
+              row("biz.decision", 8, "reject"),
+              row("biz.score.sum", 30),
+              row("biz.score.avg", 3.14159),
+              row("biz.score.count", 9),
+            ],
+          },
+        };
+      }
+      return undefined;
+    });
+    renderApp("/stats");
+
+    // 等守卫与页面就绪（me/businesses 返回后再操作下拉）
+    expect(await screen.findByText("请先选择业务")).toBeTruthy();
+    const user = setupUser();
+    await selectOption(user, "选择业务", BUSINESS.business_name);
+
+    // 列组标题与子列（key 字典序：decision 桶字典序 → score 三列固定序）
+    await screen.findByText("业务", { selector: "th" });
+    // 锚定主表（运行统计卡片），避开「错误明细」表的表头
+    const mainCard = screen.getByText("运行统计").closest(".ant-card");
+    expect(mainCard).not.toBeNull();
+    const headers = within(mainCard as HTMLElement)
+      .getAllByRole("columnheader")
+      .map((th) => th.textContent);
+    expect(headers.slice(-5)).toEqual([
+      "decision=pass",
+      "decision=reject",
+      "score.sum",
+      "score.avg",
+      "score.count",
+    ]);
+
+    // 单元格：字符串桶计数、数值 sum/avg（2 位小数）/count
+    expect(screen.getByText("7")).toBeTruthy();
+    expect(screen.getByText("8")).toBeTruthy();
+    expect(screen.getByText("30")).toBeTruthy();
+    expect(screen.getByText("3.14")).toBeTruthy();
+    expect(screen.getByText("9")).toBeTruthy();
+
+    // 零数据日无 biz 数据：单元格显示 -（run.avg 等 null 列也是 -，取全部即可）
+    expect(screen.getAllByText("-").length).toBeGreaterThan(0);
   });
 
   it("统计接口报错时提示且不崩页", async () => {

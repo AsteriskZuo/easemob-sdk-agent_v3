@@ -342,8 +342,8 @@ describe("GET /api/stats/daily 聚合映射（契约 C）", () => {
     expect(byKey.get(`${D1}|llm.tokens.cache_write|`)).toBe(5);
     expect(byKey.get(`${D1}|llm.tokens.total|`)).toBe(465);
     expect(byKey.get(`${D1}|llm.cost|`)).toBeCloseTo(0.03, 10);
-    // 失败行无 usage → 计入 calls_without_usage
-    expect(byKey.get(`${D1}|llm.calls_without_usage|`)).toBe(1);
+    // 失败行不带 usage 是设计使然，不计入 calls_without_usage（该指标只盯成功但缺 usage 的行，见 runtime 契约）
+    expect(byKey.get(`${D1}|llm.calls_without_usage|`)).toBe(0);
     expect(byKey.get(`${D1}|llm.errors|agent_failed`)).toBe(1);
     expect(byKey.get(`${D1}|llm.avg_duration_ms|`)).toBe(1500);
 

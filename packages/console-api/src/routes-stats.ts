@@ -1,9 +1,11 @@
 import type { BusinessRegistry } from "@asteriskzuo/agent-registry";
 import type {
+  DailyBizAggregate,
   DailyLlmAggregate,
   DailyRunAggregate,
   LifecycleStore,
   LlmCallStore,
+  RunMetricsStore,
 } from "@asteriskzuo/agent-runtime";
 import type { DailyStatsResponse, StatsRow } from "./dto.js";
 import { ApiError } from "./errors.js";
@@ -18,6 +20,12 @@ const MAX_RANGE_DAYS = 92;
 const DEFAULT_FROM_OFFSET_DAYS = -13;
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/** 字符串桶基数护栏（决策 4）：单日单指标 distinct 桶上限，超出部分合并进 __other__ */
+const MAX_TEXT_BUCKETS = 20;
+
+/** 护栏合并桶名（决策 4） */
+const OTHER_BUCKET = "__other__";
 
 /** UTC 零点时刻回写成 YYYY-MM-DD（用于回绕校验：2026-02-30 会被 Date 吞成 03-02，必须拦下） */
 function utcDateString(ms: number): string {
@@ -174,14 +182,61 @@ function llmRows(agg: DailyLlmAggregate): StatsRow[] {
   return rows;
 }
 
+/** DailyBizAggregate → 长表行（契约 F）：
+ *  字符串桶逐值出行（metric = biz.<key>，bucket = 值原样）；distinct 桶 > 20 时按计数降序
+ *  （计数相同按 bucket 值字典序）取前 20，其余合并为一行 __other__（计数求和）——基数护栏在映射层（决策 4）；
+ *  数值 num_count > 0 出 sum/avg/count 三行（bucket 均为 ""，avg = sum/count），num_count = 0 一行都不出 */
+function bizRows(agg: DailyBizAggregate): StatsRow[] {
+  const rows: StatsRow[] = [];
+  const metric = `biz.${agg.key}`;
+  const entries = Object.entries(agg.text_buckets);
+  let kept = entries;
+  let otherCount = 0;
+  if (entries.length > MAX_TEXT_BUCKETS) {
+    const sorted = [...entries].sort(
+      (a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1),
+    );
+    kept = sorted.slice(0, MAX_TEXT_BUCKETS);
+    for (const [, count] of sorted.slice(MAX_TEXT_BUCKETS)) {
+      otherCount += count;
+    }
+  }
+  for (const [bucket, count] of kept) {
+    rows.push({ date: agg.date, metric, bucket, value: count });
+  }
+  if (otherCount > 0) {
+    rows.push({ date: agg.date, metric, bucket: OTHER_BUCKET, value: otherCount });
+  }
+  if (agg.num_count > 0) {
+    rows.push(
+      { date: agg.date, metric: `${metric}.sum`, bucket: "", value: agg.num_sum },
+      {
+        date: agg.date,
+        metric: `${metric}.avg`,
+        bucket: "",
+        value: agg.num_sum / agg.num_count,
+      },
+      {
+        date: agg.date,
+        metric: `${metric}.count`,
+        bucket: "",
+        value: agg.num_count,
+      },
+    );
+  }
+  return rows;
+}
+
 /** 统计路由（只读，登录即可）。
- *  llmCalls 缺省 = 降级：校验照常，rows 恒空（options.llm_calls 未装配时的过渡形态） */
+ *  llmCalls 缺省 = 降级：校验照常，rows 恒空（options.llm_calls 未装配时的过渡形态）；
+ *  runMetrics 缺省 = 降级：不出 biz.* 行（run.* 与 llm.* 照常） */
 export function statsRoutes(deps: {
   lifecycle: LifecycleStore;
   llmCalls?: LlmCallStore;
+  runMetrics?: RunMetricsStore;
   registry: BusinessRegistry;
 }): Route[] {
-  const { lifecycle, llmCalls, registry } = deps;
+  const { lifecycle, llmCalls, runMetrics, registry } = deps;
   return [
     {
       method: "GET",
@@ -201,6 +256,11 @@ export function statsRoutes(deps: {
             : [
                 ...lifecycle.dailyRuns(businessId, from, to).flatMap(runRows),
                 ...llmCalls.dailyCalls(businessId, from, to).flatMap(llmRows),
+                ...(runMetrics === undefined
+                  ? []
+                  : runMetrics
+                      .dailyMetrics(businessId, from, to)
+                      .flatMap(bizRows)),
               ];
         // 行序契约（契约 C）：(date, metric, bucket) 字典序
         rows.sort((a, b) => {

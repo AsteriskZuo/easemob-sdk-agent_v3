@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createWorkflowRunner } from "../src/index.js";
+import { extractMetrics } from "../src/runner.js";
 import type { RunRequest } from "../src/index.js";
 import type { EventEnvelope } from "@asteriskzuo/agent-contracts";
 
@@ -381,4 +382,133 @@ describe("三段编排（契约检查）", () => {
     expect(outcome.failed_at).toBe("check-input");
     expect(outcome.reason).toContain("timeout after 200ms");
   }, 15000);
+});
+
+describe("metrics 保留键剥离（契约 D / spec 决策 7）", () => {
+  /** 读该 run 的业务日志全文（断言 warn 用） */
+  function readRunLog(root: string): string {
+    const logsDir = logsRootOf(root);
+    const logFiles = readdirSync(logsDir);
+    expect(logFiles).toHaveLength(1);
+    return readFileSync(join(logsDir, logFiles[0]), "utf8");
+  }
+
+  const VALID_METRICS = {
+    decision: "pass",
+    classification: "contact-group",
+    score: 0.98,
+  };
+
+  it("23. 合法 metrics → 提取进 outcome.metrics，output 删键，run 成功且不告警", async () => {
+    const { root, runner } = setup();
+    const outcome = await runner.run(makeReq("return-metrics.js"));
+    expect(outcome.status).toBe("success");
+    expect(outcome.metrics).toEqual(VALID_METRICS);
+    expect(outcome.output).toEqual({ content: "正文内容" });
+    expect(readRunLog(root)).not.toContain("metrics 形状非法");
+  });
+
+  it("24. 非法形状逐类（非对象/数组/null/键名非法/超 50 键/布尔值/嵌套对象/超 200 字符）→ 丢弃 + warn + run 仍成功 + output 删键", async () => {
+    const cases = [
+      "not-object",
+      "array",
+      "null",
+      "bad-key",
+      "too-many",
+      "bool-value",
+      "nested-value",
+      "long-string",
+    ];
+    for (const c of cases) {
+      const { root, runner } = setup();
+      const outcome = await runner.run(
+        makeReq("return-metrics-invalid.js", { config: { case: c } }),
+      );
+      expect(outcome.status).toBe("success");
+      expect(outcome.metrics).toBeUndefined();
+      // 保留键任何情况下都不进出口（产出其余部分原样保留）
+      expect(outcome.output).toEqual({ content: "正文内容" });
+      expect(readRunLog(root)).toContain("metrics 形状非法，已丢弃");
+    }
+  });
+
+  it("25. 无 metrics 键的产出原样（对象产出与非对象产出都不动）", async () => {
+    const { runner } = setup();
+    const objOutcome = await runner.run(makeReq("return-content.js"));
+    expect(objOutcome.status).toBe("success");
+    expect(objOutcome.output).toEqual({ content: "正文内容" });
+    expect(objOutcome.metrics).toBeUndefined();
+    // 非 plain object 产出（字符串）原样返回
+    const strOutcome = await runner.run(makeReq("double-result.js"));
+    expect(strOutcome.status).toBe("success");
+    expect(strOutcome.output).toBe("first");
+    expect(strOutcome.metrics).toBeUndefined();
+  });
+
+  it("26. 剥离点位置：check-output 注入信封仍含 metrics 原始键，最终产出已剥离", async () => {
+    const { root, runner } = setup();
+    const outcome = await runner.run(
+      makeReq("return-metrics.js", {
+        programs: {
+          "check-output": fixturePath("pkg-metrics/check-output.js"),
+        },
+      }),
+    );
+    expect(outcome.status).toBe("success");
+    // check-output 把收到的信封 output 落盘在 run 工作区：必须看到含 metrics 的原始产出
+    const runDir = readdirSync(runsRootOf(root))[0];
+    const saw = JSON.parse(
+      readFileSync(
+        join(runsRootOf(root), runDir, "check-saw-output.json"),
+        "utf8",
+      ),
+    );
+    expect(saw).toEqual({ content: "正文内容", metrics: VALID_METRICS });
+    // 最终 RunOutcome：metrics 已提取、output 无保留键
+    expect(outcome.metrics).toEqual(VALID_METRICS);
+    expect(outcome.output).toEqual({ content: "正文内容" });
+  });
+
+  it("27. extractMetrics 纯函数边界：NaN/Infinity、键数与字符串长边界、空 metrics、非 plain 产出同一引用", () => {
+    // NaN / Infinity 无法经 stdout JSON 线构造（JSON 序列化为 null），只能直测纯函数
+    for (const bad of [NaN, Infinity, -Infinity]) {
+      const r = extractMetrics({ a: 1, metrics: { x: bad } });
+      expect(r.invalid).toBe(true);
+      expect(r.metrics).toBeUndefined();
+      expect(r.output).toEqual({ a: 1 });
+    }
+    // 键数边界：50 合法、51 非法
+    const keys = (n: number) =>
+      Object.fromEntries(
+        Array.from({ length: n }, (_, i) => [
+          `k${String(i).padStart(2, "0")}`,
+          i,
+        ]),
+      );
+    expect(extractMetrics({ metrics: keys(50) })).toEqual({
+      output: {},
+      metrics: keys(50),
+      invalid: false,
+    });
+    expect(extractMetrics({ metrics: keys(51) }).invalid).toBe(true);
+    // 字符串长边界：200 合法、201 非法
+    expect(
+      extractMetrics({ metrics: { s: "x".repeat(200) } }).invalid,
+    ).toBe(false);
+    expect(
+      extractMetrics({ metrics: { s: "x".repeat(201) } }).invalid,
+    ).toBe(true);
+    // 空 metrics 对象：形状合法，提取为空表
+    expect(extractMetrics({ a: 1, metrics: {} })).toEqual({
+      output: { a: 1 },
+      metrics: {},
+      invalid: false,
+    });
+    // 非 plain object / 无 metrics 键：同一引用原样返回
+    for (const raw of ["s", null, [1], { a: 1 }]) {
+      const r = extractMetrics(raw);
+      expect(r).toEqual({ output: raw, invalid: false });
+      expect(r.output).toBe(raw);
+    }
+  });
 });

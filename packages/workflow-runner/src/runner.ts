@@ -39,6 +39,9 @@ export interface RunOutcome {
   output: unknown; // 仅 success 有值（业务产出原样；空产出归一为 null）
   reason?: string; // failed/timeout 的原因（日志用，末尾附 duration_ms 埋点）
   failed_at?: FailedAt; // status 非 success 时的失败阶段（check 阶段失败恒 failed；timeout 状态只可能 failed_at="main"）
+  /** main 产出的平台保留键 metrics（剥离后；spec 决策 7）。仅 success 且形状合法时有值；
+   *  failed/timeout 或 metrics 缺失/非法时为 undefined */
+  metrics?: Record<string, string | number>;
 }
 
 /** 流程执行器：分钟级长调用 */
@@ -64,6 +67,10 @@ const DEFAULT_CHECK_TIMEOUT_MS = 60_000;
 const RUN_ID_PATTERN = /^run_[0-9A-HJKMNP-TV-Z]{26}$/;
 // contract.json 定位：从 check 程序所在目录向上找近端祖先目录（模板布局 dist/apps/<name>/index.js 上 3 级 = 资产根），最多上探 5 级
 const CONTRACT_WALK_UP_MAX = 5;
+// metrics 保留键的形状护栏（spec 决策 7 / §5.3）：键名形、键数上限、字符串值长上限
+const METRICS_KEY_PATTERN = /^[a-z][a-z0-9_]*$/;
+const METRICS_MAX_KEYS = 50;
+const METRICS_MAX_STRING_LENGTH = 200;
 
 /** 编排阶段名（日志与 failed_at 用） */
 type PhaseName = FailedAt;
@@ -83,6 +90,43 @@ interface CheckPhasePlan {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** 剥离 main 产出中的平台保留键 metrics（spec 决策 7 / §5.3，契约 D）。纯函数；
+ *  包内内部使用，导出仅供单测直测（NaN/Infinity 等形状无法经 stdout JSON 线构造）。
+ *  - output 非 plain object 或不含 metrics 键 → 原样返回（同一引用，invalid: false）；
+ *  - 含 metrics 键时，合法形状 = plain object + 扁平 + 键全匹配 /^[a-z][a-z0-9_]*$/ +
+ *    键数 ≤ 50 + 值仅为 string（≤ 200 字符）或 number（Number.isFinite）：
+ *    合法 → 删键副本 + 提取 metrics；任一不合 → 删键副本 + invalid: true（metrics 不出）。
+ *    无论合法与否 metrics 键都从 output 删除（平台保留键不进出口 payload） */
+export function extractMetrics(output: unknown): {
+  output: unknown;
+  metrics?: Record<string, string | number>;
+  invalid: boolean;
+} {
+  if (!isPlainObject(output) || !("metrics" in output)) {
+    return { output, invalid: false };
+  }
+  const { metrics: raw, ...rest } = output;
+  if (!isPlainObject(raw)) {
+    return { output: rest, invalid: true };
+  }
+  const entries = Object.entries(raw);
+  if (entries.length > METRICS_MAX_KEYS) {
+    return { output: rest, invalid: true };
+  }
+  const metrics: Record<string, string | number> = {};
+  for (const [key, value] of entries) {
+    const validValue =
+      (typeof value === "string" &&
+        value.length <= METRICS_MAX_STRING_LENGTH) ||
+      (typeof value === "number" && Number.isFinite(value));
+    if (!METRICS_KEY_PATTERN.test(key) || !validValue) {
+      return { output: rest, invalid: true };
+    }
+    metrics[key] = value;
+  }
+  return { output: rest, metrics, invalid: false };
 }
 
 /** 超时的可读时长标签：整秒用 s（60s），零头用 ms（200ms，测试注入） */
@@ -516,7 +560,19 @@ export function createWorkflowRunner(
       bizSink("info", { message: "check-output 阶段通过" });
     }
 
-    return mainOutcome;
+    // 剥离 main 产出的平台保留键 metrics（spec 决策 7 / §5.3）：剥离点必须在 check-output
+    // 之后——check 注入信封要看到含 metrics 的原始产出，严禁下沉到共享的 outcomeFromFirst。
+    // 形状非法只 warn 丢弃，run 成败不受影响；check 阶段产出不做提取（无 metrics 语义）
+    const stripped = extractMetrics(mainOutcome.output);
+    if (stripped.invalid) {
+      bizSink("warn", { message: "metrics 形状非法，已丢弃" });
+    }
+    if (stripped.output === mainOutcome.output) {
+      return mainOutcome; // 无 metrics 键：产出原样返回
+    }
+    return stripped.metrics === undefined
+      ? { ...mainOutcome, output: stripped.output }
+      : { ...mainOutcome, output: stripped.output, metrics: stripped.metrics };
   };
 
   return { run };

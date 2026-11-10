@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { checkFields, loadContract } from "../src/contract.js";
+import { checkFields, checkMetrics, loadContract } from "../src/contract.js";
 
 function fixturePath(name: string): string {
   return fileURLToPath(
@@ -655,6 +655,133 @@ describe("契约 API（loadContract / checkFields）", () => {
       expect(checkFields(f2, { a: { b: ["x", "y"] } })).toEqual([]);
       expect(checkFields(f2, { a: { b: ["x", 1] } })).toHaveLength(1);
       expect(checkFields(f2, {})).toEqual(["缺少必填字段：a.b"]);
+    });
+  });
+
+  describe("loadContract 的 metrics 节", () => {
+    const WITH_METRICS = {
+      ...VALID,
+      metrics: {
+        fields: [
+          { key: "decision", type: "string", required: true },
+          { key: "duration_ms", type: "number" },
+        ],
+      },
+    };
+
+    it("缺省 / null → 合法；合法节 → 原样返回", () => {
+      expect(loadContract(writeContract(VALID))).toEqual(VALID);
+      expect(loadContract(writeContract({ ...VALID, metrics: null }))).toEqual(
+        { ...VALID, metrics: null },
+      );
+      expect(loadContract(writeContract(WITH_METRICS))).toEqual(WITH_METRICS);
+    });
+
+    it("metrics 非对象 / fields 非数组 → 抛错", () => {
+      expect(() =>
+        loadContract(writeContract({ ...VALID, metrics: "x" })),
+      ).toThrow(/metrics 必须是 null 或 \{ fields/);
+      expect(() =>
+        loadContract(writeContract({ ...VALID, metrics: [] })),
+      ).toThrow(/metrics 必须是 null 或 \{ fields/);
+      expect(() =>
+        loadContract(writeContract({ ...VALID, metrics: { fields: "x" } })),
+      ).toThrow(/metrics 必须是 null 或 \{ fields/);
+    });
+
+    it("字段校验逐类：key 非法（大写开头/含连字符）、type 词表外、required 非布尔 → 抛错", () => {
+      for (const key of ["Decision", "a-b", "1abc"]) {
+        expect(() =>
+          loadContract(
+            writeContract({
+              ...VALID,
+              metrics: { fields: [{ key, type: "string" }] },
+            }),
+          ),
+        ).toThrow(/key 非法/);
+      }
+      expect(() =>
+        loadContract(
+          writeContract({
+            ...VALID,
+            metrics: { fields: [{ key: "ok_key", type: "boolean" }] },
+          }),
+        ),
+      ).toThrow(/type 非法/);
+      expect(() =>
+        loadContract(
+          writeContract({
+            ...VALID,
+            metrics: {
+              fields: [{ key: "ok_key", type: "string", required: "yes" }],
+            },
+          }),
+        ),
+      ).toThrow(/required/);
+    });
+  });
+
+  describe("checkMetrics", () => {
+    const fields = [
+      { key: "decision", type: "string" as const, required: true },
+      { key: "duration_ms", type: "number" as const, required: true },
+      { key: "skill_version", type: "string" as const }, // 可选
+    ];
+
+    it("全部满足 → 空数组；可选键缺失不查", () => {
+      expect(
+        checkMetrics(fields, { decision: "approve", duration_ms: 12 }),
+      ).toEqual([]);
+      expect(
+        checkMetrics(fields, {
+          decision: "approve",
+          duration_ms: 12,
+          skill_version: "1.0.0",
+        }),
+      ).toEqual([]);
+    });
+
+    it("required 缺失 → 报缺少；类型不符 → 报期望与实际", () => {
+      const problems = checkMetrics(fields, { duration_ms: "12" });
+      expect(problems).toHaveLength(2);
+      expect(problems[0]).toContain("缺少必填指标：decision");
+      expect(problems[1]).toContain("duration_ms");
+      expect(problems[1]).toContain("期望 number");
+      expect(problems[1]).toContain("实际 string");
+    });
+
+    it("number 必须有限：NaN/Infinity 判类型不符", () => {
+      expect(checkMetrics(fields, { decision: "x", duration_ms: NaN })).toHaveLength(1);
+      expect(
+        checkMetrics(fields, { decision: "x", duration_ms: Infinity }),
+      ).toHaveLength(1);
+    });
+
+    it("可选键存在但类型错 → 报；未声明键放行", () => {
+      const problems = checkMetrics(fields, {
+        decision: "approve",
+        duration_ms: 1,
+        skill_version: 42,
+        undeclared_key: { anything: true },
+      });
+      expect(problems).toHaveLength(1);
+      expect(problems[0]).toContain("skill_version");
+    });
+
+    it("metrics 为 null/undefined → 等价 {}，required 全报缺失", () => {
+      expect(checkMetrics(fields, null)).toEqual([
+        "缺少必填指标：decision",
+        "缺少必填指标：duration_ms",
+      ]);
+      expect(checkMetrics(fields, undefined)).toEqual([
+        "缺少必填指标：decision",
+        "缺少必填指标：duration_ms",
+      ]);
+    });
+
+    it("空 fields + 任意 metrics → 通过", () => {
+      expect(checkMetrics([], { whatever: [1, 2] })).toEqual([]);
+      expect(checkMetrics([], null)).toEqual([]);
     });
   });
 });

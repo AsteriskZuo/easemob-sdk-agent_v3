@@ -4,3 +4,4 @@ export * from "./context-loader.js";
 export * from "./lifecycle.js";
 export * from "./lifecycle-store.js";
 export * from "./llm-call-store.js";
+export * from "./run-metrics-store.js";

@@ -24,12 +24,14 @@ import {
   createEnvProvider,
   createLifecycleStore,
   createLlmCallStore,
+  createRunMetricsStore,
 } from "@asteriskzuo/agent-runtime";
 import type {
   EnvProvider,
   LifecycleStore,
   LifecycleWriter,
   LlmCallStore,
+  RunMetricsStore,
 } from "@asteriskzuo/agent-runtime";
 import { createConsoleApi } from "../src/index.js";
 import type { ConsoleApi, EffectiveConfigView } from "../src/index.js";
@@ -120,6 +122,8 @@ export interface TestServer {
   exitQueue: TaskQueue;
   lifecycle: LifecycleStore & LifecycleWriter;
   llmCalls: LlmCallStore;
+  /** run_metrics 读写口（biz.* 统计造数用；无论是否装配进 API 都可直写同一 db） */
+  runMetrics: RunMetricsStore;
   api: ConsoleApi;
   /** 关 API + close db + 清临时目录（幂等） */
   stop(): Promise<void>;
@@ -303,12 +307,14 @@ function testHandbookDir(): string {
   throw new Error("测试找不到 handbook/generated/console");
 }
 
-/** 起测试服务。deps 全真实（无 mock）；bootstrap_admin 注入首启 admin；static_dir 开启静态托管 */
+/** 起测试服务。deps 全真实（无 mock）；bootstrap_admin 注入首启 admin；static_dir 开启静态托管；
+ *  run_metrics = true 时把 runMetrics store 装配进 API（缺省不装配，用于验证 biz.* 缺省降级） */
 export async function startTestServer(
   options: {
     bootstrap_admin?: { username: string; password: string };
     static_dir?: string;
     handbook_dir?: string;
+    run_metrics?: boolean;
   } = {},
 ): Promise<TestServer> {
   ensureTestLogger();
@@ -323,6 +329,7 @@ export async function startTestServer(
   const exitQueue = createTaskQueue(db, "exit_tasks");
   const lifecycle = createLifecycleStore(db);
   const llmCalls = createLlmCallStore(db);
+  const runMetrics = createRunMetricsStore(db);
   const accounts = createAccountService(db);
   const api = createConsoleApi(
     {
@@ -342,6 +349,7 @@ export async function startTestServer(
       port: 0,
       handbook_dir: options.handbook_dir ?? testHandbookDir(),
       llm_calls: llmCalls,
+      ...(options.run_metrics === true ? { run_metrics: runMetrics } : {}),
       ...(options.bootstrap_admin
         ? { bootstrap_admin: options.bootstrap_admin }
         : {}),
@@ -364,6 +372,7 @@ export async function startTestServer(
     exitQueue,
     lifecycle,
     llmCalls,
+    runMetrics,
     api,
     async stop() {
       if (stopped) return;

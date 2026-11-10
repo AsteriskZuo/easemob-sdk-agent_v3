@@ -9,11 +9,21 @@ export interface ContractField {
   desc?: string; // 展示用说明（控制台字段表）
 }
 
-/** contract.json 的形状：顶层 version 恒 1；input/output 必须显式给出（null = 无约束/无产出，不允许缺失——缺失分不清"忘了"和"没有"） */
+/** contract.json 顶层可选 metrics 节的字段声明（值只允许 string|number，与平台保留键规则一致） */
+export interface ContractMetricField {
+  key: string; // 指标键，须匹配 [a-z][a-z0-9_]*
+  type: "string" | "number";
+  required?: boolean; // 缺省 false；true = main 产出 metrics 必须含此键
+  desc?: string; // 展示用说明
+}
+
+/** contract.json 的形状：顶层 version 恒 1；input/output 必须显式给出（null = 无约束/无产出，不允许缺失——缺失分不清"忘了"和"没有"）；
+ *  metrics 为可选节：缺省或 null = 无声明（存量业务包无此节，不能像 input/output 一样要求显式） */
 export interface ContractDoc {
   version: 1;
   input: { fields: ContractField[] } | null;
   output: { fields: ContractField[] } | null;
+  metrics?: { fields: ContractMetricField[] } | null;
 }
 
 const TYPE_WORDS = new Set(["string", "number", "boolean", "object", "array"]);
@@ -102,6 +112,44 @@ function lintSide(side: unknown, name: "input" | "output"): string[] {
   return problems;
 }
 
+const METRIC_KEY_PATTERN = /^[a-z][a-z0-9_]*$/;
+const METRIC_TYPE_WORDS = new Set(["string", "number"]);
+
+/** 校验 contract 可选 metrics 节的声明形状；返回问题列表（空 = 合法）。缺省/null 由调用方挡掉（= 无声明） */
+function lintMetricsSide(side: unknown): string[] {
+  if (!isPlainObject(side) || !Array.isArray(side.fields)) {
+    return ["metrics 必须是 null 或 { fields: [...] }"];
+  }
+  const problems: string[] = [];
+  for (const [index, field] of (side.fields as unknown[]).entries()) {
+    const at = `metrics.fields[${index}]`;
+    if (!isPlainObject(field)) {
+      problems.push(`${at} 必须是对象`);
+      continue;
+    }
+    if (typeof field.key !== "string" || !METRIC_KEY_PATTERN.test(field.key)) {
+      problems.push(
+        `${at}.key 非法：${JSON.stringify(field.key)}（须匹配 [a-z][a-z0-9_]*）`,
+      );
+    }
+    if (
+      typeof field.type !== "string" ||
+      !METRIC_TYPE_WORDS.has(field.type)
+    ) {
+      problems.push(
+        `${at}.type 非法：${JSON.stringify(field.type)}（词表：string/number）`,
+      );
+    }
+    if (field.required !== undefined && typeof field.required !== "boolean") {
+      problems.push(`${at}.required 必须是布尔值`);
+    }
+    if (field.desc !== undefined && typeof field.desc !== "string") {
+      problems.push(`${at}.desc 必须是字符串`);
+    }
+  }
+  return problems;
+}
+
 /** 读 contract.json 并做形状校验。坏契约 = 抛错（check 程序 crash → run 失败，与平台 fail-closed 一致）。
  *  fileUrl 用 `new URL("../../../contract.json", import.meta.url)` 从 check 程序产物定位包根 */
 export function loadContract(fileUrl: URL): ContractDoc {
@@ -130,6 +178,9 @@ export function loadContract(fileUrl: URL): ContractDoc {
     } else {
       problems.push(...lintSide(parsed.output, "output"));
     }
+    if ("metrics" in parsed && parsed.metrics !== null) {
+      problems.push(...lintMetricsSide(parsed.metrics));
+    }
   }
   if (problems.length > 0) {
     throw new Error(`contract.json 非法：\n- ${problems.join("\n- ")}`);
@@ -151,6 +202,41 @@ export function checkFields(fields: ContractField[], data: unknown): string[] {
     if (!matchType(field.type, value)) {
       problems.push(
         `字段类型不符：${field.path} 期望 ${field.type}，实际 ${typeNameOf(value)}`,
+      );
+    }
+  }
+  return problems;
+}
+
+/** metrics 值的类型匹配（数据侧）：string → typeof "string"；number → typeof "number" 且 Number.isFinite */
+function matchMetricType(type: "string" | "number", value: unknown): boolean {
+  if (type === "string") return typeof value === "string";
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+/** 校验 main 产出的 metrics 是否满足声明（独立函数，与 checkFields 语义不同：扁平 kv 键名/类型校验）：
+ *  - 声明了 required: true 的键：必须存在且类型匹配；
+ *  - 声明的可选键：存在时类型必须匹配；
+ *  - 未声明的键：不查（runner 侧防御式形状检查已兜底合法性）；
+ *  - metrics 为 undefined/null 时：等价于 {}（required 键全部报缺失）。
+ *  返回问题列表（空数组 = 通过），调用方（check 程序）一般 `sdk.fail(problems.join("；"))` */
+export function checkMetrics(
+  fields: ContractMetricField[],
+  metrics: Record<string, unknown> | undefined | null,
+): string[] {
+  const problems: string[] = [];
+  const data: Record<string, unknown> = metrics ?? {};
+  for (const field of fields) {
+    const value = data[field.key];
+    if (value === undefined) {
+      if (field.required === true) {
+        problems.push(`缺少必填指标：${field.key}`);
+      }
+      continue;
+    }
+    if (!matchMetricType(field.type, value)) {
+      problems.push(
+        `指标类型不符：${field.key} 期望 ${field.type}，实际 ${typeNameOf(value)}`,
       );
     }
   }

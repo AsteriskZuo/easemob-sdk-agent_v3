@@ -8,7 +8,7 @@ import { logger } from "@asteriskzuo/agent-logger";
 import type { TaskQueue } from "@asteriskzuo/agent-queue";
 import type { BusinessRegistry } from "@asteriskzuo/agent-registry";
 import type { EnvProvider, LifecycleStore } from "@asteriskzuo/agent-runtime";
-import type { LlmCallStore } from "@asteriskzuo/agent-runtime";
+import type { LlmCallStore, RunMetricsStore } from "@asteriskzuo/agent-runtime";
 import { createAccountService } from "./accounts.js";
 import type { User } from "./accounts.js";
 import { ApiError, statusOf, toApiError } from "./errors.js";
@@ -74,6 +74,9 @@ export interface ConsoleApiOptions {
   /** LLM 调用统计聚合读口（GET /api/stats/daily 的 llm.* 数据源，由装配根注入 runtime 的 LlmCallStore）；
    *  缺省 = 降级：统计路由照常注册但 rows 恒空（过渡形态，装配根应注入） */
   llm_calls?: LlmCallStore;
+  /** 业务 metrics 按日聚合读口（GET /api/stats/daily 的 biz.* 数据源，由装配根注入 runtime 的 RunMetricsStore）；
+   *  缺省 = 降级：统计路由照常但不出 biz.* 行（与 llm_calls 缺省同模式） */
+  run_metrics?: RunMetricsStore;
 }
 
 export interface ConsoleApi {
@@ -127,6 +130,9 @@ export function createConsoleApi(
       lifecycle: deps.lifecycle,
       registry: deps.registry,
       ...(options.llm_calls !== undefined ? { llmCalls: options.llm_calls } : {}),
+      ...(options.run_metrics !== undefined
+        ? { runMetrics: options.run_metrics }
+        : {}),
     }),
     ...handbookRoutes(options.handbook_dir),
   ];

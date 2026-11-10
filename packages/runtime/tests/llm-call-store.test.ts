@@ -58,7 +58,7 @@ describe("建表与迁移", () => {
     const row = db.get<{ cnt: number }>(
       "SELECT COUNT(*) AS cnt FROM schema_migrations WHERE module = 'runtime'",
     );
-    expect(row?.cnt).toBe(3);
+    expect(row?.cnt).toBe(4);
     db.close();
   });
 
@@ -93,7 +93,7 @@ describe("建表与迁移", () => {
     const version = db.get<{ max_version: number }>(
       "SELECT MAX(version) AS max_version FROM schema_migrations WHERE module = 'runtime'",
     );
-    expect(version?.max_version).toBe(3);
+    expect(version?.max_version).toBe(4);
     db.close();
   });
 });

@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { App as AntdApp, Card, DatePicker, Select, Table } from "antd";
-import type { ColumnsType } from "antd/es/table";
+import type { ColumnsType, ColumnType } from "antd/es/table";
 import type { BusinessProfile } from "@asteriskzuo/agent-console-api";
 import dayjs, { type Dayjs } from "dayjs";
 import { apiFetch, ApiError } from "../api/client";
 import {
+  collectBizColumns,
   collectErrorDetails,
+  formatBizCell,
   formatCost,
   formatDurationMs,
   formatThousands,
   pivotDaily,
+  type BizColumn,
   type DayStats,
   type ErrorDetail,
   type StatsDailyResponse,
@@ -20,7 +23,8 @@ function defaultRange(): [Dayjs, Dayjs] {
   return [dayjs().subtract(13, "day"), dayjs()];
 }
 
-/** 主表列：行=日期（倒序），列分组「运行」/「大模型」；列固定（0 值也出列，缺失值显示 -） */
+/** 主表固定列：行=日期（倒序），列分组「运行」/「大模型」；列固定（0 值也出列，缺失值显示 -）。
+ *  「业务」列组（biz.*）数据驱动，渲染时由 collectBizColumns 动态追加 */
 const COLUMNS: ColumnsType<DayStats> = [
   { title: "日期", dataIndex: "date", fixed: "left", width: 110 },
   {
@@ -96,8 +100,23 @@ const ERROR_COLUMNS: ColumnsType<ErrorDetail> = [
   { title: "次数", dataIndex: "count", render: formatThousands },
 ];
 
+/** 「业务」列组子列：数据驱动（biz.* 行决定列），单元格缺失显示 -（不补零） */
+function toBizChild(col: BizColumn): ColumnType<DayStats> {
+  return {
+    title: col.title,
+    render: (_: unknown, d: DayStats) => {
+      if (col.bucket !== undefined) {
+        return formatBizCell(d.biz_text[col.key]?.[col.bucket], "count");
+      }
+      const kind = col.numKind ?? "count";
+      return formatBizCell(d.biz_num[col.key]?.[kind], kind);
+    },
+  };
+}
+
 /** 统计页：业务 + 日期范围查询按日长表，前端透视成二维表（含错误明细小节）。
- *  前端只做透视与格式化，不发明指标；biz.*（二期）与未知指标行忽略 */
+ *  前端只做透视与格式化，不发明指标；biz.* 透视进「业务」列组（无 biz 行时整组不出现），
+ *  未知指标行忽略 */
 export default function StatsPage() {
   const { message } = AntdApp.useApp();
   const [businesses, setBusinesses] = useState<BusinessProfile[]>([]);
@@ -141,6 +160,18 @@ export default function StatsPage() {
 
   const days = stats === null ? [] : pivotDaily(stats.rows, stats.from, stats.to);
   const errors = stats === null ? [] : collectErrorDetails(stats.rows);
+  // 业务列组：数据驱动，无 biz 行时整组不出现
+  const bizColumns = useMemo(
+    () => (stats === null ? [] : collectBizColumns(stats.rows)),
+    [stats],
+  );
+  const columns = useMemo<ColumnsType<DayStats>>(
+    () =>
+      bizColumns.length === 0
+        ? COLUMNS
+        : [...COLUMNS, { title: "业务", children: bizColumns.map(toBizChild) }],
+    [bizColumns],
+  );
 
   return (
     <div>
@@ -177,7 +208,7 @@ export default function StatsPage() {
           size="small"
           loading={loading}
           dataSource={days}
-          columns={COLUMNS}
+          columns={columns}
           scroll={{ x: "max-content" }}
           pagination={false}
           locale={{ emptyText: businessId === null ? "请先选择业务" : "暂无数据" }}

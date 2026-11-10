@@ -1,6 +1,8 @@
 import {
+  collectBizColumns,
   collectErrorDetails,
   eachDate,
+  formatBizCell,
   formatCost,
   formatDurationMs,
   formatThousands,
@@ -95,7 +97,7 @@ describe("pivotDaily", () => {
     expect(days.every((d) => d.run_total === 0)).toBe(true);
   });
 
-  it("llm.errors / biz.* / 未知指标不进主表", () => {
+  it("llm.errors / 未知指标不进主表固定列；biz.* 进 biz_text 供业务列组", () => {
     const rows: StatsRow[] = [
       row("2026-11-10", "llm.errors", 2, "agent_failed"),
       row("2026-11-10", "biz.decision", 5, "pass"),
@@ -105,6 +107,7 @@ describe("pivotDaily", () => {
     expect(days[0].run_total).toBe(0);
     expect(days[0].llm_calls).toBe(0);
     expect(Object.keys(days[0])).not.toContain("llm_errors");
+    expect(days[0].biz_text).toEqual({ decision: { pass: 5 } });
   });
 
   it("failed_phase 契约外桶名忽略（不炸列）", () => {
@@ -116,6 +119,104 @@ describe("pivotDaily", () => {
       "check-output": 0,
       unknown: 0,
     });
+  });
+});
+
+describe("collectBizColumns", () => {
+  it("无 biz 行返回空数组（「业务」列组整体不出现）", () => {
+    const rows: StatsRow[] = [
+      row("2026-11-10", "run.total", 1),
+      row("2026-11-10", "llm.calls", 2),
+      row("2026-11-10", "llm.errors", 1, "agent_failed"),
+    ];
+    expect(collectBizColumns(rows)).toEqual([]);
+  });
+
+  it("字符串指标：动态收集 (key,bucket) 并集，key 字典序 + bucket 字典序", () => {
+    const rows: StatsRow[] = [
+      row("2026-11-09", "biz.decision", 1, "reject"),
+      row("2026-11-10", "biz.decision", 2, "pass"),
+      row("2026-11-10", "biz.decision", 1, "pass"), // 同桶多日：去重
+      row("2026-11-10", "biz.classification", 3, "bug"),
+      row("2026-11-10", "biz.decision", 1, "abstain"),
+    ];
+    expect(collectBizColumns(rows).map((c) => c.id)).toEqual([
+      "classification=bug",
+      "decision=abstain",
+      "decision=pass",
+      "decision=reject",
+    ]);
+  });
+
+  it("数值指标：每 key 固定 sum/avg/count 三列，与字符串 key 混排按 key 字典序", () => {
+    const rows: StatsRow[] = [
+      row("2026-11-10", "biz.score.count", 9),
+      row("2026-11-10", "biz.score.avg", 3.5),
+      row("2026-11-10", "biz.score.sum", 31.5),
+      row("2026-11-10", "biz.decision", 1, "pass"),
+    ];
+    expect(collectBizColumns(rows).map((c) => c.id)).toEqual([
+      "decision=pass",
+      "score.sum",
+      "score.avg",
+      "score.count",
+    ]);
+  });
+
+  it("同 key 混型防御：字符串桶列在前、数值三列在后", () => {
+    const rows: StatsRow[] = [
+      row("2026-11-10", "biz.mixed.sum", 10),
+      row("2026-11-10", "biz.mixed", 1, "x"),
+    ];
+    expect(collectBizColumns(rows).map((c) => c.id)).toEqual([
+      "mixed=x",
+      "mixed.sum",
+      "mixed.avg",
+      "mixed.count",
+    ]);
+  });
+});
+
+describe("pivotDaily biz 族", () => {
+  it("字符串指标进 biz_text、数值三行进 biz_num；缺失日无该键（不补零）", () => {
+    const rows: StatsRow[] = [
+      row("2026-11-10", "biz.decision", 7, "pass"),
+      row("2026-11-10", "biz.decision", 2, "reject"),
+      row("2026-11-10", "biz.score.sum", 30),
+      row("2026-11-10", "biz.score.avg", 3.14159),
+      row("2026-11-10", "biz.score.count", 9),
+    ];
+    const days = pivotDaily(rows, "2026-11-09", "2026-11-10");
+    const [d10, d9] = days;
+    expect(d10.biz_text).toEqual({ decision: { pass: 7, reject: 2 } });
+    expect(d10.biz_num).toEqual({
+      score: { sum: 30, avg: 3.14159, count: 9 },
+    });
+    // 11-09 无 biz 行：空表（列存在时单元格渲染 -）
+    expect(d9.biz_text).toEqual({});
+    expect(d9.biz_num).toEqual({});
+  });
+
+  it("与 run.*/llm.* 混排不互相干扰", () => {
+    const rows: StatsRow[] = [
+      row("2026-11-10", "run.total", 3),
+      row("2026-11-10", "llm.calls", 4),
+      row("2026-11-10", "biz.decision", 5, "pass"),
+      row("2026-11-10", "biz.score.sum", 42),
+    ];
+    const days = pivotDaily(rows, "2026-11-10", "2026-11-10");
+    expect(days[0].run_total).toBe(3);
+    expect(days[0].llm_calls).toBe(4);
+    expect(days[0].biz_text.decision).toEqual({ pass: 5 });
+    expect(days[0].biz_num.score?.sum).toBe(42);
+    // biz 行不产生 run/llm 固定列的假数据，run/llm 行也不进 biz
+    expect(collectBizColumns(rows).map((c) => c.id)).toEqual([
+      "decision=pass",
+      "score.sum",
+      "score.avg",
+      "score.count",
+    ]);
+    expect(days[0].biz_text.run).toBeUndefined();
   });
 });
 
@@ -158,5 +259,16 @@ describe("格式化", () => {
     expect(formatCost(0.123456)).toBe("$0.1235");
     expect(formatCost(0)).toBe("$0.0000");
     expect(formatCost(null)).toBe("-");
+  });
+
+  it("业务单元格：count 千分位、sum 整数千分位/小数 2 位、avg 2 位、缺失 -", () => {
+    expect(formatBizCell(1234, "count")).toBe("1,234");
+    expect(formatBizCell(1234, "sum")).toBe("1,234");
+    expect(formatBizCell(31.5, "sum")).toBe("31.50");
+    expect(formatBizCell(3.14159, "avg")).toBe("3.14");
+    expect(formatBizCell(3, "avg")).toBe("3.00");
+    expect(formatBizCell(undefined, "count")).toBe("-");
+    expect(formatBizCell(undefined, "sum")).toBe("-");
+    expect(formatBizCell(undefined, "avg")).toBe("-");
   });
 });
