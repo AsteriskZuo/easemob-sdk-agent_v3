@@ -28,6 +28,26 @@ export interface LlmCallRecord {
   usage?: LlmCallUsage; // 缺省 = usage 提取失败/模型未上报，token 字段整组 NULL
 }
 
+/** LLM 调用明细行（LlmCallRecord 的读侧平铺形态：usage 展开为可选顶层字段） */
+export interface LlmCallEntry {
+  run_id: string; // 归属 run（= lifecycles.lifecycle_id）
+  business_id: string; // 归属业务
+  ts: string; // 调用结束时刻（UTC ISO）
+  op: string; // v1 恒 'agent'
+  model: string; // provider/id
+  skills: string[]; // 落库 JSON 数组解析回 string[]
+  mode: string; // channel | fresh
+  ok: boolean; // 落库 0/1 映射回 boolean
+  error?: string; // 失败错误码；ok=true 缺省
+  duration_ms: number;
+  input_tokens?: number; // 以下 6 项：落库 NULL 映射为缺省（与 LlmCallRecord.usage 语义一致）
+  output_tokens?: number;
+  cache_read_tokens?: number;
+  cache_write_tokens?: number;
+  total_tokens?: number;
+  cost_total?: number;
+}
+
 /** LLM 调用按日聚合行（统计 API 数据源；分日口径 = 服务器本地时区 date(ts,'localtime')） */
 export interface DailyLlmAggregate {
   date: string; // 日历日 YYYY-MM-DD（本地时区）
@@ -53,6 +73,49 @@ export interface LlmCallStore {
     from: string,
     to: string,
   ): DailyLlmAggregate[];
+  /** 单次 run 的 LLM 调用明细（run 详情 API 数据源）；按 ts 升序（时间线序） */
+  listByRun(run_id: string): LlmCallEntry[];
+}
+
+interface LlmCallRow {
+  run_id: string;
+  business_id: string;
+  ts: string;
+  op: string;
+  model: string;
+  skills: string;
+  mode: string;
+  ok: number;
+  error: string | null;
+  duration_ms: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cache_read_tokens: number | null;
+  cache_write_tokens: number | null;
+  total_tokens: number | null;
+  cost_total: number | null;
+}
+
+function rowToEntry(row: LlmCallRow): LlmCallEntry {
+  const entry: LlmCallEntry = {
+    run_id: row.run_id,
+    business_id: row.business_id,
+    ts: row.ts,
+    op: row.op,
+    model: row.model,
+    skills: JSON.parse(row.skills) as string[],
+    mode: row.mode,
+    ok: row.ok === 1,
+    duration_ms: row.duration_ms,
+  };
+  if (row.error !== null) entry.error = row.error;
+  if (row.input_tokens !== null) entry.input_tokens = row.input_tokens;
+  if (row.output_tokens !== null) entry.output_tokens = row.output_tokens;
+  if (row.cache_read_tokens !== null) entry.cache_read_tokens = row.cache_read_tokens;
+  if (row.cache_write_tokens !== null) entry.cache_write_tokens = row.cache_write_tokens;
+  if (row.total_tokens !== null) entry.total_tokens = row.total_tokens;
+  if (row.cost_total !== null) entry.cost_total = row.cost_total;
+  return entry;
 }
 
 interface DailyCallRow {
@@ -172,6 +235,18 @@ export function createLlmCallStore(db: Database): LlmCallStore {
         calls_without_usage: row.calls_without_usage,
         avg_duration_ms: row.avg_duration_ms,
       }));
+    },
+
+    listByRun(run_id): LlmCallEntry[] {
+      const rows = db.all<LlmCallRow>(
+        `SELECT run_id, business_id, ts, op, model, skills, mode, ok, error, duration_ms,
+           input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, total_tokens, cost_total
+         FROM llm_calls
+         WHERE run_id = ?
+         ORDER BY ts, id`,
+        [run_id],
+      );
+      return rows.map(rowToEntry);
     },
   };
 }

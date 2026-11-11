@@ -308,13 +308,15 @@ function testHandbookDir(): string {
 }
 
 /** 起测试服务。deps 全真实（无 mock）；bootstrap_admin 注入首启 admin；static_dir 开启静态托管；
- *  run_metrics = true 时把 runMetrics store 装配进 API（缺省不装配，用于验证 biz.* 缺省降级） */
+ *  run_metrics = true 时把 runMetrics store 装配进 API（缺省不装配，用于验证 biz.* 缺省降级）；
+ *  workspace_root 传入时装配日志接口（缺省 = 日志路由一律 404 降级形态） */
 export async function startTestServer(
   options: {
     bootstrap_admin?: { username: string; password: string };
     static_dir?: string;
     handbook_dir?: string;
     run_metrics?: boolean;
+    workspace_root?: string;
   } = {},
 ): Promise<TestServer> {
   ensureTestLogger();
@@ -350,6 +352,9 @@ export async function startTestServer(
       handbook_dir: options.handbook_dir ?? testHandbookDir(),
       llm_calls: llmCalls,
       ...(options.run_metrics === true ? { run_metrics: runMetrics } : {}),
+      ...(options.workspace_root !== undefined
+        ? { workspace_root: options.workspace_root }
+        : {}),
       ...(options.bootstrap_admin
         ? { bootstrap_admin: options.bootstrap_admin }
         : {}),

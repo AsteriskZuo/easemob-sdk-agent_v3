@@ -15,12 +15,12 @@ import {
 import type {
   BusinessProfile,
   LifecycleRecord,
-  LifecycleStatus,
   QueuesStatus,
   Task,
   TaskStatus,
 } from "@asteriskzuo/agent-console-api";
 import { apiFetch, ApiError } from "../api/client";
+import { RUN_COLUMNS } from "../run-columns";
 
 /** 队列四状态计数卡片 */
 function QueueCard({
@@ -49,15 +49,6 @@ function QueueCard({
     </Card>
   );
 }
-
-/** 运行状态徽标颜色：running 蓝 / success 绿 / failed 红 / timeout 橙 */
-const RUN_STATUS_COLOR: Record<LifecycleStatus, string> = {
-  created: "default",
-  running: "blue",
-  success: "green",
-  failed: "red",
-  timeout: "orange",
-};
 
 interface TaskFilter {
   queue: "entry" | "exit";
@@ -223,11 +214,19 @@ export default function DashboardPage() {
             },
             { title: "事件类型", render: (_, task) => task.event.event_type },
             { title: "来源", render: (_, task) => task.event.source },
-            { title: "入队时间", dataIndex: "enqueued_at" },
+            {
+              title: "入队时间",
+              dataIndex: "enqueued_at",
+              sorter: (a: Task, b: Task) =>
+                a.enqueued_at.localeCompare(b.enqueued_at),
+              defaultSortOrder: "descend",
+            },
             {
               title: "完结时间",
               dataIndex: "finished_at",
               render: (v?: string) => v ?? "—",
+              sorter: (a: Task, b: Task) =>
+                (a.finished_at ?? "").localeCompare(b.finished_at ?? ""),
             },
           ]}
         />
@@ -255,22 +254,7 @@ export default function DashboardPage() {
           size="small"
           loading={runsLoading}
           dataSource={runs}
-          columns={[
-            { title: "运行 ID", dataIndex: "lifecycle_id" },
-            {
-              title: "状态",
-              dataIndex: "status",
-              render: (status: LifecycleStatus) => (
-                <Tag color={RUN_STATUS_COLOR[status]}>{status}</Tag>
-              ),
-            },
-            { title: "创建时间", dataIndex: "created_at" },
-            {
-              title: "完结时间",
-              dataIndex: "finished_at",
-              render: (v?: string) => v ?? "—",
-            },
-          ]}
+          columns={RUN_COLUMNS}
         />
       </Card>
     </div>

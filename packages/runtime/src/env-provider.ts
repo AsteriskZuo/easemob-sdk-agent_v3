@@ -44,6 +44,8 @@ export interface EnvProvider {
 // 历史行 = NULL（契约机制前的 run，控制台按"无阶段信息"展示）
 // v3 追加 llm_calls：LLM 调用消耗落库（business-stats spec §4.1，DDL 与 spec 原样一致）
 // v4 追加 run_metrics：业务 metrics 落库（business-stats spec §4.2，DDL 与 spec 原样一致）
+// v5 追加 lifecycles.reason：失败/超时的人读原因落库（console-usability spec §4.1）；
+// 存量行 = NULL（与 v2 加 failed_at 同模式，控制台按"无原因"展示）
 const MIGRATIONS: readonly string[] = [
   `CREATE TABLE env_entries (
      scope TEXT NOT NULL,
@@ -94,6 +96,7 @@ const MIGRATIONS: readonly string[] = [
      value_num   REAL               -- 数值值；字符串值时 NULL
    );
    CREATE INDEX idx_run_metrics_biz_ts ON run_metrics (business_id, ts);`,
+  `ALTER TABLE lifecycles ADD COLUMN reason TEXT;`,
 ];
 
 /** runtime 模块 schema 迁移入口（EnvProvider 与 LifecycleStore 共用，幂等） */

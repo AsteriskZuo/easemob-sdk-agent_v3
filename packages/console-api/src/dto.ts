@@ -7,6 +7,11 @@ import type {
   ExitBinding,
 } from "@asteriskzuo/agent-registry";
 import type { Role, User } from "./accounts.js";
+import type {
+  LifecycleRecord,
+  LlmCallEntry,
+  RunMetricEntry,
+} from "@asteriskzuo/agent-runtime";
 
 // ---------------------------------------------------------------------------
 // 请求体 DTO（console T14 以 import type 复用；全部字段注释即表单语义）
@@ -314,6 +319,30 @@ export interface DailyStatsResponse {
   to: string;
   /** 长表行集，按 (date, metric, bucket) 字典序；零数据日不出行 */
   rows: StatsRow[];
+}
+
+/** GET /api/runs/:id/detail 响应 */
+export interface RunDetailResponse {
+  /** 打标记录（含 reason；类型从 runtime re-export） */
+  record: LifecycleRecord;
+  /** LLM 调用明细，ts 升序；llmCalls 未装配时恒 [] */
+  llm_calls: LlmCallEntry[];
+  /** 业务指标明细，key 升序；runMetrics 未装配时恒 [] */
+  metrics: RunMetricEntry[];
+}
+
+/** GET /api/runs/:id/log 响应 */
+export interface RunLogResponse {
+  /** 运行 ID（回显） */
+  run_id: string;
+  /** 命中日志文件相对 workspace 根的路径（如 businesses/b01.../logs/jira/HIM-1/run_01....log），回显用 */
+  path: string;
+  /** 日志内容（UTF-8；被截断时为尾部内容） */
+  content: string;
+  /** true = 日志超过读取上限，content 仅为末尾部分 */
+  truncated: boolean;
+  /** 日志文件总字节数 */
+  size: number;
 }
 
 /** 统一错误体 */

@@ -3,6 +3,7 @@ import type {
   ExitToolMenuItem,
   LifecycleRecord,
   QueuesStatus,
+  RunDetailResponse,
   Task,
 } from "../src/index.js";
 import {
@@ -177,6 +178,138 @@ describe("GET /api/businesses/:id/runs 与 GET /api/runs/:id", () => {
 
     const missing = await api(server, "GET", "/api/runs/run_nope", { token });
     expect(missing.status).toBe(404);
+  });
+});
+
+/** created_at（UTC ISO）→ 服务器本地日历日（与 date(created_at,'localtime') 同口径） */
+function localDateOf(iso: string): string {
+  const d = new Date(iso);
+  const y = String(d.getFullYear()).padStart(4, "0");
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+describe("GET /api/businesses/:id/runs?date=", () => {
+  it("date 按本地日历日过滤、忽略 limit；非法日历日 → 400", async () => {
+    server.lifecycle.markRunning({
+      lifecycle_id: "run_d1",
+      business_id: businessId,
+      event_id: "evt_d1",
+      channel_id: "manual/S-1",
+      created_at: "2026-10-10T10:00:00.000Z",
+    });
+    server.lifecycle.markRunning({
+      lifecycle_id: "run_d2",
+      business_id: businessId,
+      event_id: "evt_d2",
+      channel_id: "manual/S-1",
+      created_at: "2026-10-10T11:00:00.000Z",
+    });
+    server.lifecycle.markRunning({
+      lifecycle_id: "run_d3",
+      business_id: businessId,
+      event_id: "evt_d3",
+      channel_id: "manual/S-1",
+      created_at: "2026-10-11T10:00:00.000Z",
+    });
+    const day1 = localDateOf("2026-10-10T10:00:00.000Z");
+    const day2 = localDateOf("2026-10-11T10:00:00.000Z");
+
+    const filtered = await api(
+      server,
+      "GET",
+      `/api/businesses/${businessId}/runs?date=${day1}`,
+      { token },
+    );
+    expect(filtered.status).toBe(200);
+    expect(
+      (filtered.body as LifecycleRecord[]).map((r) => r.lifecycle_id),
+    ).toEqual(["run_d2", "run_d1"]);
+
+    // date 提供时忽略 limit（读口自身 500 行上限）
+    const ignoreLimit = await api(
+      server,
+      "GET",
+      `/api/businesses/${businessId}/runs?date=${day1}&limit=1`,
+      { token },
+    );
+    expect((ignoreLimit.body as LifecycleRecord[]).length).toBe(2);
+
+    const other = await api(
+      server,
+      "GET",
+      `/api/businesses/${businessId}/runs?date=${day2}`,
+      { token },
+    );
+    expect(
+      (other.body as LifecycleRecord[]).map((r) => r.lifecycle_id),
+    ).toEqual(["run_d3"]);
+
+    const empty = await api(
+      server,
+      "GET",
+      `/api/businesses/${businessId}/runs?date=2000-01-01`,
+      { token },
+    );
+    expect((empty.body as LifecycleRecord[]).length).toBe(0);
+
+    for (const bad of ["abc", "2026-13-01", "2026-02-30", "2026-1-1"]) {
+      const res = await api(
+        server,
+        "GET",
+        `/api/businesses/${businessId}/runs?date=${bad}`,
+        { token },
+      );
+      expect(res.status).toBe(400);
+      expect((res.body as { error: { code: string } }).error.code).toBe(
+        "invalid_input",
+      );
+    }
+  });
+});
+
+describe("GET /api/runs/:id/detail（run_metrics 未装配降级）", () => {
+  it("聚合形状：record 含 reason + llm_calls 命中 + metrics 恒 []；run 不存在 → 404", async () => {
+    server.lifecycle.markTerminal("run_d1", "failed", "main", "boom reason");
+    server.llmCalls.record({
+      run_id: "run_d1",
+      business_id: businessId,
+      ts: "2026-10-10T10:00:05.000Z",
+      op: "agent",
+      model: "test/model-a",
+      skills: ["s1"],
+      mode: "channel",
+      ok: true,
+      duration_ms: 120,
+    });
+
+    const res = await api(server, "GET", "/api/runs/run_d1/detail", { token });
+    expect(res.status).toBe(200);
+    const detail = res.body as RunDetailResponse;
+    expect(detail.record.lifecycle_id).toBe("run_d1");
+    expect(detail.record.reason).toBe("boom reason");
+    expect(detail.record.failed_at).toBe("main");
+    expect(detail.llm_calls.length).toBe(1);
+    expect(detail.llm_calls[0].model).toBe("test/model-a");
+    expect(detail.llm_calls[0].skills).toEqual(["s1"]);
+    // run_metrics 未装配 → 恒 []
+    expect(detail.metrics).toEqual([]);
+
+    const missing = await api(server, "GET", "/api/runs/run_nope/detail", {
+      token,
+    });
+    expect(missing.status).toBe(404);
+  });
+});
+
+describe("GET /api/runs/:id/log（workspace_root 未装配降级）", () => {
+  it("一律 404 且 message 含「未装配」语义", async () => {
+    const res = await api(server, "GET", "/api/runs/run_d1/log", { token });
+    expect(res.status).toBe(404);
+    const body = res.body as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("not_found");
+    expect(body.error.message).toContain("未装配");
   });
 });
 

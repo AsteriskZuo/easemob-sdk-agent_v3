@@ -43,7 +43,7 @@ describe("建表与迁移", () => {
     const row = db.get<{ cnt: number }>(
       "SELECT COUNT(*) AS cnt FROM schema_migrations WHERE module = 'runtime'",
     );
-    expect(row?.cnt).toBe(4);
+    expect(row?.cnt).toBe(5);
     db.close();
   });
 
@@ -102,7 +102,7 @@ describe("建表与迁移", () => {
     const version = db.get<{ max_version: number }>(
       "SELECT MAX(version) AS max_version FROM schema_migrations WHERE module = 'runtime'",
     );
-    expect(version?.max_version).toBe(4);
+    expect(version?.max_version).toBe(5);
     // 索引存在
     const idx = db.get<{ name: string }>(
       "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_run_metrics_biz_ts'",
@@ -254,6 +254,31 @@ describe("dailyMetrics 聚合", () => {
     const { store, db } = newStore();
     seed(store);
     expect(store.dailyMetrics("b1", "2026-02-01", "2026-02-14")).toEqual([]);
+    db.close();
+  });
+});
+
+describe("listByRun 明细", () => {
+  it("key 字典序升序；value_text/value_num 折叠回单一 value", () => {
+    const { store, db } = newStore();
+    // 乱序写入（按 key 排序输出），含字符串与数值两种形态
+    store.record("run_1", "b1", isoAtLocal(2026, 1, 15, 10, 0), {
+      latency_ms: 1200,
+      decision: "approved",
+      attempts: 2,
+    });
+    // 其他 run：不应混入
+    store.record("run_2", "b1", isoAtLocal(2026, 1, 15, 10, 0), {
+      decision: "rejected",
+    });
+
+    const entries = store.listByRun("run_1");
+    expect(entries).toEqual([
+      { key: "attempts", value: 2 },
+      { key: "decision", value: "approved" },
+      { key: "latency_ms", value: 1200 },
+    ]);
+    expect(store.listByRun("run_missing")).toEqual([]);
     db.close();
   });
 });

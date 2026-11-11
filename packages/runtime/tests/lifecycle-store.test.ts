@@ -1,4 +1,4 @@
-import { openDatabase } from "@asteriskzuo/agent-database";
+import { openDatabase, migrate } from "@asteriskzuo/agent-database";
 import type { Database } from "@asteriskzuo/agent-database";
 import { createLifecycleStore } from "../src/index.js";
 import type { LifecycleStore, LifecycleWriter } from "../src/index.js";
@@ -63,6 +63,175 @@ describe("markRunning / markTerminal 往返", () => {
     expect(record?.finished_at).toBeDefined();
     expect(record?.failed_at).toBe("main");
     expect(store.listByBusiness("b1")).toHaveLength(1);
+    db.close();
+  });
+
+  it("reason 落库：failed 带原因；不传 reason → NULL 映射缺省", () => {
+    const { store, db } = newStore();
+    store.markRunning({
+      lifecycle_id: "run_1",
+      business_id: "b1",
+      event_id: "evt_1",
+      channel_id: "ch",
+      created_at: new Date().toISOString(),
+    });
+    store.markRunning({
+      lifecycle_id: "run_2",
+      business_id: "b1",
+      event_id: "evt_2",
+      channel_id: "ch",
+      created_at: new Date().toISOString(),
+    });
+    store.markTerminal("run_1", "timeout", "main", "timeout (duration_ms=720000)");
+    store.markTerminal("run_2", "success");
+
+    const failed = store.get("run_1");
+    expect(failed?.status).toBe("timeout");
+    expect(failed?.reason).toBe("timeout (duration_ms=720000)");
+    const ok = store.get("run_2");
+    expect(ok?.status).toBe("success");
+    expect(ok?.reason).toBeUndefined();
+    db.close();
+  });
+
+  it("reason 超过 500 字符截断（防超长错误文本撑大行）", () => {
+    const { store, db } = newStore();
+    store.markRunning({
+      lifecycle_id: "run_1",
+      business_id: "b1",
+      event_id: "evt_1",
+      channel_id: "ch",
+      created_at: new Date().toISOString(),
+    });
+    const longReason = "x".repeat(600);
+    store.markTerminal("run_1", "failed", "main", longReason);
+    const record = store.get("run_1");
+    expect(record?.reason).toHaveLength(500);
+    expect(record?.reason).toBe(longReason.slice(0, 500));
+    db.close();
+  });
+});
+
+describe("迁移 v5", () => {
+  it("v4 老库升级：旧行 reason 为 NULL（读口映射缺省），数据保留", () => {
+    const db = openDatabase(":memory:");
+    // 模拟 v4 老库：应用前四版迁移（SQL 与 env-provider v1–v4 同形）
+    migrate(db, "runtime", [
+      `CREATE TABLE env_entries (
+         scope TEXT NOT NULL, bucket TEXT NOT NULL, key TEXT NOT NULL,
+         value TEXT NOT NULL, updated_at TEXT NOT NULL,
+         PRIMARY KEY (scope, bucket, key)
+       );
+       CREATE TABLE lifecycles (
+         lifecycle_id TEXT PRIMARY KEY, business_id TEXT NOT NULL,
+         event_id TEXT NOT NULL, channel_id TEXT NOT NULL, status TEXT NOT NULL,
+         created_at TEXT NOT NULL, finished_at TEXT
+       );`,
+      `ALTER TABLE lifecycles ADD COLUMN failed_at TEXT;`,
+      `CREATE TABLE llm_calls (
+         id            INTEGER PRIMARY KEY,
+         run_id        TEXT NOT NULL,
+         business_id   TEXT NOT NULL,
+         ts            TEXT NOT NULL,
+         op            TEXT NOT NULL,
+         model         TEXT NOT NULL,
+         skills        TEXT NOT NULL,
+         mode          TEXT NOT NULL,
+         ok            INTEGER NOT NULL,
+         error         TEXT,
+         duration_ms   INTEGER NOT NULL,
+         input_tokens  INTEGER,
+         output_tokens INTEGER,
+         cache_read_tokens  INTEGER,
+         cache_write_tokens INTEGER,
+         total_tokens  INTEGER,
+         cost_total    REAL
+       );
+       CREATE INDEX idx_llm_calls_biz_ts ON llm_calls (business_id, ts);
+       CREATE INDEX idx_llm_calls_run ON llm_calls (run_id);`,
+      `CREATE TABLE run_metrics (
+         id          INTEGER PRIMARY KEY AUTOINCREMENT,
+         run_id      TEXT NOT NULL,
+         business_id TEXT NOT NULL,
+         ts          TEXT NOT NULL,
+         key         TEXT NOT NULL,
+         value_text  TEXT,
+         value_num   REAL
+       );
+       CREATE INDEX idx_run_metrics_biz_ts ON run_metrics (business_id, ts);`,
+    ]);
+    db.run(
+      "INSERT INTO lifecycles (lifecycle_id, business_id, event_id, channel_id, status, created_at) VALUES ('run_old', 'b1', 'evt', 'ch', 'success', '2026-01-01T00:00:00.000Z')",
+    );
+
+    const store = createLifecycleStore(db);
+    // 旧行保留且 reason 缺省（NULL）
+    const old = store.get("run_old");
+    expect(old).toBeDefined();
+    expect(old?.status).toBe("success");
+    expect(old?.reason).toBeUndefined();
+    const raw = db.get<{ reason: string | null }>(
+      "SELECT reason FROM lifecycles WHERE lifecycle_id = 'run_old'",
+    );
+    expect(raw?.reason).toBeNull();
+    const version = db.get<{ max_version: number }>(
+      "SELECT MAX(version) AS max_version FROM schema_migrations WHERE module = 'runtime'",
+    );
+    expect(version?.max_version).toBe(5);
+    db.close();
+  });
+});
+
+describe("listByBusinessOnDate", () => {
+  it("本地日历日口径过滤 + created_at 倒序；其他业务/其他日不混入", () => {
+    const { store, db } = newStore();
+    insertLifecycle(db, {
+      id: "run_1",
+      status: "success",
+      created: localDate(2026, 1, 15, 10, 0),
+      duration_ms: 1000,
+    });
+    insertLifecycle(db, {
+      id: "run_2",
+      status: "failed",
+      created: localDate(2026, 1, 15, 23, 30), // 跨时区边界：本地日仍归 01-15
+      duration_ms: 2000,
+      failed_at: "main",
+    });
+    insertLifecycle(db, {
+      id: "run_3",
+      status: "success",
+      created: localDate(2026, 1, 16, 0, 30), // 次日：不应命中 01-15
+      duration_ms: 1000,
+    });
+    insertLifecycle(db, {
+      id: "run_other",
+      business_id: "b2",
+      status: "success",
+      created: localDate(2026, 1, 15, 12, 0),
+      duration_ms: 1000,
+    });
+
+    const rows = store.listByBusinessOnDate("b1", "2026-01-15");
+    expect(rows.map((r) => r.lifecycle_id)).toEqual(["run_2", "run_1"]); // 倒序
+    expect(store.listByBusinessOnDate("b1", "2026-01-16")).toHaveLength(1);
+    expect(store.listByBusinessOnDate("b1", "2026-02-01")).toEqual([]);
+    db.close();
+  });
+
+  it("防御上限 500 行", () => {
+    const { store, db } = newStore();
+    const base = localDate(2026, 1, 15, 0, 0).getTime();
+    for (let i = 0; i < 501; i++) {
+      db.run(
+        "INSERT INTO lifecycles (lifecycle_id, business_id, event_id, channel_id, status, created_at) VALUES (?, 'b1', 'evt', 'ch', 'success', ?)",
+        [`run_${i}`, new Date(base + i * 1000).toISOString()],
+      );
+    }
+    const rows = store.listByBusinessOnDate("b1", "2026-01-15");
+    expect(rows).toHaveLength(500);
+    // 倒序取前 500：最新一条在最前
+    expect(rows[0]!.lifecycle_id).toBe("run_500");
     db.close();
   });
 });

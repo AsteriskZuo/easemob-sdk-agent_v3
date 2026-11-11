@@ -11,6 +11,12 @@ export interface DailyBizAggregate {
   num_sum: number; // 数值值求和
 }
 
+/** 业务指标明细行：value_text / value_num 二选一折叠回单一 value */
+export interface RunMetricEntry {
+  key: string; // 指标名（run_metrics.key 原样）
+  value: string | number; // value_text 非 NULL 取字符串，否则取 value_num
+}
+
 /** run_metrics 写口 + 按日聚合读口。record fail-open：内部 try/catch 消化 + warn，绝不抛回 */
 export interface RunMetricsStore {
   /** 落一次 run 的全部 metrics（逐键一行）；metrics 为空对象时不写。
@@ -29,6 +35,15 @@ export interface RunMetricsStore {
     from: string,
     to: string,
   ): DailyBizAggregate[];
+
+  /** 单次 run 的业务指标明细（run 详情 API 数据源）；按 key 字典序升序 */
+  listByRun(run_id: string): RunMetricEntry[];
+}
+
+interface RunMetricRow {
+  key: string;
+  value_text: string | null;
+  value_num: number | null;
 }
 
 interface DailyTextRow {
@@ -125,6 +140,17 @@ export function createRunMetricsStore(db: Database): RunMetricsStore {
         (a, b) =>
           a.date.localeCompare(b.date) || a.key.localeCompare(b.key),
       );
+    },
+
+    listByRun(run_id): RunMetricEntry[] {
+      const rows = db.all<RunMetricRow>(
+        "SELECT key, value_text, value_num FROM run_metrics WHERE run_id = ? ORDER BY key",
+        [run_id],
+      );
+      return rows.map((row) => ({
+        key: row.key,
+        value: row.value_text !== null ? row.value_text : (row.value_num as number),
+      }));
     },
   };
 }

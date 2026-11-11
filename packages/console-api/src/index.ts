@@ -40,4 +40,6 @@ export type { Task, TaskStatus } from "@asteriskzuo/agent-queue";
 export type {
   LifecycleRecord,
   LifecycleStatus,
+  LlmCallEntry,
+  RunMetricEntry,
 } from "@asteriskzuo/agent-runtime";

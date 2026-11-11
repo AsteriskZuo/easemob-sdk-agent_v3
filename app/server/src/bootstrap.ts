@@ -349,6 +349,7 @@ export async function bootstrap(overrides?: {
         handbook_dir: config.handbook_dir,
         llm_calls: llmCallStore,
         run_metrics: runMetricsStore,
+        workspace_root: config.workspace,
         ...(config.bootstrap_admin !== undefined
           ? { bootstrap_admin: config.bootstrap_admin }
           : {}),

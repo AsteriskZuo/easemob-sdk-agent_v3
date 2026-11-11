@@ -77,6 +77,9 @@ export interface ConsoleApiOptions {
   /** 业务 metrics 按日聚合读口（GET /api/stats/daily 的 biz.* 数据源，由装配根注入 runtime 的 RunMetricsStore）；
    *  缺省 = 降级：统计路由照常但不出 biz.* 行（与 llm_calls 缺省同模式） */
   run_metrics?: RunMetricsStore;
+  /** 平台 workspace 根（与 runner 日志落盘同根），GET /api/runs/:id/log 的日志定位根；
+   *  缺省 = 降级：日志路由照常注册但一律 404（日志接口未装配） */
+  workspace_root?: string;
 }
 
 export interface ConsoleApi {
@@ -125,6 +128,13 @@ export function createConsoleApi(
       entryQueue: deps.entryQueue,
       exitQueue: deps.exitQueue,
       lifecycle: deps.lifecycle,
+      ...(options.llm_calls !== undefined ? { llmCalls: options.llm_calls } : {}),
+      ...(options.run_metrics !== undefined
+        ? { runMetrics: options.run_metrics }
+        : {}),
+      ...(options.workspace_root !== undefined
+        ? { workspaceRoot: options.workspace_root }
+        : {}),
     }),
     ...statsRoutes({
       lifecycle: deps.lifecycle,

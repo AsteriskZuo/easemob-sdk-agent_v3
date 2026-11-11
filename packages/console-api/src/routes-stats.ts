@@ -8,6 +8,7 @@ import type {
   RunMetricsStore,
 } from "@asteriskzuo/agent-runtime";
 import type { DailyStatsResponse, StatsRow } from "./dto.js";
+import { parseDateParam } from "./date-param.js";
 import { ApiError } from "./errors.js";
 import { sendJson } from "./http.js";
 import type { HttpRequest } from "./http.js";
@@ -19,38 +20,11 @@ const MAX_RANGE_DAYS = 92;
 /** 缺省区间：to = 今天、from = 13 天前（共 14 天，spec §6） */
 const DEFAULT_FROM_OFFSET_DAYS = -13;
 
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
 /** 字符串桶基数护栏（决策 4）：单日单指标 distinct 桶上限，超出部分合并进 __other__ */
 const MAX_TEXT_BUCKETS = 20;
 
 /** 护栏合并桶名（决策 4） */
 const OTHER_BUCKET = "__other__";
-
-/** UTC 零点时刻回写成 YYYY-MM-DD（用于回绕校验：2026-02-30 会被 Date 吞成 03-02，必须拦下） */
-function utcDateString(ms: number): string {
-  const d = new Date(ms);
-  const y = String(d.getUTCFullYear()).padStart(4, "0");
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-/** 校验 YYYY-MM-DD 日历日（形状 + 真实存在性）；非法 → 400 invalid_input */
-function parseDateParam(raw: string, field: string): string {
-  const ms = Date.parse(`${raw}T00:00:00Z`);
-  if (
-    !DATE_PATTERN.test(raw) ||
-    Number.isNaN(ms) ||
-    utcDateString(ms) !== raw
-  ) {
-    throw new ApiError(
-      "invalid_input",
-      `${field} 必须是合法的 YYYY-MM-DD: ${raw}`,
-    );
-  }
-  return raw;
-}
 
 /** 本地日历日（offsetDays 相对今天）；与聚合读口 date(...,'localtime') 的分日口径一致 */
 function localDate(offsetDays: number): string {

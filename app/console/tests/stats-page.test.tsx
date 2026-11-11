@@ -182,4 +182,108 @@ describe("统计页", () => {
     await selectOption(user, "选择业务", BUSINESS.business_name);
     expect(await screen.findByText("业务不存在")).toBeTruthy();
   });
+
+  it("日期详情：点日期出当日明细，行展开看失败原因/LLM 调用/业务指标/日志", async () => {
+    const to = dayjs().format("YYYY-MM-DD");
+    const run = {
+      lifecycle_id: "run_01JTEST0000000000000000001",
+      business_id: BUSINESS.business_id,
+      event_id: "evt-1",
+      channel_id: "ch-1",
+      status: "failed",
+      created_at: `${to}T02:00:00.000Z`,
+      finished_at: `${to}T02:00:01.500Z`,
+      failed_at: "main",
+      reason: "exit code 1",
+    };
+    const detail = {
+      record: run,
+      llm_calls: [
+        {
+          run_id: run.lifecycle_id,
+          business_id: BUSINESS.business_id,
+          ts: `${to}T02:00:01.000Z`,
+          op: "agent",
+          model: "openai/gpt-x",
+          skills: [],
+          mode: "channel",
+          ok: false,
+          error: "agent_failed",
+          duration_ms: 1234,
+          input_tokens: 100,
+          output_tokens: 50,
+        },
+      ],
+      metrics: [{ key: "decision", value: "pass" }],
+    };
+    const calls = installFetchMock((path) => {
+      if (path === "/api/auth/me") return { status: 200, body: ADMIN_USER };
+      if (path === "/api/businesses") return { status: 200, body: [BUSINESS] };
+      if (path.startsWith("/api/stats/daily?")) {
+        return { status: 200, body: statsBody() };
+      }
+      if (path === `/api/businesses/${BUSINESS.business_id}/runs?date=${to}`) {
+        return { status: 200, body: [run] };
+      }
+      if (path === `/api/runs/${run.lifecycle_id}/detail`) {
+        return { status: 200, body: detail };
+      }
+      if (path === `/api/runs/${run.lifecycle_id}/log`) {
+        return {
+          status: 200,
+          body: {
+            run_id: run.lifecycle_id,
+            path: `businesses/${BUSINESS.business_id}/logs/jira/HIM-1/${run.lifecycle_id}.log`,
+            content: "line1\nline2",
+            truncated: false,
+            size: 11,
+          },
+        };
+      }
+      return undefined;
+    });
+    renderApp("/stats");
+    expect(await screen.findByText("请先选择业务")).toBeTruthy();
+    const user = setupUser();
+    await selectOption(user, "选择业务", BUSINESS.business_name);
+    await screen.findByText("$0.1235"); // 主表就绪
+
+    // 点日期（主表内锚定，错误明细表也有当天日期）→ 日期详情卡片 + runs?date= 请求
+    const mainCard = screen.getByText("运行统计").closest(
+      ".ant-card",
+    ) as HTMLElement;
+    await user.click(within(mainCard).getByText(to));
+    expect(await screen.findByText(`日期详情 ${to}`)).toBeTruthy();
+    expect(
+      calls.some(
+        (c) => c.path === `/api/businesses/${BUSINESS.business_id}/runs?date=${to}`,
+      ),
+    ).toBe(true);
+    const detailCard = screen.getByText(`日期详情 ${to}`).closest(
+      ".ant-card",
+    ) as HTMLElement;
+    // 当日明细行：事件 ID/耗时/失败阶段/失败原因
+    expect(await within(detailCard).findByText("evt-1")).toBeTruthy();
+    expect(within(detailCard).getByText("1.5 s")).toBeTruthy();
+    expect(within(detailCard).getByText("main")).toBeTruthy();
+    expect(within(detailCard).getByText("exit code 1")).toBeTruthy();
+
+    // 行展开 → 懒调 detail：失败原因红字 + LLM 调用表 + 业务指标表
+    const expandIcon = detailCard.querySelector(
+      ".ant-table-row-expand-icon",
+    ) as HTMLElement;
+    await user.click(expandIcon);
+    expect(
+      await within(detailCard).findByText("失败原因：exit code 1"),
+    ).toBeTruthy();
+    expect(within(detailCard).getByText("openai/gpt-x")).toBeTruthy();
+    expect(within(detailCard).getByText("decision")).toBeTruthy();
+    expect(within(detailCard).getByText("pass")).toBeTruthy();
+
+    // 日志按钮（antd 两汉字按钮自动插空格）→ Modal 展示全文
+    await user.click(
+      within(detailCard).getByRole("button", { name: /日\s*志/ }),
+    );
+    expect(await screen.findByText("line1", { exact: false })).toBeTruthy();
+  });
 });

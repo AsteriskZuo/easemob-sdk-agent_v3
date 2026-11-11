@@ -246,6 +246,8 @@ describe("close 无条件", () => {
     const record = createLifecycleStore(db).get(recorder.runArg!.run_id!);
     expect(record?.status).toBe("failed");
     expect(record?.finished_at).toBeDefined();
+    // 平台错误消息落 reason
+    expect(record?.reason).toMatch(/^program 不存在或不可读/);
   });
 
   it("runner 返回 timeout → close 被调且仅一次，failed_at=main 落库", async () => {
@@ -263,6 +265,7 @@ describe("close 无条件", () => {
     const record = createLifecycleStore(db).get(recorder.runArg!.run_id!);
     expect(record?.status).toBe("timeout");
     expect(record?.failed_at).toBe("main");
+    expect(record?.reason).toBe("timeout");
   });
 
   it("serve 抛错 → 不执行 runner/close，原错误上抛且打标 failed", async () => {
@@ -280,6 +283,7 @@ describe("close 无条件", () => {
     const record = createLifecycleStore(db).get(recorder.serveArg!.run_id);
     expect(record?.status).toBe("failed");
     expect(record?.finished_at).toBeDefined();
+    expect(record?.reason).toBe("serve unavailable");
   });
 
   it("runner 返回后 close 失败 → 原错误上抛，不覆盖 running 为正常终态", async () => {
@@ -338,13 +342,16 @@ describe("打标", () => {
     const record = store.get(recorder.runArg!.run_id!);
     expect(record?.status).toBe("failed");
     expect(record?.failed_at).toBe("check-input");
+    // runner 产出的 reason 落库
+    expect(record?.reason).toBe("输入不合规：缺少必填字段 payload.issue_key");
 
-    // 成功路径：failed_at 不落库（undefined → NULL）
+    // 成功路径：failed_at 与 reason 均不落库（undefined → NULL）
     const ok = makeStubs();
     await ok.lifecycle.execute(makeTask(), makeWatcher());
     const okRecord = store.get(ok.recorder.runArg!.run_id!);
     expect(okRecord?.status).toBe("success");
     expect(okRecord?.failed_at).toBeUndefined();
+    expect(okRecord?.reason).toBeUndefined();
   });
 
   it("loader 抛错 → 打标 failed 且错误原样上抛", async () => {
@@ -360,6 +367,8 @@ describe("打标", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].status).toBe("failed");
     expect(rows[0].finished_at).toBeDefined();
+    // 上下文组装失败的平台错误消息落 reason
+    expect(rows[0].reason).toBe(`business_not_found: ${BUSINESS_ID}`);
   });
 });
 

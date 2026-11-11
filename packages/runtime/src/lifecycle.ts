@@ -77,7 +77,7 @@ export function createLifecycle(deps: LifecycleDeps): EntryDriver {
       );
       const audit_log_path = join(workspace, "audit", "llm-requests.jsonl");
       const onSetupError = (err: unknown): void => {
-        store.markTerminal(run_id, "failed");
+        store.markTerminal(run_id, "failed", undefined, errorMessage(err));
         log.error("run 失败：上下文组装或 serve 失败", {
           event_id: task.event.event_id,
           error: errorMessage(err),
@@ -130,7 +130,7 @@ export function createLifecycle(deps: LifecycleDeps): EntryDriver {
           onServeError: onSetupError,
           onRunnerError: (err) => {
             // runner 抛错 = 平台自身错误：close 前打标 failed 并记录日志。
-            store.markTerminal(run_id, "failed");
+            store.markTerminal(run_id, "failed", undefined, errorMessage(err));
             log.error("run 失败：runner 平台错误", {
               event_id: task.event.event_id,
               error: errorMessage(err),
@@ -140,7 +140,7 @@ export function createLifecycle(deps: LifecycleDeps): EntryDriver {
       );
 
       // runner 返回 failed/timeout 不抛错（EntryDriver 契约：业务失败返回而非抛）
-      store.markTerminal(run_id, outcome.status, outcome.failed_at);
+      store.markTerminal(run_id, outcome.status, outcome.failed_at, outcome.reason);
       // 业务 metrics 落库（契约 D：仅 success 且形状合法时 outcome.metrics 有值）；
       // fail-open 归 store 内部消化，调用点不包 try/catch
       if (

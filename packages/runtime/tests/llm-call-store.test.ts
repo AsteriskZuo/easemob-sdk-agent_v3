@@ -58,7 +58,7 @@ describe("建表与迁移", () => {
     const row = db.get<{ cnt: number }>(
       "SELECT COUNT(*) AS cnt FROM schema_migrations WHERE module = 'runtime'",
     );
-    expect(row?.cnt).toBe(4);
+    expect(row?.cnt).toBe(5);
     db.close();
   });
 
@@ -93,7 +93,7 @@ describe("建表与迁移", () => {
     const version = db.get<{ max_version: number }>(
       "SELECT MAX(version) AS max_version FROM schema_migrations WHERE module = 'runtime'",
     );
-    expect(version?.max_version).toBe(4);
+    expect(version?.max_version).toBe(5);
     db.close();
   });
 });
@@ -313,6 +313,75 @@ describe("dailyCalls 聚合", () => {
     const { store, db } = newStore();
     seed(store);
     expect(store.dailyCalls("b1", "2026-02-01", "2026-02-14")).toEqual([]);
+    db.close();
+  });
+});
+
+describe("listByRun 明细", () => {
+  it("ts 升序返回；usage 平铺、skills 解析回数组、ok 映射回 boolean", () => {
+    const { store, db } = newStore();
+    // 乱序写入，验证按 ts 升序输出
+    store.record(
+      baseCall({
+        run_id: "run_1",
+        ts: isoAtLocal(2026, 1, 15, 10, 2),
+        duration_ms: 200,
+      }),
+    );
+    store.record(
+      baseCall({
+        run_id: "run_1",
+        ts: isoAtLocal(2026, 1, 15, 10, 0),
+        duration_ms: 100,
+        usage: {
+          input_tokens: 100,
+          output_tokens: 50,
+          cache_read_tokens: 10,
+          cache_write_tokens: 5,
+          total_tokens: 165,
+          cost_total: 0.0123,
+        },
+      }),
+    );
+    // 其他 run：不应混入
+    store.record(baseCall({ run_id: "run_2", ts: isoAtLocal(2026, 1, 15, 10, 1) }));
+
+    const entries = store.listByRun("run_1");
+    expect(entries).toHaveLength(2);
+    const [first, second] = entries;
+    expect(first!.duration_ms).toBe(100);
+    expect(first!.run_id).toBe("run_1");
+    expect(first!.business_id).toBe("b1");
+    expect(first!.op).toBe("agent");
+    expect(first!.model).toBe("openai/gpt-5");
+    expect(first!.skills).toEqual(["jira-ticket-review"]);
+    expect(first!.mode).toBe("channel");
+    expect(first!.ok).toBe(true);
+    expect(first!.error).toBeUndefined();
+    expect(first!.input_tokens).toBe(100);
+    expect(first!.output_tokens).toBe(50);
+    expect(first!.cache_read_tokens).toBe(10);
+    expect(first!.cache_write_tokens).toBe(5);
+    expect(first!.total_tokens).toBe(165);
+    expect(first!.cost_total).toBeCloseTo(0.0123);
+    expect(second!.duration_ms).toBe(200);
+    // 无 usage 行：6 个 token/成本字段整组缺省
+    expect(second!.input_tokens).toBeUndefined();
+    expect(second!.total_tokens).toBeUndefined();
+    expect(second!.cost_total).toBeUndefined();
+    db.close();
+  });
+
+  it("失败行：ok=false + error 带出；无命中 run 返回空数组", () => {
+    const { store, db } = newStore();
+    store.record(
+      baseCall({ run_id: "run_1", ok: false, error: "agent_failed", duration_ms: 500 }),
+    );
+    const entries = store.listByRun("run_1");
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.ok).toBe(false);
+    expect(entries[0]!.error).toBe("agent_failed");
+    expect(store.listByRun("run_missing")).toEqual([]);
     db.close();
   });
 });

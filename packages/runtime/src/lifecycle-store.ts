@@ -17,6 +17,9 @@ export interface LifecycleRecord {
   /** 失败阶段分类（check-input/main/check-output，契约设计 §5 三段编排）；
    *  仅失败的 run 有值；契约机制前的历史 run / 平台自身错误（runner 抛错）无此字段 */
   failed_at?: string;
+  /** 失败/超时原因（人读，最长 500 字符，超出截断）；
+   *  仅 failed/timeout 的 run 可能有值；success 与迁移前的历史行无此字段 */
+  reason?: string;
 }
 
 /** run 按日聚合行（统计 API 数据源；分日口径 = 服务器本地时区 date(created_at,'localtime')） */
@@ -41,6 +44,9 @@ export interface DailyRunAggregate {
 export interface LifecycleStore {
   /** 按业务查执行记录，按 created_at 倒序；limit 缺省 50 */
   listByBusiness(business_id: string, limit?: number): LifecycleRecord[];
+  /** 按业务 + 单日查执行记录：date 为 YYYY-MM-DD（本地日历日，口径与 dailyRuns 的
+   *  date(created_at,'localtime') 一致）；按 created_at 倒序；防御上限 500 行 */
+  listByBusinessOnDate(business_id: string, date: string): LifecycleRecord[];
   get(lifecycle_id: string): LifecycleRecord | undefined;
   /** 按日聚合（统计 API 用）：from/to 为 YYYY-MM-DD 闭区间，按本地日历日过滤；
    *  返回按 date 升序；零数据日不出行 */
@@ -61,11 +67,13 @@ export interface LifecycleWriter {
     channel_id: string;
     created_at: string;
   }): void;
-  /** 终态打标：status + finished_at（+ 失败阶段分类 failed_at，成功/平台错误无） */
+  /** 终态打标：status + finished_at（+ 失败阶段 failed_at + 失败原因 reason）。
+   *  reason 仅 failed/timeout 时有意义；超过 500 字符截断（防超长错误文本撑大行） */
   markTerminal(
     lifecycle_id: string,
     status: "success" | "failed" | "timeout",
     failed_at?: string,
+    reason?: string,
   ): void;
 }
 
@@ -78,6 +86,7 @@ interface LifecycleRow {
   created_at: string;
   finished_at: string | null;
   failed_at: string | null;
+  reason: string | null;
 }
 
 function rowToRecord(row: LifecycleRow): LifecycleRecord {
@@ -91,8 +100,15 @@ function rowToRecord(row: LifecycleRow): LifecycleRecord {
   };
   if (row.finished_at !== null) record.finished_at = row.finished_at;
   if (row.failed_at !== null) record.failed_at = row.failed_at;
+  if (row.reason !== null) record.reason = row.reason;
   return record;
 }
+
+/** reason 落库上限（防超长错误文本撑大行），超出截断 */
+const MAX_REASON_LEN = 500;
+
+const SELECT_COLS =
+  "lifecycle_id, business_id, event_id, channel_id, status, created_at, finished_at, failed_at, reason";
 
 interface DailyRunRow {
   date: string;
@@ -130,24 +146,38 @@ export function createLifecycleStore(
       );
     },
 
-    markTerminal(lifecycle_id, status, failed_at): void {
+    markTerminal(lifecycle_id, status, failed_at, reason): void {
       db.run(
-        "UPDATE lifecycles SET status = ?, finished_at = ?, failed_at = ? WHERE lifecycle_id = ?",
-        [status, new Date().toISOString(), failed_at ?? null, lifecycle_id],
+        "UPDATE lifecycles SET status = ?, finished_at = ?, failed_at = ?, reason = ? WHERE lifecycle_id = ?",
+        [
+          status,
+          new Date().toISOString(),
+          failed_at ?? null,
+          reason === undefined ? null : reason.slice(0, MAX_REASON_LEN),
+          lifecycle_id,
+        ],
       );
     },
 
     listByBusiness(business_id: string, limit = 50): LifecycleRecord[] {
       const rows = db.all<LifecycleRow>(
-        "SELECT lifecycle_id, business_id, event_id, channel_id, status, created_at, finished_at, failed_at FROM lifecycles WHERE business_id = ? ORDER BY created_at DESC LIMIT ?",
+        `SELECT ${SELECT_COLS} FROM lifecycles WHERE business_id = ? ORDER BY created_at DESC LIMIT ?`,
         [business_id, limit],
+      );
+      return rows.map(rowToRecord);
+    },
+
+    listByBusinessOnDate(business_id, date): LifecycleRecord[] {
+      const rows = db.all<LifecycleRow>(
+        `SELECT ${SELECT_COLS} FROM lifecycles WHERE business_id = ? AND date(created_at, 'localtime') = ? ORDER BY created_at DESC LIMIT 500`,
+        [business_id, date],
       );
       return rows.map(rowToRecord);
     },
 
     get(lifecycle_id: string): LifecycleRecord | undefined {
       const row = db.get<LifecycleRow>(
-        "SELECT lifecycle_id, business_id, event_id, channel_id, status, created_at, finished_at, failed_at FROM lifecycles WHERE lifecycle_id = ?",
+        `SELECT ${SELECT_COLS} FROM lifecycles WHERE lifecycle_id = ?`,
         [lifecycle_id],
       );
       return row ? rowToRecord(row) : undefined;
