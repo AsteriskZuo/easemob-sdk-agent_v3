@@ -24,6 +24,7 @@ import type {
   RegisterAssetBody,
 } from "@asteriskzuo/agent-console-api";
 import { apiFetch, ApiError } from "../api/client";
+import { assetName } from "../asset-name";
 import { useAuth } from "../auth/AuthContext";
 import EffectivenessNote from "../components/EffectivenessNote";
 
@@ -34,6 +35,13 @@ const KIND_TABS: Array<{ key: AssetKind; label: string }> = [
   { key: "tool", label: "工具" },
   { key: "skill", label: "Skill" },
 ];
+
+/** 登记抽屉 subpath 提示：按 kind 区分（工具/Skill 建议叶子级登记，属约定，服务端不强制） */
+const SUBPATH_HINT: Record<AssetKind, string> = {
+  package: "资产根在仓库内的相对路径，缺省 = 仓库根",
+  tool: "建议叶子级：tools/<工具名>，单个工具一个资产，便于按需共享",
+  skill: "建议叶子级：skills/<技能名>，单个技能一个资产，便于按需共享",
+};
 
 /** 资产管理：三族 Tab + scope 筛选 + 登记/详情/上架下架/删除。
  *  下架 = enabled 开关（登记/绑定/缓存保留，重新上架恢复）；删除 = 物理移除。
@@ -178,7 +186,7 @@ export default function AssetsPage() {
       <div style={{ marginBottom: 16, display: "flex", alignItems: "center" }}>
         <h2 style={{ margin: 0, flex: 1 }}>
           资产管理
-          <Tooltip title="资产 = git 仓库里的包/工具/skill 集合。登记 = 记录仓库坐标；首次查看详情会物化（git 克隆，较慢）。下架 = 开关：绑定该资产的业务运行时将直接失败，重新上架后恢复，登记/绑定/缓存均保留。删除 = 物理移除登记与缓存（有在役引用会被拒绝）。">
+          <Tooltip title="资产 = git 仓库里的包/工具/skill 集合。登记 = 记录仓库坐标；首次查看详情会物化（git 克隆，较慢）。下架 = 开关：绑定该资产的业务运行时将直接失败，重新上架后恢复，登记/绑定/缓存均保留。删除 = 物理移除登记与缓存（有在役引用会被拒绝）。工具/Skill 建议按单个目录登记（叶子级），共享时他人按个绑定。">
             <QuestionCircleOutlined style={{ marginLeft: 8, color: "#999" }} />
           </Tooltip>
         </h2>
@@ -222,7 +230,7 @@ export default function AssetsPage() {
           {
             title: "名称",
             key: "name",
-            render: () => "—", // meta 不含名称（在 manifest 里），详情可见
+            render: (_, row: AssetMeta) => assetName(row) ?? "—",
           },
           { title: "属主", dataIndex: "owner_id" },
           {
@@ -350,11 +358,12 @@ export default function AssetsPage() {
           >
             <Input aria-label="ref" placeholder="如 main" />
           </Form.Item>
-          <Form.Item name="subpath" label="子路径（可选）">
-            <Input
-              aria-label="子路径"
-              placeholder="资产根在仓库内的相对路径，缺省 = 仓库根"
-            />
+          <Form.Item
+            name="subpath"
+            label="子路径（可选）"
+            extra={SUBPATH_HINT[kind]}
+          >
+            <Input aria-label="子路径" />
           </Form.Item>
           {kind !== "package" && (
             <Form.Item

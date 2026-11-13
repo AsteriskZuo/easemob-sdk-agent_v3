@@ -67,6 +67,14 @@ const PACKAGE_META = {
   is_private: false,
   created_at: "2026-01-01T00:00:00.000Z",
   modified_at: "2026-01-01T00:00:00.000Z",
+  name: "演示包",
+};
+
+/** 存量包资产：name = null（v3 前登记），下拉 label 回退为完整 id */
+const LEGACY_PACKAGE = {
+  ...PACKAGE_META,
+  asset_id: "pkg-legacy-1",
+  name: null,
 };
 
 const PACKAGE_OBJECT = {
@@ -114,8 +122,12 @@ const BIZ_DETAIL = {
   ],
 };
 
-/** 业务表单通用 mock；overrides.emptyPackages = true 时包列表为空（空资产引导用例） */
-function installBusinessMocks(overrides?: { emptyPackages?: boolean }) {
+/** 业务表单通用 mock；overrides.emptyPackages = true 时包列表为空（空资产引导用例）；
+ *  overrides.legacyPackage = true 时追加一条存量（name = null）包资产（label 回退用例） */
+function installBusinessMocks(overrides?: {
+  emptyPackages?: boolean;
+  legacyPackage?: boolean;
+}) {
   return installFetchMock((path, { method }) => {
     if (path === "/api/auth/me") return { status: 200, body: MEMBER_USER };
     if (path === "/api/config") {
@@ -154,7 +166,12 @@ function installBusinessMocks(overrides?: { emptyPackages?: boolean }) {
     if (path === "/api/assets?kind=package&scope=mine") {
       return {
         status: 200,
-        body: overrides?.emptyPackages ? [] : [PACKAGE_META],
+        body: overrides?.emptyPackages
+          ? []
+          : [
+              PACKAGE_META,
+              ...(overrides?.legacyPackage === true ? [LEGACY_PACKAGE] : []),
+            ],
       };
     }
     if (path === "/api/assets?kind=tool&scope=all") {
@@ -209,8 +226,8 @@ async function fillRequiredFields(
   name: string,
 ) {
   await user.type(await screen.findByLabelText("业务名称"), name);
-  // 包绑定 → 选 pkg-1（触发拉 manifest 填充入口程序下拉）
-  await selectOption(user, "包绑定", "pkg-1");
+  // 包绑定 → 选演示包（label = 名称（id 短码）；触发拉 manifest 填充入口程序下拉）
+  await selectOption(user, "包绑定", "演示包（pkg-1）");
   // 入口程序 → main
   await selectOption(user, "入口程序", "main");
   await user.type(screen.getByLabelText("匹配行 1 事件类型"), "review.request");
@@ -441,5 +458,27 @@ describe("业务表单", () => {
     expect(screen.queryByText(/键名：exit\./)).toBeNull();
     expect(screen.queryByText("已配置")).toBeNull();
     expect(screen.queryByText("未配置")).toBeNull();
+  });
+
+  it("⑩ 绑定下拉 label：名称（id 短码）为主；存量资产（name = null）回退为完整 id", async () => {
+    installBusinessMocks({ legacyPackage: true });
+    renderApp("/businesses/new");
+    const user = setupUser();
+
+    // 等页面就绪后打开包绑定下拉
+    await screen.findByLabelText("业务名称");
+    const candidates = screen.getAllByLabelText("包绑定");
+    const combobox =
+      candidates.find((el) => el.tagName === "INPUT") ?? candidates[0];
+    await user.click(combobox);
+
+    // 新资产：label = 名称（id 短码）
+    expect(
+      (await screen.findAllByText("演示包（pkg-1）")).length,
+    ).toBeGreaterThan(0);
+    // 存量资产（name = null）：回退为完整 id
+    expect((await screen.findAllByText("pkg-legacy-1")).length).toBeGreaterThan(
+      0,
+    );
   });
 });

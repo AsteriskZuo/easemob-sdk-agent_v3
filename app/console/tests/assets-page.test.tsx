@@ -9,6 +9,7 @@ import {
   setupUser,
 } from "./helpers";
 
+// 后端 AssetMeta.name 并行落地中：fixtures 经断言携带 name（存量资产 = null）
 const OWN_PACKAGE: AssetMeta = {
   asset_id: "pkg-own-1",
   kind: "package",
@@ -18,20 +19,23 @@ const OWN_PACKAGE: AssetMeta = {
   enabled: true,
   created_at: "2026-01-01T00:00:00.000Z",
   modified_at: "2026-01-01T00:00:00.000Z",
-};
+  name: "演示包",
+} as AssetMeta;
 
 const OTHER_PACKAGE: AssetMeta = {
   ...OWN_PACKAGE,
   asset_id: "pkg-other-1",
   owner_id: "usr_someone_else",
-};
+  name: null, // 存量资产：name 为 null
+} as AssetMeta;
 
 const OWN_SHARED_TOOL: AssetMeta = {
   ...OWN_PACKAGE,
   asset_id: "tool-shared-1",
   kind: "tool",
   shared: true,
-};
+  name: "演示工具",
+} as AssetMeta;
 
 /** 资产页 mock：mine 只回自己的；all 回两条（自己的 + 他人的）；tool 页签回一条共享工具 */
 function installAssetMocks(me: User) {
@@ -58,6 +62,23 @@ function installAssetMocks(me: User) {
 }
 
 describe("资产管理", () => {
+  it("名称列：有清单名显示名称；存量资产（name = null）回退为 —", async () => {
+    installAssetMocks(MEMBER_USER);
+    renderApp("/assets");
+    const user = setupUser();
+
+    // 自己的包：名称列显示清单名（不再恒为 —）
+    expect(await screen.findByText("演示包")).toBeTruthy();
+    expect(screen.queryByText("—")).toBeNull();
+
+    // 切到「全部」：他人的存量资产（name = null）名称列回退为 —
+    await selectOption(user, "范围筛选", "全部");
+    expect(
+      await screen.findByText("pkg-other-1…", { exact: false }),
+    ).toBeTruthy();
+    expect(screen.getByText("—")).toBeTruthy();
+  });
+
   it("登记表单提交映射：package 隐藏 shared 选项", async () => {
     const calls = installAssetMocks(MEMBER_USER);
     renderApp("/assets");

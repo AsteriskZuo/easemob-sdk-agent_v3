@@ -102,7 +102,8 @@ describe("业务编辑页「定时任务」区", () => {
     renderApp("/businesses/biz-1");
     // 表格内容
     expect(await screen.findByText("定时任务")).toBeTruthy();
-    expect(await screen.findByText("warmup")).toBeTruthy();
+    // fixture 中任务名与程序名同为 "warmup"，名称/程序两列各渲染一次，故用 findAllByText
+    expect((await screen.findAllByText("warmup")).length).toBeGreaterThan(0);
     expect(screen.getByText("每 720 分钟")).toBeTruthy();
     expect(screen.getByText("60 分钟")).toBeTruthy();
     expect(screen.getByText("success")).toBeTruthy();

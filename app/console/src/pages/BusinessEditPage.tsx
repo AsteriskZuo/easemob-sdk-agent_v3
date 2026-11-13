@@ -40,6 +40,7 @@ import {
   listScheduledTasks,
   runScheduledTask,
 } from "../api/client";
+import { assetName } from "../asset-name";
 import CreateEnvEditor from "../components/CreateEnvEditor";
 import type { EnvKvRow } from "../components/CreateEnvEditor";
 import EnvEditor from "../components/EnvEditor";
@@ -532,9 +533,16 @@ export default function BusinessEditPage() {
     })();
   }, [id, isEdit, form, loadEntryPrograms, reportError]);
 
+  /** 绑定下拉选项：名称为主（同名资产并存时附 id 短码辨认）；存量资产 name = null 回退为完整 id */
   const assetOptions = useMemo(
     () => (list: AssetMeta[]) =>
-      list.map((a) => ({ value: a.asset_id, label: a.asset_id })),
+      list.map((a) => {
+        const name = assetName(a);
+        return {
+          value: a.asset_id,
+          label: name ? `${name}（${a.asset_id.slice(0, 8)}）` : a.asset_id,
+        };
+      }),
     [],
   );
 
