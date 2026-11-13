@@ -83,6 +83,13 @@ export interface LocalRunConfig {
   /** 传给 pi 子进程的环境变量覆盖（传给 createAgentService）；可选，缺省为 {}，值必须为字符串。 */
   pi_env: Record<string, string>;
 
+  /**
+   * pi 内置工具白名单（对应平台包清单的 pi_tools 字段）；可选。
+   * 存在时必须为非空字符串数组，每项 ∈ PI_BUILTIN_TOOLS；
+   * 缺省 undefined = 不开放（--no-tools，与平台语义一致）。
+   */
+  pi_tools?: string[];
+
   /** 配额最终生效值；必填，两个字段都必须为大于 0 的有限数。 */
   quota: LocalRunQuota;
 
@@ -115,6 +122,10 @@ export class ConfigError extends Error {
 function fail(field: string, reason: string): never {
   throw new ConfigError(`配置字段 ${field} 非法：${reason}`);
 }
+
+/** 平台开放的 pi 内置工具枚举（与 packages/asset-registry/src/validate.ts 的
+ *  PI_BUILTIN_TOOLS 同一份冻结语义；local-runner 不依赖 asset-registry，机械重复是有意的——扩枚举两处同改） */
+const PI_BUILTIN_TOOLS = ["read", "grep", "glob"] as const;
 
 /** 判断是否为普通对象（排除 null 与数组）。 */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -337,6 +348,7 @@ const TOP_LEVEL_FIELDS = [
   "pi_agent_dir",
   "pi_cli_path",
   "pi_env",
+  "pi_tools",
   "quota",
   "workspace_root",
   "stub_tools",
@@ -427,6 +439,28 @@ export function loadConfig(configPath: string): LocalRunConfig {
   }
 
   const piEnv = readStringRecord(raw, "pi_env", "config");
+
+  // pi_tools：可选；非空字符串数组，每项 ∈ 平台枚举（同 asset-registry PI_BUILTIN_TOOLS）；
+  // 缺省 undefined = 不开放（--no-tools，与平台语义一致）
+  let piTools: string[] | undefined;
+  if (raw.pi_tools !== undefined) {
+    if (!Array.isArray(raw.pi_tools) || raw.pi_tools.length === 0) {
+      fail("config.pi_tools", "必须为非空字符串数组");
+    }
+    piTools = raw.pi_tools.map((tool, index) => {
+      if (
+        typeof tool !== "string" ||
+        !(PI_BUILTIN_TOOLS as readonly string[]).includes(tool)
+      ) {
+        fail(
+          `config.pi_tools[${index}]`,
+          `非法工具名（允许：${PI_BUILTIN_TOOLS.join(", ")}）`,
+        );
+      }
+      return tool;
+    });
+  }
+
   const quota = readQuota(raw.quota);
 
   // workspace_root：可选，缺省 = 配置目录/workspace；只解析路径，不要求存在（由 CLI 运行前创建）。
@@ -475,6 +509,7 @@ export function loadConfig(configPath: string): LocalRunConfig {
     pi_agent_dir: piAgentDir,
     pi_cli_path: piCliPath,
     pi_env: piEnv,
+    pi_tools: piTools,
     quota,
     workspace_root: workspaceRoot,
     stub_tools: stubTools,

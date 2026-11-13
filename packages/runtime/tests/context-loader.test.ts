@@ -347,6 +347,51 @@ describe("错误路径", () => {
   });
 });
 
+describe("pi_tools 白名单透传", () => {
+  /** 登记一个清单带 pi_tools 的包资产，返回 asset_id */
+  function registerPackageWithPiTools(piTools: string[]): string {
+    return assets.register({
+      kind: "package",
+      url: makeRepo({
+        ...PKG_FILES,
+        "agent-package.json": JSON.stringify({
+          name: "demo",
+          programs: {
+            main: "src/main.js",
+            helper: "src/helper.js",
+            "check-input": "src/check-input.js",
+            "check-output": "src/check-output.js",
+          },
+          pi_tools: piTools,
+        }),
+      }),
+      ref: "HEAD",
+      owner_id: "alice",
+    }).asset_id;
+  }
+
+  it("包清单声明 pi_tools → RunContext.pi_tools 原样带回", () => {
+    const pkg = registerPackageWithPiTools(["read", "grep", "glob"]);
+    const businessId = registry.create({
+      business_name: "工具白名单业务",
+      creator_id: "user-1",
+      source: "jira",
+      event_type: "issue.created",
+      package_asset_id: pkg,
+      entry_program: "main",
+    });
+    const ctx = newLoader().load(businessId, `jira__s__${businessId}`);
+    expect(ctx.pi_tools).toEqual(["read", "grep", "glob"]);
+  });
+
+  it("包清单未声明 pi_tools → RunContext 无该字段（缺省 = 不开放）", () => {
+    const ids = registerAssets();
+    const businessId = createBusiness(ids);
+    const ctx = newLoader().load(businessId, `jira__s__${businessId}`);
+    expect("pi_tools" in ctx).toBe(false);
+  });
+});
+
 describe("业务自定义 Pi 目录与资产开关", () => {
   it("piResolver 返回目录 → RunContext.pi_agent_dir；无 resolver → undefined", () => {
     const ids = registerAssets();

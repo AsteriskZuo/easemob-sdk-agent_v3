@@ -877,6 +877,42 @@ describe("AgentService", () => {
     expect(sink2.calls.length).toBe(0);
   });
 
+  it("16b. pi_tools 声明：agent/compact argv 装配 --tools 名单 + 路径守卫 -e，不含 --no-tools", async () => {
+    const mapping = makeMapping();
+    mapping.bindAgentSession("ch-1", "sess-existed");
+    const ctx = makeCtx({ pi_tools: ["read", "grep", "glob"] });
+    const handle = await serve(makeDeps(mapping), ctx);
+
+    const resp = await call(handle.endpoint, {
+      op: "agent",
+      skills: ["s1"],
+      input: "x",
+    });
+    expect(resp.ok).toBe(true);
+    const argv = readCapture(capture)[0].argv;
+    expect(argvValue(argv, "--tools")).toBe("read,grep,glob");
+    expect(argv).not.toContain("--no-tools");
+    // -e 恰好两个：审计在前、路径守卫在后；其余白名单 flag 不变
+    const extPaths: string[] = [];
+    argv.forEach((a, i) => {
+      if (a === "-e") extPaths.push(argv[i + 1]);
+    });
+    expect(extPaths.length).toBe(2);
+    expect(extPaths[0]).toMatch(/extensions\/audit\.js$/);
+    expect(extPaths[1]).toMatch(/extensions\/path-guard\.js$/);
+    expect(argv).toContain("--no-extensions");
+    expect(argv).toContain("--no-prompt-templates");
+    expect(argv).toContain("--no-context-files");
+
+    // compact 与 agent 同名单同纪律（共用 whitelistFlags(ctx.pi_tools)）
+    const compact = await call(handle.endpoint, { op: "compact" });
+    expect(compact).toMatchObject({ ok: true });
+    const rpcArgv = readCapture(capture)[1].argv;
+    expect(argvValue(rpcArgv, "--tools")).toBe("read,grep,glob");
+    expect(rpcArgv).not.toContain("--no-tools");
+    expect(rpcArgv.filter((a) => a === "-e").length).toBe(2);
+  });
+
   it("16. llm_call_sink 抛异常：op 返回不受影响（调用点防御 try/catch 消化）", async () => {
     const handle = await serve(
       { ...makeDeps(makeMapping()), llm_call_sink: makeSink(true) },

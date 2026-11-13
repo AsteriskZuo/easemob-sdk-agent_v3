@@ -53,7 +53,7 @@ export async function runCompactOp(
     ctx.session_dir,
     "--model",
     ctx.model,
-    ...whitelistFlags(),
+    ...whitelistFlags(ctx.pi_tools),
   ];
 
   const controller = new AbortController();

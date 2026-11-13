@@ -79,7 +79,18 @@ export const sdk = {
     return value;
   },
 
-  /** 读本业务安全变量（平台注入）；未注入该名 → 抛错 */
+  /** 业务缓存根目录绝对路径（业务自管的跨 run 缓存落点，如 git bare 仓缓存；
+   *  平台 run 启动时已建，容量与并发纪律归业务自管）。仅平台→流程程序注入；
+   *  信封缺失（sdk.run 子程序 / mock 信封没给）→ 抛错（与 dataDir() 同风格） */
+  cacheDir(): string {
+    const value = readStdinEnvelope().cacheDir;
+    if (typeof value !== "string" || value.length === 0) {
+      throw new Error(
+        "stdin 信封缺少 cacheDir（仅平台→流程程序注入；sdk.run 子程序无此字段）",
+      );
+    }
+    return value;
+  },
   secret(name: string): string {
     const value = readStdinEnvelope().secrets?.[name];
     if (value === undefined) {

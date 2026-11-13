@@ -235,9 +235,13 @@ export function createWorkflowRunner(
     const logPath = join(businessRoot, "logs", ...channelKey, `${runId}.log`);
     // 业务级持久目录（区别于 runs/ 临时、logs/ 可删）：业务读写状态文件无需自锁；平台不做 TTL
     const dataDir = join(businessRoot, "data", ...channelKey);
+    // 业务缓存根目录（业务自管的跨 run 缓存落点，如 git bare 仓缓存）：平台只建目录，
+    // 容量与并发纪律归业务；与 data 持久目录同根不同类（缓存可整体删除不影响状态）
+    const cacheDir = join(businessRoot, "cache");
     mkdirSync(workspace, { recursive: true });
     mkdirSync(join(logPath, ".."), { recursive: true });
     mkdirSync(dataDir, { recursive: true });
+    mkdirSync(cacheDir, { recursive: true });
 
     // 全局外观脱敏登记：装配根已 initLogger 时生效；未初始化场景静默跳过
     try {
@@ -282,6 +286,7 @@ export function createWorkflowRunner(
       endpoint: req.endpoint,
       programs: req.programs,
       dataDir,
+      cacheDir,
     };
 
     /** 单阶段执行器：三阶段共用（stdout 扫描 / stderr 落业务日志 / fail-closed 判定优先级）。

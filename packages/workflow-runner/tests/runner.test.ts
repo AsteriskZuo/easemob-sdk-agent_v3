@@ -125,6 +125,17 @@ describe("WorkflowRunner", () => {
     expect(existsSync(expected)).toBe(true);
   });
 
+  it("2d. 信封含 cacheDir 且目录已建：{root}/businesses/{business_id}/cache", async () => {
+    const { root, runner } = setup();
+    const outcome = await runner.run(makeReq("echo-cachedir.js"));
+    expect(outcome.status).toBe("success");
+    const output = outcome.output as Record<string, any>;
+    const expected = join(root, "businesses", "biz-1", "cache");
+    expect(output.cacheDir).toBe(expected);
+    expect(output.exists).toBe(true);
+    expect(existsSync(expected)).toBe(true);
+  });
+
   it("3. 业务失败：sdk.fail → failed、reason 含原因", async () => {
     const { runner } = setup();
     const outcome = await runner.run(makeReq("biz-fail.js"));

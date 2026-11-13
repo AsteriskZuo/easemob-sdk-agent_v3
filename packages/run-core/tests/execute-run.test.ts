@@ -169,6 +169,23 @@ describe("executeRun 参数与正常时序", () => {
     expect("pi_agent_dir" in fixture.recorder.serveArg!).toBe(false);
   });
 
+  it("pi_tools 声明时向 serve 透传；未声明时不添加该字段", async () => {
+    const withTools = makeRequest();
+    withTools.context.pi_tools = ["read", "grep", "glob"];
+    const declared = makeFixture({ request: withTools });
+    await executeRun(declared.request, declared.deps);
+    expect(declared.recorder.serveArg?.pi_tools).toEqual([
+      "read",
+      "grep",
+      "glob",
+    ]);
+
+    const undeclared = makeFixture();
+    await executeRun(undeclared.request, undeclared.deps);
+    expect(undeclared.recorder.serveArg).toBeDefined();
+    expect("pi_tools" in undeclared.recorder.serveArg!).toBe(false);
+  });
+
   it.each(["success", "failed", "timeout"] as const)(
     "runner 返回 %s 时 close 恰好一次且不触发错误 hook",
     async (status) => {

@@ -9,6 +9,7 @@ export interface StdinEnvelope {
   endpoint?: { socket_path: string; token: string }; // agent 服务端点（仅平台→流程）
   programs?: Record<string, string>; // 程序名→物化绝对路径映射（本包 programs ∪ 绑定工具 programs）；仅平台→流程程序注入，sdk.run 不向子程序传
   dataDir?: string; // 业务级持久目录绝对路径（{workspace}/businesses/{business_id}/data/{source}/{session_id}/，run 启动时已建）；仅平台→流程程序注入，sdk.run 不向子程序传（叶子无状态语义，子程序确需持久由流程程序自己把路径经 input 传入）
+  cacheDir?: string; // 业务缓存根目录绝对路径（{workspace}/businesses/{business_id}/cache/，run 启动时已建）：业务自管的跨 run 缓存落点，如 git bare 仓缓存；仅平台→流程程序注入，sdk.run 不向子程序传
   output?: unknown; // 主程序产出（仅平台三段编排注入 check-output 程序；其余阶段不注入，sdk.run 不向子程序传）
 }
 

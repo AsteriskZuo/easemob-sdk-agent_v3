@@ -126,6 +126,9 @@ export function createContextLoader(deps: {
       // 5. quota：业务资料覆盖值 ?? 全局默认
       // 业务自定义 Pi 配置：每次 run 从当前生效值重新原子生成派生目录（失败即 run 失败，不回退全局）
       const piAgentDir = deps.piResolver?.resolvePiAgentDir(business_id);
+      // pi 内置工具白名单：取包资产（objects[0]，assetIds 首位恒为 package）清单的 pi_tools 原样透传；
+      // tool/skill 清单无此字段（登记期已拦）；缺省不带 = 不开放（装配侧恒 --no-tools）
+      const pkgManifest = objects[0].manifest;
       return {
         business_id,
         channel_id,
@@ -135,6 +138,9 @@ export function createContextLoader(deps: {
         skills: [...skillByName.values()],
         model: profile.model,
         ...(piAgentDir !== undefined ? { pi_agent_dir: piAgentDir } : {}),
+        ...(pkgManifest.kind === "package" && pkgManifest.pi_tools !== undefined
+          ? { pi_tools: pkgManifest.pi_tools }
+          : {}),
         vars,
         secrets,
         quota: {

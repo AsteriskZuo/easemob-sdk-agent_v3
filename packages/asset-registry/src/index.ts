@@ -8,5 +8,6 @@ export {
   validateAssetShape,
   assertProgramsBuilt,
   assertContractGate,
+  PI_BUILTIN_TOOLS,
 } from "./validate.js";
 export type { AssetKind, AssetManifest } from "./validate.js";

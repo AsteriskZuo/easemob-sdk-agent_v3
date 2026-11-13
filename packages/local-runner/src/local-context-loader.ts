@@ -165,6 +165,8 @@ export function assembleRunContext(config: LocalRunConfig): RunContext {
     ...(config.pi_agent_dir !== undefined
       ? { pi_agent_dir: config.pi_agent_dir }
       : {}),
+    // pi_tools 仅在配置时带上（undefined = 不开放 --no-tools，与平台语义一致）
+    ...(config.pi_tools !== undefined ? { pi_tools: config.pi_tools } : {}),
     vars: config.vars,
     secrets: config.secrets,
     quota: config.quota,

@@ -582,6 +582,78 @@ describe("get", () => {
   });
 });
 
+describe("pi_tools 白名单字段", () => {
+  /** 在 PKG_FILES 基础上覆写清单（pi_tools 由用例给出） */
+  function repoWithPiTools(piTools: unknown): { dir: string } {
+    return makeRepo({
+      ...PKG_FILES,
+      "agent-package.json": JSON.stringify({
+        name: "demo",
+        version: "1.0.0",
+        programs: {
+          main: "src/main.js",
+          "check-input": "src/check-input.js",
+          "check-output": "src/check-output.js",
+        },
+        pi_tools: piTools,
+      }),
+    });
+  }
+
+  it("package 清单声明合法 pi_tools → 登记成功，get 的 manifest 原样带回", () => {
+    const repo = repoWithPiTools(["read", "grep", "glob"]);
+    const meta = registry.register(pkgInput(repo.dir));
+    const obj = registry.get(meta.asset_id);
+    expect(obj.manifest.kind).toBe("package");
+    expect(
+      (obj.manifest as { pi_tools?: string[] }).pi_tools,
+    ).toEqual(["read", "grep", "glob"]);
+  });
+
+  it("package 清单不声明 pi_tools → manifest 无该字段（缺省保持 undefined，不归一）", () => {
+    const repo = makeRepo(PKG_FILES);
+    const meta = registry.register(pkgInput(repo.dir));
+    const obj = registry.get(meta.asset_id);
+    expect("pi_tools" in obj.manifest).toBe(false);
+  });
+
+  it.each([
+    ["非数组", "read"],
+    ["空数组", []],
+    ["含非字符串项", ["read", 1]],
+  ])("package 清单 pi_tools %s → 登记即失败 validation_failed", (_label, bad) => {
+    const repo = repoWithPiTools(bad);
+    expect(() => registry.register(pkgInput(repo.dir))).toThrow(
+      /validation_failed: pi_tools 必须是非空字符串数组/,
+    );
+    expect(registry.list({})).toHaveLength(0);
+  });
+
+  it("package 清单 pi_tools 含枚举外工具名 → 登记即失败 validation_failed 并指出工具名", () => {
+    const repo = repoWithPiTools(["read", "bash"]);
+    expect(() => registry.register(pkgInput(repo.dir))).toThrow(
+      /validation_failed: pi_tools 含平台未开放的 pi 内置工具: bash/,
+    );
+    expect(registry.list({})).toHaveLength(0);
+  });
+
+  it("tool 清单含 pi_tools → 登记即失败 validation_failed（pi_tools 是 package 专属字段）", () => {
+    const repo = makeRepo({
+      "agent-package.json": JSON.stringify({
+        name: "bad-tool",
+        pi_tools: ["read"],
+      }),
+      "agent.materialize.mjs": NOOP_MATERIALIZE_SCRIPT,
+    });
+    expect(() =>
+      registry.register(pkgInput(repo.dir, { kind: "tool" })),
+    ).toThrow(
+      /validation_failed: tool 清单不支持 pi_tools（pi_tools 是 package 专属字段）/,
+    );
+    expect(registry.list({})).toHaveLength(0);
+  });
+});
+
 describe("materialize", () => {
   it("clone 成功、返回路径正确、.git 已删除、marker 存在；二次调用幂等（删掉源仓库仍返回）", () => {
     const repo = makeRepo(PKG_FILES);

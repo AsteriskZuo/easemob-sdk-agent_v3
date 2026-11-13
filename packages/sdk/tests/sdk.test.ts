@@ -176,6 +176,27 @@ describe("sdk 读口", () => {
     expect(missingOut.threw).toBe(true);
     expect(missingOut.message).toContain("dataDir");
   });
+
+  it("cacheDir 注入 → 原样返回；未注入 → 抛错", async () => {
+    const cacheDir = mkdtempSync(join(tmpdir(), "sdk-cachedir-"));
+    const ok = await runFixture("probe-cachedir.js", {
+      stdin: makeEnvelope({ cacheDir }),
+    });
+    expect(ok.code).toBe(0);
+    const okOut = parseResult(ok.stdout).output as Record<string, any>;
+    expect(okOut.cacheDir).toBe(cacheDir);
+
+    const missing = await runFixture("probe-cachedir.js", {
+      stdin: makeEnvelope(),
+    });
+    expect(missing.code).toBe(0);
+    const missingOut = parseResult(missing.stdout).output as Record<
+      string,
+      any
+    >;
+    expect(missingOut.threw).toBe(true);
+    expect(missingOut.message).toContain("cacheDir");
+  });
 });
 
 describe("sdk 出口", () => {

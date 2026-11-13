@@ -26,6 +26,10 @@ export interface RunContext {
   /** 含生效 models.json 的 Pi 配置目录；undefined 表示未配置模型。 */
   pi_agent_dir?: string;
 
+  /** 业务声明的 pi 内置工具白名单（每项 ∈ asset-registry 的 PI_BUILTIN_TOOLS，v1 仅 read/grep/glob）；
+   *  undefined = 不开放（pi 恒 --no-tools）；非空 = --tools <名单> 且平台额外注入路径守卫 extension。 */
+  pi_tools?: string[];
+
   /** 注入业务进程的非机密配置。 */
   vars: Record<string, string>;
 

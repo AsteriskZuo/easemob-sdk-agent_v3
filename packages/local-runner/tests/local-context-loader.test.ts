@@ -161,6 +161,16 @@ describe("assembleRunContext", () => {
     expect("pi_agent_dir" in withoutPi).toBe(false);
   });
 
+  it("pi_tools：配置时带上，未配置时字段不存在（undefined 语义与平台一致）", () => {
+    const withTools = assembleRunContext(
+      makeConfig({ pi_tools: ["read", "grep", "glob"] }),
+    );
+    expect(withTools.pi_tools).toEqual(["read", "grep", "glob"]);
+
+    const withoutTools = assembleRunContext(makeConfig());
+    expect("pi_tools" in withoutTools).toBe(false);
+  });
+
   it("entry_program 找不到：抛 resource_not_found（与平台同格式，config 校验的兜底）", () => {
     expect(() =>
       assembleRunContext(makeConfig({ entry_program: "nonexistent" })),

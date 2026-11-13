@@ -36,6 +36,20 @@ export function resolveAuditExtensionPath(): string {
   throw new Error("@asteriskzuo/agent-service: 未找到 extensions/audit.js");
 }
 
+/** 平台路径守卫 extension 的绝对路径（本包 extensions/path-guard.js）。
+ *  查找逻辑与 resolveAuditExtensionPath 相同（dist/ 与 dist-test/src/ 布局深度不同，向上找） */
+export function resolvePathGuardExtensionPath(): string {
+  let dir = fileURLToPath(new URL(".", import.meta.url));
+  for (let i = 0; i < 5; i += 1) {
+    const candidate = join(dir, "extensions", "path-guard.js");
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  throw new Error("@asteriskzuo/agent-service: 未找到 extensions/path-guard.js");
+}
+
 /** pi 子进程 env：deps 注入的基础 env + PI_CODING_AGENT_DIR + AUDIT_LOG_PATH（不继承其他环境）。
  *  PI_CODING_AGENT_DIR 取本 run 生效的业务派生目录（模型的唯一来源，由调用方从
  *  EffectiveModels 传入；业务未配置时 agent/compact 已在 dispatch 层拦截，到不了这里） */
@@ -51,16 +65,33 @@ export function buildPiEnv(
   };
 }
 
-/** 白名单纪律的公共 flag（agent / compact 两种形态共用）：关闭自动发现，仅注入平台审计 extension */
-export function whitelistFlags(): string[] {
+/** 白名单纪律的公共 flag（agent / compact 两种形态共用）：关闭自动发现，仅注入平台审计 extension。
+ *  piTools（业务清单声明的 pi 内置工具白名单）非空时：`--no-tools` 替换为 `--tools <逗号名单>`，
+ *  并在审计 extension 之后追加注入路径守卫 extension（业务不可摘除，--no-extensions 保证）；
+ *  空/undefined 保持现状（恒 --no-tools） */
+export function whitelistFlags(piTools?: string[]): string[] {
+  if (piTools === undefined || piTools.length === 0) {
+    return [
+      "--no-skills",
+      "--no-extensions",
+      "-e",
+      resolveAuditExtensionPath(),
+      "--no-prompt-templates",
+      "--no-context-files",
+      "--no-tools",
+    ];
+  }
   return [
     "--no-skills",
     "--no-extensions",
     "-e",
     resolveAuditExtensionPath(),
+    "-e",
+    resolvePathGuardExtensionPath(),
     "--no-prompt-templates",
     "--no-context-files",
-    "--no-tools",
+    "--tools",
+    piTools.join(","),
   ];
 }
 
@@ -249,7 +280,10 @@ export async function runAgentOp(
     sessionId = randomUUID();
   }
 
-  // 命令行装配（唯一形态，spec §5.1）
+  // 命令行装配（唯一形态，spec §5.1）。
+  // 公共白名单 flag 与 compact 共用 whitelistFlags(ctx.pi_tools)；其首项 --no-skills 单独拼接，
+  // 让 skill 注入（--append-system-prompt）紧随 --no-skills 之后，保持未声明 pi_tools 时 argv 逐字节不变
+  const [, ...restWhitelistFlags] = whitelistFlags(ctx.pi_tools);
   const args = [
     "-p",
     "--mode",
@@ -264,12 +298,7 @@ export async function runAgentOp(
     effectiveModel,
     "--no-skills",
     ...skillFiles.flatMap((f) => ["--append-system-prompt", f]),
-    "--no-extensions",
-    "-e",
-    resolveAuditExtensionPath(),
-    "--no-prompt-templates",
-    "--no-context-files",
-    "--no-tools",
+    ...restWhitelistFlags,
     inputText,
   ];
 

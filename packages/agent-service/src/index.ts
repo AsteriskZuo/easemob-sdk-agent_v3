@@ -42,6 +42,10 @@ export interface AgentServeContext {
   /** 业务自定义 Pi 配置的派生 agent 目录（含业务 models.json）——模型的唯一来源；
    *  undefined = 业务未配置大模型（agent/compact 拒绝，models 回空枚举） */
   pi_agent_dir?: string;
+  /** 业务的 pi 内置工具白名单（read/grep/glob 子集，来自包清单 pi_tools 字段）；
+   *  undefined = 恒 --no-tools；非空 = --tools <逗号名单> 且额外注入平台路径守卫 extension
+   *  （阻断 pi 工具访问工作区外路径，业务不可摘除） */
+  pi_tools?: string[];
 }
 
 /** 通道会话映射最小面（T5 ChannelStore 结构兼容，本包自定义不 import） */

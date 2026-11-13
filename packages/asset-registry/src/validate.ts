@@ -4,6 +4,10 @@ import path from "node:path";
 /** 资产三族：package（业务代码单位）/ tool（可复用代码组件）/ skill（可复用提示词组件集合） */
 export type AssetKind = "package" | "tool" | "skill";
 
+/** 平台开放的 pi 内置工具枚举（v1 仅只读三件套：无写类/执行类工具）。
+ *  业务包经清单顶层 pi_tools 字段声明 opt-in；扩枚举 = 改本常量 + 重新登记资产，向后兼容 */
+export const PI_BUILTIN_TOOLS = ["read", "grep", "glob"] as const;
+
 /** 清单解析结果：package/tool 来自 agent-package.json；skill 来自集合扫描。
  *  requires 是 package 专属字段（工具是叶子组件，组合归包的胶水代码） */
 export type AssetManifest =
@@ -17,6 +21,9 @@ export type AssetManifest =
       programs: Record<string, string>;
       /** 依赖声明；清单缺省时归一为 { tools: [], skills: [] } */
       requires: { tools: string[]; skills: string[] };
+      /** pi 内置工具白名单（package 专属可选字段）：每项 ∈ PI_BUILTIN_TOOLS；
+       *  缺省保持 undefined（不归一）= 不开放（装配侧恒 --no-tools） */
+      pi_tools?: string[];
     }
   | {
       kind: "tool";
@@ -134,6 +141,33 @@ function validatePackageLike(
     }
   }
 
+  // pi_tools 是 package 专属字段（与 requires 同理防误配，作者立刻知道）；
+  // tool 清单出现即失败（skill 无清单文件，走集合扫描，天然无此字段）
+  if (kind === "tool" && manifest.pi_tools !== undefined) {
+    fail("tool 清单不支持 pi_tools（pi_tools 是 package 专属字段）");
+  }
+
+  // pi_tools（package 专属，可选）：存在时必须是非空字符串数组，每项 ∈ PI_BUILTIN_TOOLS；
+  // 缺省保持 undefined（不归一），装配侧据此维持 --no-tools
+  let piTools: string[] | undefined;
+  if (kind === "package" && manifest.pi_tools !== undefined) {
+    if (
+      !Array.isArray(manifest.pi_tools) ||
+      manifest.pi_tools.length === 0 ||
+      manifest.pi_tools.some((item) => typeof item !== "string")
+    ) {
+      fail("pi_tools 必须是非空字符串数组");
+    }
+    for (const item of manifest.pi_tools as string[]) {
+      if (!(PI_BUILTIN_TOOLS as readonly string[]).includes(item)) {
+        fail(
+          `pi_tools 含平台未开放的 pi 内置工具: ${item}（允许：${PI_BUILTIN_TOOLS.join(", ")}）`,
+        );
+      }
+    }
+    piTools = manifest.pi_tools as string[];
+  }
+
   const base = {
     name: manifest.name,
     ...(manifest.version !== undefined ? { version: manifest.version } : {}),
@@ -142,7 +176,12 @@ function validatePackageLike(
   if (kind === "tool") {
     return { kind, ...base };
   }
-  return { kind, ...base, requires };
+  return {
+    kind,
+    ...base,
+    requires,
+    ...(piTools !== undefined ? { pi_tools: piTools } : {}),
+  };
 }
 
 function validateSkill(assetRoot: string): AssetManifest {

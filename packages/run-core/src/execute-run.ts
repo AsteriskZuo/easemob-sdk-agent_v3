@@ -67,6 +67,8 @@ export async function executeRun(
       ...(context.pi_agent_dir !== undefined
         ? { pi_agent_dir: context.pi_agent_dir }
         : {}),
+      // pi 内置工具白名单：声明时透传给 serve（装配 --tools + 路径守卫）；缺省不带 = --no-tools
+      ...(context.pi_tools !== undefined ? { pi_tools: context.pi_tools } : {}),
     });
   } catch (error) {
     hooks?.onServeError?.(error);

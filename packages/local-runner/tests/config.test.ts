@@ -149,6 +149,27 @@ describe("loadConfig 合法配置", () => {
 
     expect(loadConfig(configPath).pi_cli_path).toBeNull();
   });
+
+  it("pi_tools 合法名单 → 原样装载", () => {
+    const configPath = writeConfig({
+      ...minimalConfig(),
+      pi_tools: ["read", "grep", "glob"],
+    });
+
+    expect(loadConfig(configPath).pi_tools).toEqual(["read", "grep", "glob"]);
+  });
+
+  it.each([
+    ["非数组", "read", /config\.pi_tools.*非空字符串数组/],
+    ["空数组", [], /config\.pi_tools.*非空字符串数组/],
+    ["含非字符串项", ["read", 1], /config\.pi_tools\[1\].*非法工具名/],
+    ["枚举外工具名", ["read", "bash"], /config\.pi_tools\[1\].*非法工具名/],
+  ])("pi_tools %s → ConfigError", (_label, bad, pattern) => {
+    const configPath = writeConfig({ ...minimalConfig(), pi_tools: bad });
+
+    expect(() => loadConfig(configPath)).toThrow(ConfigError);
+    expect(() => loadConfig(configPath)).toThrow(pattern);
+  });
 });
 
 describe("loadConfig 文件级错误", () => {
