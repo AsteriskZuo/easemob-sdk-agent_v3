@@ -395,6 +395,81 @@ describe("三段编排（契约检查）", () => {
   }, 15000);
 });
 
+describe("phases: main-only（定时任务专用，spec 2026-11-13 D4）", () => {
+  /** 读该 run 的业务日志全文（断言跳过日志用） */
+  function readRunLog(root: string): string {
+    const logsDir = logsRootOf(root);
+    const logFiles = readdirSync(logsDir);
+    expect(logFiles).toHaveLength(1);
+    return readFileSync(join(logsDir, logFiles[0]), "utf8");
+  }
+
+  it("有 check 程序的资产也只跑 main：跳过日志落盘、产出正常解析、无 failed_at", async () => {
+    const { root, runner } = setup();
+    // pkg-full 契约要求 payload.issue_key（事件 payload 没有）：三段编排必被 check-input 误杀，
+    // main-only 直接跳过契约探测与两段 check
+    const outcome = await runner.run(
+      makeReq("return-content.js", {
+        programs: {
+          "check-input": fixturePath("pkg-full/apps/check-input/index.js"),
+          "check-output": fixturePath("pkg-full/apps/check-output/index.js"),
+        },
+        phases: "main-only",
+      }),
+    );
+    expect(outcome.status).toBe("success");
+    expect(outcome.failed_at).toBeUndefined();
+    expect(outcome.output).toEqual({ content: "正文内容" });
+    expect(readRunLog(root)).toContain(
+      "main-only 模式：跳过契约校验阶段（定时任务）",
+    );
+  });
+
+  it("main-only 下 metrics 保留键仍从 main 产出剥离", async () => {
+    const { runner } = setup();
+    const outcome = await runner.run(
+      makeReq("return-metrics.js", { phases: "main-only" }),
+    );
+    expect(outcome.status).toBe("success");
+    expect(outcome.metrics).toEqual({
+      decision: "pass",
+      classification: "contact-group",
+      score: 0.98,
+    });
+    expect(outcome.output).toEqual({ content: "正文内容" });
+  });
+
+  it("main-only 下 main 失败 → failed_at 恒 main", async () => {
+    const { runner } = setup();
+    const outcome = await runner.run(
+      makeReq("biz-fail.js", {
+        programs: {
+          "check-input": fixturePath("pkg-full/apps/check-input/index.js"),
+        },
+        phases: "main-only",
+      }),
+    );
+    expect(outcome.status).toBe("failed");
+    expect(outcome.failed_at).toBe("main");
+  });
+
+  it('显式 phases: "all" → 与缺省逐点一致（check-input 失败 failed_at=check-input，不进 main）', async () => {
+    const { runner } = setup();
+    const outcome = await runner.run(
+      makeReq("return-content.js", {
+        programs: {
+          "check-input": fixturePath("pkg-input-fail/check-input.js"),
+          "check-output": fixturePath("pkg-input-fail/check-output.js"),
+        },
+        phases: "all",
+      }),
+    );
+    expect(outcome.status).toBe("failed");
+    expect(outcome.failed_at).toBe("check-input");
+    expect(outcome.reason).toContain("缺少必填字段 payload.issue_key");
+  });
+});
+
 describe("metrics 保留键剥离（契约 D / spec 决策 7）", () => {
   /** 读该 run 的业务日志全文（断言 warn 用） */
   function readRunLog(root: string): string {

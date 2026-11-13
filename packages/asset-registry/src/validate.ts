@@ -8,6 +8,18 @@ export type AssetKind = "package" | "tool" | "skill";
  *  业务包经清单顶层 pi_tools 字段声明 opt-in；扩枚举 = 改本常量 + 重新登记资产，向后兼容 */
 export const PI_BUILTIN_TOOLS = ["read", "grep", "glob"] as const;
 
+/** 定时任务声明（package 清单顶层 scheduled_tasks 数组项，spec 2026-11-13 D1） */
+export interface ScheduledTaskDecl {
+  /** 任务名：非空、同清单内唯一；必须过 channel 段规则（不得含 "__"、/ \ : 与控制字符）——它直接用作 session_id 段 */
+  name: string;
+  /** 程序名：必须 ∈ 同清单 programs 键（登记期 fail-fast） */
+  program: string;
+  /** 触发间隔分钟：整数 ≥1（tick 粒度 60s，小于 1 无意义） */
+  every_minutes: number;
+  /** 可选超时（分钟，整数 ≥1）：缺省用业务/全局 quota；预热类冷启动耗时可能超默认值，业务可自提 */
+  timeout_minutes?: number;
+}
+
 /** 清单解析结果：package/tool 来自 agent-package.json；skill 来自集合扫描。
  *  requires 是 package 专属字段（工具是叶子组件，组合归包的胶水代码） */
 export type AssetManifest =
@@ -24,6 +36,9 @@ export type AssetManifest =
       /** pi 内置工具白名单（package 专属可选字段）：每项 ∈ PI_BUILTIN_TOOLS；
        *  缺省保持 undefined（不归一）= 不开放（装配侧恒 --no-tools） */
       pi_tools?: string[];
+      /** 定时任务声明（package 专属可选字段，spec 2026-11-13 D1）：平台按节奏自动触发无事件 run；
+       *  缺省保持 undefined（不归一）= 无定时任务 */
+      scheduled_tasks?: ScheduledTaskDecl[];
     }
   | {
       kind: "tool";
@@ -46,6 +61,84 @@ function fail(reason: string): never {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// 与 contracts assertSafeSegment 同规则（非空、不含 "__"、不含 / \ : 与控制字符），改动需同步；
+// asset-registry 不依赖 contracts（资产登记不反向依赖契约包），此处内联等价判定
+const SEGMENT_ILLEGAL_CHARS = /[/\\:\x00-\x1f\x7f]/;
+
+/** channel 段合法性（assertSafeSegment 同口径）：任务名直接用作 session_id 段 */
+function isSafeSegment(segment: string): boolean {
+  return (
+    segment.length > 0 &&
+    !segment.includes("__") &&
+    !SEGMENT_ILLEGAL_CHARS.test(segment)
+  );
+}
+
+/** scheduled_tasks 形状校验（package 清单；spec 2026-11-13 D1）：全量收集问题一次报出。
+ *  programs 为同清单已解析的程序名→路径映射（program 必须 ∈ 其键，登记期 fail-fast） */
+function validateScheduledTasks(
+  raw: unknown,
+  programs: Record<string, string>,
+): ScheduledTaskDecl[] {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    fail("scheduled_tasks 必须是非空数组");
+  }
+  const problems: string[] = [];
+  const seen = new Set<string>();
+  for (const [index, item] of raw.entries()) {
+    const at = `scheduled_tasks[${index}]`;
+    if (!isPlainObject(item)) {
+      problems.push(`${at} 必须是对象`);
+      continue;
+    }
+    if (typeof item.name !== "string" || item.name === "") {
+      problems.push(`${at}.name 必须是非空字符串`);
+    } else {
+      if (seen.has(item.name)) {
+        problems.push(`${at}.name 重复: ${item.name}`);
+      }
+      seen.add(item.name);
+      if (!isSafeSegment(item.name)) {
+        problems.push(
+          `${at}.name 含非法字符或 "__"（任务名直接用作 session_id 段）: ${item.name}`,
+        );
+      }
+    }
+    if (typeof item.program !== "string" || item.program === "") {
+      problems.push(`${at}.program 必须是非空字符串`);
+    } else if (!(item.program in programs)) {
+      problems.push(`${at}.program 不在同清单 programs 键中: ${item.program}`);
+    }
+    if (
+      typeof item.every_minutes !== "number" ||
+      !Number.isInteger(item.every_minutes) ||
+      item.every_minutes < 1
+    ) {
+      problems.push(`${at}.every_minutes 必须是 ≥1 的整数`);
+    }
+    if (
+      item.timeout_minutes !== undefined &&
+      (typeof item.timeout_minutes !== "number" ||
+        !Number.isInteger(item.timeout_minutes) ||
+        item.timeout_minutes < 1)
+    ) {
+      problems.push(`${at}.timeout_minutes 必须是 ≥1 的整数`);
+    }
+  }
+  if (problems.length > 0) {
+    fail(`scheduled_tasks 校验失败：\n- ${problems.join("\n- ")}`);
+  }
+  // 只带声明字段（timeout_minutes 缺省保持 undefined，不归一）
+  return (raw as Array<Record<string, unknown>>).map((item) => ({
+    name: item.name as string,
+    program: item.program as string,
+    every_minutes: item.every_minutes as number,
+    ...(item.timeout_minutes !== undefined
+      ? { timeout_minutes: item.timeout_minutes as number }
+      : {}),
+  }));
 }
 
 /** 校验相对路径形态：非绝对、不含 .. 段、扩展名 .js（清单 programs 形状规则，物化构建前校验） */
@@ -168,6 +261,21 @@ function validatePackageLike(
     piTools = manifest.pi_tools as string[];
   }
 
+  // scheduled_tasks 是 package 专属字段（与 pi_tools 同理防误配，作者立刻知道）；
+  // tool 清单出现即失败（skill 无清单文件，走集合扫描，天然无此字段）
+  if (kind === "tool" && manifest.scheduled_tasks !== undefined) {
+    fail(
+      "tool 清单不支持 scheduled_tasks（scheduled_tasks 是 package 专属字段）",
+    );
+  }
+
+  // scheduled_tasks（package 专属，可选）：存在时全量校验（含 program ∈ programs 键，
+  // 需在校验完 programs 之后判定）；缺省保持 undefined（不归一）= 无定时任务
+  let scheduledTasks: ScheduledTaskDecl[] | undefined;
+  if (kind === "package" && manifest.scheduled_tasks !== undefined) {
+    scheduledTasks = validateScheduledTasks(manifest.scheduled_tasks, programs);
+  }
+
   const base = {
     name: manifest.name,
     ...(manifest.version !== undefined ? { version: manifest.version } : {}),
@@ -181,6 +289,9 @@ function validatePackageLike(
     ...base,
     requires,
     ...(piTools !== undefined ? { pi_tools: piTools } : {}),
+    ...(scheduledTasks !== undefined
+      ? { scheduled_tasks: scheduledTasks }
+      : {}),
   };
 }
 

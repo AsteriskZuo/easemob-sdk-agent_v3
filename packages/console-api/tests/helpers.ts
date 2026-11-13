@@ -32,6 +32,7 @@ import type {
   LifecycleWriter,
   LlmCallStore,
   RunMetricsStore,
+  TaskScheduler,
 } from "@asteriskzuo/agent-runtime";
 import { createConsoleApi } from "../src/index.js";
 import type { ConsoleApi, EffectiveConfigView } from "../src/index.js";
@@ -307,9 +308,23 @@ function testHandbookDir(): string {
   throw new Error("测试找不到 handbook/generated/console");
 }
 
+/** 测试桩：定时任务调度器（默认空清单；路由用例经 options.task_scheduler 注入可控实现） */
+function createStubTaskScheduler(): TaskScheduler {
+  return {
+    start: () => {},
+    stop: () => Promise.resolve(),
+    runNow: (business_id, task_name) =>
+      Promise.reject(
+        new Error(`scheduled_task_not_found: ${business_id}/${task_name}`),
+      ),
+    describeTasks: () => Promise.resolve([]),
+  };
+}
+
 /** 起测试服务。deps 全真实（无 mock）；bootstrap_admin 注入首启 admin；static_dir 开启静态托管；
  *  run_metrics = true 时把 runMetrics store 装配进 API（缺省不装配，用于验证 biz.* 缺省降级）；
- *  workspace_root 传入时装配日志接口（缺省 = 日志路由一律 404 降级形态） */
+ *  workspace_root 传入时装配日志接口（缺省 = 日志路由一律 404 降级形态）；
+ *  task_scheduler 传入时替换默认定时任务桩（定时任务路由用例） */
 export async function startTestServer(
   options: {
     bootstrap_admin?: { username: string; password: string };
@@ -317,6 +332,7 @@ export async function startTestServer(
     handbook_dir?: string;
     run_metrics?: boolean;
     workspace_root?: string;
+    task_scheduler?: TaskScheduler;
   } = {},
 ): Promise<TestServer> {
   ensureTestLogger();
@@ -345,6 +361,7 @@ export async function startTestServer(
       entryQueue,
       exitQueue,
       lifecycle,
+      taskScheduler: options.task_scheduler ?? createStubTaskScheduler(),
       config: TEST_CONFIG_VIEW,
     },
     {

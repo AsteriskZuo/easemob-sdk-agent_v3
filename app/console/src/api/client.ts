@@ -1,4 +1,5 @@
 import type { ApiErrorBody } from "@asteriskzuo/agent-console-api";
+import type { TaskView } from "@asteriskzuo/agent-console-api";
 
 /** API 错误：错误体解析产物（code/status 保留，UI 据 code 分流提示） */
 export class ApiError extends Error {
@@ -109,4 +110,25 @@ export async function apiFetch<T>(
     );
   }
   return data as T;
+}
+
+/** GET /api/businesses/:id/scheduled-tasks：业务定时任务清单 + 各自最近 run 状态（spec 2026-11-13 D6） */
+export function listScheduledTasks(
+  businessId: string,
+): Promise<{ tasks: TaskView[] }> {
+  return apiFetch(
+    `/api/businesses/${encodeURIComponent(businessId)}/scheduled-tasks`,
+  );
+}
+
+/** POST /api/businesses/:id/scheduled-tasks/:name/run：手动立即执行一次；
+ *  202 = 已发起（执行在后台）；任务在跑 → ApiError code=conflict */
+export function runScheduledTask(
+  businessId: string,
+  name: string,
+): Promise<{ run_id: string }> {
+  return apiFetch(
+    `/api/businesses/${encodeURIComponent(businessId)}/scheduled-tasks/${encodeURIComponent(name)}/run`,
+    { method: "POST" },
+  );
 }

@@ -233,3 +233,43 @@ rm -rf .local-run/workspace/businesses/<business_id>/data/<source>/<session_id>
 - 不管下游服务与出口适配的真实行为——出口副作用用 `stub_tools` 护栏；
 - 不验证业务输出质量，只保证上下文等值与流程可跑通；
 - npm 发布形态、控制台一键导出回放包属后续衔接（spec §13）。
+
+## 9. 附：本地执行定时任务程序（无事件 run 对等）
+
+定时任务（spec `docs/specs/2026-11-13-scheduled-task-spec.md` 决策 D7）是平台按节奏自动触发的无事件 run。local-runner **零改动**：定时任务上下文无事件、形状极简，手工构造信封用管道喂给程序即可——本地与平台执行的是同一份产物、同一套凭据、同一个 bare 缓存布局。
+
+以 sdk-log-analysis 的仓预热（warmup）为例（前置：业务包已构建，产物 `business/sdk-log-analysis/package/dist/apps/warmup/index.js` 存在，构建方式见 §2）：
+
+```bash
+echo '{
+  "contract_version": "v1",
+  "input": {
+    "contract_version": "v1",
+    "source": "manual",
+    "event_id": "manual:warmup:001",
+    "event_type": "scheduled.warmup",
+    "timestamp": "2026-11-13T16:00:00.000+08:00",
+    "session_id": "warmup",
+    "correlation_id": "manual:warmup:001",
+    "hop_count": 0,
+    "payload": { "task_name": "warmup", "trigger": "manual" }
+  },
+  "config": {
+    "sdk_repo_url": "https://github.com/easemob/emclient-linux",
+    "sdk_repo_account": "<git 账号名，公开仓可省>"
+  },
+  "secrets": {
+    "git_account_<账号名>_username": "<用户名>",
+    "git_account_<账号名>_token": "<令牌>"
+  },
+  "cacheDir": "<repo>/.local-run/workspace/businesses/sdk-log-analysis/cache"
+}' | node business/sdk-log-analysis/package/dist/apps/warmup/index.js
+```
+
+要点：
+
+- **程序实际消费的字段**只有 `config` / `secrets` / `cacheDir` 三个：`config.sdk_repo_url` 必填（http(s) URL，控制台登记值，照抄方法同 §6.2 的 SQL）；`config.sdk_repo_account` + `secrets` 里 `git_account_{账号}_username/token` 一对是私有仓凭据（宽容读，缺一按无凭据继续——公开仓两组都可全省）。`input` 是合成事件（形状见 spec §5），warmup 不读它，但信封契约要求 `input` 字段必须存在。
+- **cacheDir 布局与平台一致**：bare 缓存落在 `{cacheDir}/repos/{slug}`，锁是 `{cacheDir}/repos/.lock`（mkdir 原子获取）——与平台预热、事件 run 的 prepareWorktree 共用**同一把锁、同一套协议**，指向同一目录时本地与平台互斥等锁、不会写坏缓存。
+- **cacheDir 目录先自建**：平台 run 启动时会代建，手工执行不会——首次跑前 `mkdir -p` 该目录。
+- **结果判定**：exit 0 + stdout 结果行 `{"contract_version":"v1","ok":true,"output":{...}}`（`output.action` 为 `cloned`（冷仓首克隆）或 `fetched`（热仓增量 fetch），另含耗时与 repo_dir）；exit 1 + `ok:false`，`reason` 即失败原因（凭据已脱敏），stderr 有完整业务日志。
+- **不喂 TTY**：直接 `node ...` 不带管道会因 stdin 无注入输入报错——必须经管道或重定向喂入信封。

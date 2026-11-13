@@ -28,6 +28,9 @@ export interface RunRequest {
   endpoint: { socket_path: string; token: string }; // AgentService 开的 per-run 端点（T11）
   quota: { timeout_minutes: number }; // wall-clock 超时；agent 调用次数配额归 T11 服务端
   run_id?: string; // 可选：调用方指定 run_id（缺省内部生成 run_${ulid}）；workspace/日志路径按它派生。须匹配 run_ + 26 位 ulid，不符 → 抛错（平台自身错误）
+  /** 编排阶段选择：缺省 "all" = 三段编排现状（契约探测 + check-input/main/check-output）；
+   *  "main-only" 仅定时任务用——跳过契约探测与 check-input/check-output，只跑 main 全量信封；事件 run 严禁使用 */
+  phases?: "all" | "main-only";
 }
 
 /** 失败阶段分类（契约设计 §5 三段编排）：成功无此字段；结构化分类由此承担，报错文字前缀不再承担分类职责 */
@@ -465,6 +468,14 @@ export function createWorkflowRunner(
     })();
 
     const plan: CheckPhasePlan = (() => {
+      // main-only 模式（定时任务专用，spec 2026-11-13 D4）：无事件契约可言，
+      // 跳过契约探测结果与两段 check，只跑 main 全量信封（failed_at 自然恒 "main"）
+      if (req.phases === "main-only") {
+        bizSink("info", {
+          message: "main-only 模式：跳过契约校验阶段（定时任务）",
+        });
+        return {};
+      }
       switch (probe.kind) {
         case "ok": {
           const next: CheckPhasePlan = {};

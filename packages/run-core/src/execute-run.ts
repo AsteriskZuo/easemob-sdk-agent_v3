@@ -27,6 +27,10 @@ export interface ExecuteRunRequest {
 
   /** run 级模型请求审计文件绝对路径；父目录由调用方创建。 */
   audit_log_path: string;
+
+  /** 编排阶段选择（原样透传 WorkflowRunner 的 RunRequest.phases）：缺省 "all" = 三段编排现状；
+   *  仅定时任务用 "main-only"（跳过契约探测与 check 阶段），事件 run 严禁使用 */
+  phases?: "all" | "main-only";
 }
 
 export interface ExecuteRunDeps {
@@ -87,6 +91,8 @@ export async function executeRun(
         endpoint: handle.endpoint,
         quota: { timeout_minutes: context.quota.timeout_minutes },
         run_id: request.run_id,
+        // 阶段选择透传（缺省不带 = "all" 现状；仅定时任务链路注入 "main-only"）
+        ...(request.phases !== undefined ? { phases: request.phases } : {}),
       });
     } catch (error) {
       hooks?.onRunnerError?.(error);

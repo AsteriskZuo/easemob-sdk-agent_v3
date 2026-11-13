@@ -42,4 +42,6 @@ export type {
   LifecycleStatus,
   LlmCallEntry,
   RunMetricEntry,
+  TaskScheduler,
+  TaskView,
 } from "@asteriskzuo/agent-runtime";

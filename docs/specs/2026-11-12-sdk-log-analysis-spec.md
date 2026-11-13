@@ -463,7 +463,7 @@ skill 版本从 1.0.0 开始。
 | D7 | 结果通知渠道 | 只走企业微信，不写 Jira comments | **已定**（2026-11-12 用户明确） |
 | D8 | 下游过滤规则的准确来源 | 平移 v2 生产规则（§4.3）：实质门槛 = 审查 pass + 负责人 tags 含 `sdk`（v2 `CATEGORY_SUBSCRIPTION_TAG`）；「SDK前端分类」表述纠正为人员标签判据；scenarios 路由键不平移（v3 单下游，路由无意义） | **已定**（2026-11-12 用户指认 v2 仓库核实） |
 | D9 | 源码仓从「本机路径」改为「远端 URL + bare 缓存」 | 实测 bare clone >20 分钟（每事件拉仓不可接受）、worktree add ~1.5s（缓存+预热成立）；信封注入 `cacheDir`（`businesses/{bid}/cache/`）+ `sdk.cacheDir()`（sdk 升 0.6.0 发布）；锁协议三动作：首克隆（临时目录+rename）、fetch、prune；并发靠 detached worktree 天然解决；废除 ALLOWED_REMOTES 白名单与「沿用本机凭据」分支；叙述裸版本号按 `SDK_` 归一化重试一次 | **已定**（2026-11-13 用户逐点确认） |
-| D10 | 仓保活方式 | 平台新增「定时任务规则」：业务包声明周期性动作（agent-package.json），平台按节奏或手动触发**无事件 run**，预热脚本与运行时**共用同一锁**；fetch 全部分支（不枚举分支清单）；本期 T4 只留运行时 fetch 兜底，平台规则 + 预热脚本为下一任务 | **已定**（2026-11-13 用户认可方案） |
+| D10 | 仓保活方式 | 平台新增「定时任务规则」：业务包声明周期性动作（agent-package.json），平台按节奏或手动触发**无事件 run**，预热脚本与运行时**共用同一锁**；fetch 全部分支（不枚举分支清单）；本期 T4 只留运行时 fetch 兜底，平台规则 + 预热脚本为下一任务。**已细化为独立 spec：`docs/specs/2026-11-13-scheduled-task-spec.md`** | **已定**（2026-11-13 用户认可方案） |
 | D11 | git 账号 key 口径 | key 按**账号**（用户定：容易留给用户，麻烦留给代码）：普通桶 `sdk_repo_account` + 安全桶 `git_account_{账号名}_username/token`，一对账号多仓共用；公开仓读取常不配（代码宽容读），但公开仓也可能配（未来 review 写 PR comments）——代码不做「公开仓=无账号」限制 | **已定**（2026-11-13 用户明确） |
 | D12 | ref 解析失败回退主线 | 选中 ref 在解析阶梯最终失败 → 回退 `config.mainline_ref`（缺省 msync）重试一次，provenance 记回退说明、版本置信度 branch-head；选中的本来就是主线不自我重复；连主线也失败才 fail（§6.5/§6.6）。log-bot ref-resolver.js `fallbackRef` + repository-set.js preparer 语义的补移植 | **已定**（2026-11-13 用户核对 v2 生产代码确认） |
 

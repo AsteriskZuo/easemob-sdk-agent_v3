@@ -8,7 +8,11 @@ import { logger } from "@asteriskzuo/agent-logger";
 import type { TaskQueue } from "@asteriskzuo/agent-queue";
 import type { BusinessRegistry } from "@asteriskzuo/agent-registry";
 import type { EnvProvider, LifecycleStore } from "@asteriskzuo/agent-runtime";
-import type { LlmCallStore, RunMetricsStore } from "@asteriskzuo/agent-runtime";
+import type {
+  LlmCallStore,
+  RunMetricsStore,
+  TaskScheduler,
+} from "@asteriskzuo/agent-runtime";
 import { createAccountService } from "./accounts.js";
 import type { User } from "./accounts.js";
 import { ApiError, statusOf, toApiError } from "./errors.js";
@@ -27,6 +31,7 @@ import { handbookRoutes } from "./routes-handbook.js";
 import { monitoringRoutes } from "./routes-monitoring.js";
 import { piConfigRoutes } from "./routes-pi-config.js";
 import type { BusinessPiConfigService } from "./routes-pi-config.js";
+import { scheduledTaskRoutes } from "./routes-scheduled-tasks.js";
 import { statsRoutes } from "./routes-stats.js";
 import { userRoutes } from "./routes-users.js";
 import type { UpdateSubmitter } from "./updates.js";
@@ -53,6 +58,8 @@ export interface ConsoleApiDeps {
   exitQueue: TaskQueue;
   /** 运行记录读口（/api/businesses/:id/runs、/api/runs/:id） */
   lifecycle: LifecycleStore;
+  /** 定时任务调度器（GET/POST /api/businesses/:id/scheduled-tasks*，装配根注入 runtime 实例） */
+  taskScheduler: TaskScheduler;
   /** GET /api/config 回显源（ServerConfig 的非敏感子集，装配层负责映射） */
   config: EffectiveConfigView;
 }
@@ -119,6 +126,10 @@ export function createConsoleApi(
       updates: deps.updates,
     }),
     ...piConfigRoutes({ registry: deps.registry, piConfig: deps.piConfig }),
+    ...scheduledTaskRoutes({
+      registry: deps.registry,
+      taskScheduler: deps.taskScheduler,
+    }),
     ...configRoutes({
       config: deps.config,
       exits: deps.exits,

@@ -654,6 +654,171 @@ describe("pi_tools 白名单字段", () => {
   });
 });
 
+describe("scheduled_tasks 定时任务声明", () => {
+  /** 在 PKG_FILES 基础上覆写清单（scheduled_tasks 由用例给出） */
+  function repoWithTasks(tasks: unknown): { dir: string } {
+    return makeRepo({
+      ...PKG_FILES,
+      "agent-package.json": JSON.stringify({
+        name: "demo",
+        version: "1.0.0",
+        programs: {
+          main: "src/main.js",
+          "check-input": "src/check-input.js",
+          "check-output": "src/check-output.js",
+        },
+        scheduled_tasks: tasks,
+      }),
+    });
+  }
+
+  it("package 清单声明合法 scheduled_tasks（timeout 缺省）→ 登记成功，get 的 manifest 原样带回", () => {
+    const repo = repoWithTasks([
+      { name: "warmup", program: "main", every_minutes: 720 },
+    ]);
+    const meta = registry.register(pkgInput(repo.dir));
+    const obj = registry.get(meta.asset_id);
+    expect(obj.manifest.kind).toBe("package");
+    expect(
+      (obj.manifest as { scheduled_tasks?: unknown[] }).scheduled_tasks,
+    ).toEqual([{ name: "warmup", program: "main", every_minutes: 720 }]);
+  });
+
+  it("多任务 + timeout_minutes → 全部带回", () => {
+    const repo = repoWithTasks([
+      { name: "warmup", program: "main", every_minutes: 720, timeout_minutes: 60 },
+      { name: "sweep", program: "check-input", every_minutes: 30 },
+    ]);
+    const meta = registry.register(pkgInput(repo.dir));
+    const obj = registry.get(meta.asset_id);
+    expect(
+      (obj.manifest as { scheduled_tasks?: unknown[] }).scheduled_tasks,
+    ).toEqual([
+      { name: "warmup", program: "main", every_minutes: 720, timeout_minutes: 60 },
+      { name: "sweep", program: "check-input", every_minutes: 30 },
+    ]);
+  });
+
+  it("package 清单不声明 scheduled_tasks → manifest 无该字段（缺省保持 undefined，不归一）", () => {
+    const repo = makeRepo(PKG_FILES);
+    const meta = registry.register(pkgInput(repo.dir));
+    const obj = registry.get(meta.asset_id);
+    expect("scheduled_tasks" in obj.manifest).toBe(false);
+  });
+
+  it.each([
+    ["非数组", "warmup"],
+    ["空数组", []],
+    ["含非对象项", [{ name: "a", program: "main", every_minutes: 1 }, "x"]],
+  ])(
+    "package 清单 scheduled_tasks %s → 登记即失败 validation_failed",
+    (_label, bad) => {
+      const repo = repoWithTasks(bad);
+      expect(() => registry.register(pkgInput(repo.dir))).toThrow(
+        /validation_failed: scheduled_tasks/,
+      );
+      expect(registry.list({})).toHaveLength(0);
+    },
+  );
+
+  it.each([
+    ["name 空", [{ name: "", program: "main", every_minutes: 1 }], "name 必须是非空字符串"],
+    [
+      "name 重复",
+      [
+        { name: "a", program: "main", every_minutes: 1 },
+        { name: "a", program: "main", every_minutes: 2 },
+      ],
+      'name 重复: a',
+    ],
+    [
+      'name 含 "__"',
+      [{ name: "a__b", program: "main", every_minutes: 1 }],
+      '含非法字符或 "__"',
+    ],
+    [
+      "name 含 /",
+      [{ name: "a/b", program: "main", every_minutes: 1 }],
+      '含非法字符或 "__"',
+    ],
+    [
+      "name 含 :",
+      [{ name: "a:b", program: "main", every_minutes: 1 }],
+      '含非法字符或 "__"',
+    ],
+    [
+      "program 不在 programs 键",
+      [{ name: "a", program: "nope", every_minutes: 1 }],
+      "program 不在同清单 programs 键中: nope",
+    ],
+    [
+      "program 空",
+      [{ name: "a", program: "", every_minutes: 1 }],
+      "program 必须是非空字符串",
+    ],
+    [
+      "every_minutes 非整数",
+      [{ name: "a", program: "main", every_minutes: 1.5 }],
+      "every_minutes 必须是 ≥1 的整数",
+    ],
+    [
+      "every_minutes < 1",
+      [{ name: "a", program: "main", every_minutes: 0 }],
+      "every_minutes 必须是 ≥1 的整数",
+    ],
+    [
+      "timeout_minutes 非整数",
+      [{ name: "a", program: "main", every_minutes: 1, timeout_minutes: 0.5 }],
+      "timeout_minutes 必须是 ≥1 的整数",
+    ],
+    [
+      "timeout_minutes < 1",
+      [{ name: "a", program: "main", every_minutes: 1, timeout_minutes: 0 }],
+      "timeout_minutes 必须是 ≥1 的整数",
+    ],
+  ])(
+    "package 清单 scheduled_tasks %s → 登记即失败 validation_failed 并指出原因",
+    (_label, bad, reason) => {
+      const repo = repoWithTasks(bad);
+      expect(() => registry.register(pkgInput(repo.dir))).toThrow(
+        new RegExp(`validation_failed: scheduled_tasks[\\s\\S]*${reason}`),
+      );
+      expect(registry.list({})).toHaveLength(0);
+    },
+  );
+
+  it("多个问题全量收集一次报出（不遇第一个就停）", () => {
+    const repo = repoWithTasks([
+      { name: "a__b", program: "nope", every_minutes: 0 },
+    ]);
+    let message = "";
+    try {
+      registry.register(pkgInput(repo.dir));
+    } catch (err) {
+      message = (err as Error).message;
+    }
+    expect(message).toContain('含非法字符或 "__"');
+    expect(message).toContain("program 不在同清单 programs 键中: nope");
+    expect(message).toContain("every_minutes 必须是 ≥1 的整数");
+  });
+
+  it("tool 清单含 scheduled_tasks → 登记即失败 validation_failed（scheduled_tasks 是 package 专属字段）", () => {
+    const repo = makeRepo({
+      "agent-package.json": JSON.stringify({
+        name: "bad-tool",
+        scheduled_tasks: [{ name: "a", program: "x", every_minutes: 1 }],
+      }),
+      "agent.materialize.mjs": NOOP_MATERIALIZE_SCRIPT,
+    });
+    expect(() =>
+      registry.register(pkgInput(repo.dir, { kind: "tool" })),
+    ).toThrow(
+      /validation_failed: tool 清单不支持 scheduled_tasks（scheduled_tasks 是 package 专属字段）/,
+    );
+    expect(registry.list({})).toHaveLength(0);
+  });
+});
+
 describe("materialize", () => {
   it("clone 成功、返回路径正确、.git 已删除、marker 存在；二次调用幂等（删掉源仓库仍返回）", () => {
     const repo = makeRepo(PKG_FILES);

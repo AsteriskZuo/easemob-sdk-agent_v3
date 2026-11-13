@@ -13,7 +13,9 @@ import {
   Modal,
   Select,
   Switch,
+  Table,
   Tabs,
+  Tag,
 } from "antd";
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -27,10 +29,17 @@ import type {
   EntryAdapterView,
   ExitToolMenuItem,
   HandbookPage,
+  LifecycleStatus,
   MatchBody,
   PatchBusinessBody,
+  TaskView,
 } from "@asteriskzuo/agent-console-api";
-import { apiFetch, ApiError } from "../api/client";
+import {
+  apiFetch,
+  ApiError,
+  listScheduledTasks,
+  runScheduledTask,
+} from "../api/client";
 import CreateEnvEditor from "../components/CreateEnvEditor";
 import type { EnvKvRow } from "../components/CreateEnvEditor";
 import EnvEditor from "../components/EnvEditor";
@@ -44,6 +53,7 @@ import EffectivenessNote from "../components/EffectivenessNote";
 import PiConfigSection from "../components/PiConfigSection";
 import SectionHelp from "../components/SectionHelp";
 import { handbookBody } from "../handbook";
+import { RUN_STATUS_COLOR } from "../run-columns";
 
 /** 表单字段（antd Form 承载的部分；匹配行与出口配置走独立 state） */
 interface BusinessFormValues {
@@ -289,12 +299,54 @@ export default function BusinessEditPage() {
   const [modelConfigured, setModelConfigured] = useState(false);
   // 当前页面的 tip/drawer 内容唯一来源：handbook YAML → generated JSON → console-api
   const [handbook, setHandbook] = useState<HandbookPage>({});
+  // 定时任务清单（仅编辑态；包清单 scheduled_tasks 声明驱动，spec 2026-11-13 D6）
+  const [scheduledTasks, setScheduledTasks] = useState<TaskView[]>([]);
+  // 「立即执行」按钮 loading 态（任务名；null = 无在飞点击）
+  const [runningTaskName, setRunningTaskName] = useState<string | null>(null);
 
   const reportError = useCallback(
     (err: unknown, fallback: string) => {
       message.error(err instanceof ApiError ? err.message : fallback);
     },
     [message],
+  );
+
+  /** 加载定时任务清单（仅编辑态；无声明的业务返回空数组 → 区块不渲染） */
+  const loadScheduledTasks = useCallback(async () => {
+    if (!isEdit || id === undefined) return;
+    try {
+      const res = await listScheduledTasks(id);
+      setScheduledTasks(res.tasks);
+    } catch (err) {
+      reportError(err, "加载定时任务失败");
+    }
+  }, [isEdit, id, reportError]);
+
+  // 编辑态挂载时加载定时任务清单
+  useEffect(() => {
+    void loadScheduledTasks();
+  }, [loadScheduledTasks]);
+
+  /** 手动「立即执行」：202 = 已发起（执行在后台）；409 = 该任务正在运行；完成后刷新列表 */
+  const runTask = useCallback(
+    async (taskName: string) => {
+      if (id === undefined) return;
+      setRunningTaskName(taskName);
+      try {
+        await runScheduledTask(id, taskName);
+        message.success(`已发起执行（任务 ${taskName}），运行记录稍后可见`);
+      } catch (err) {
+        if (err instanceof ApiError && err.code === "conflict") {
+          message.warning("该任务正在运行");
+        } else {
+          reportError(err, "发起执行失败");
+        }
+      } finally {
+        setRunningTaskName(null);
+        void loadScheduledTasks();
+      }
+    },
+    [id, message, reportError, loadScheduledTasks],
   );
 
   /** 选中包 → 拉详情取 manifest.programs 键列表（entry_program 下拉数据源） */
@@ -1382,6 +1434,70 @@ export default function BusinessEditPage() {
             </div>
           </Card>
         </div>
+
+        {/* 定时任务（仅编辑态且包清单有声明才显示）：只读清单 + 手动「立即执行」。
+            声明归包清单 scheduled_tasks（平台登记期校验），本区不开放编辑 */}
+        {isEdit && scheduledTasks.length > 0 && (
+          <div id="sec-scheduled-tasks">
+            <Card title="定时任务" style={{ marginBottom: 16 }}>
+              <Table<TaskView>
+                rowKey="name"
+                size="small"
+                pagination={false}
+                dataSource={scheduledTasks}
+                columns={[
+                  { title: "名称", dataIndex: "name" },
+                  { title: "程序", dataIndex: "program" },
+                  {
+                    title: "节奏",
+                    render: (_, task) => `每 ${task.every_minutes} 分钟`,
+                  },
+                  {
+                    title: "超时",
+                    render: (_, task) =>
+                      task.timeout_minutes !== undefined
+                        ? `${task.timeout_minutes} 分钟`
+                        : "继承业务/全局",
+                  },
+                  {
+                    title: "最近状态",
+                    render: (_, task) =>
+                      task.last_run !== undefined ? (
+                        <Tag
+                          color={
+                            RUN_STATUS_COLOR[
+                              task.last_run.status as LifecycleStatus
+                            ] ?? "default"
+                          }
+                        >
+                          {task.last_run.status}
+                        </Tag>
+                      ) : (
+                        "未运行"
+                      ),
+                  },
+                  {
+                    title: "最近运行时间",
+                    render: (_, task) => task.last_run?.created_at ?? "—",
+                  },
+                  {
+                    title: "操作",
+                    render: (_, task) => (
+                      <Button
+                        size="small"
+                        aria-label={`立即执行 ${task.name}`}
+                        loading={runningTaskName === task.name}
+                        onClick={() => void runTask(task.name)}
+                      >
+                        立即执行
+                      </Button>
+                    ),
+                  },
+                ]}
+              />
+            </Card>
+          </div>
+        )}
       </Form>
 
       {/* 编辑模式的全部资料/环境修改经统一更新队列生效（不展示队列状态，只给统一说明） */}

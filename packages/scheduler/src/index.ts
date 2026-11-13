@@ -8,6 +8,7 @@ export type {
   ExecutionResult,
   EntryDriver,
   ExitDriver,
+  RunGate,
   SchedulerOptions,
   SchedulerLoop,
 } from "./types.js";

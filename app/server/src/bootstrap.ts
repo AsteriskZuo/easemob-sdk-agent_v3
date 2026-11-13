@@ -28,8 +28,9 @@ import {
   createLifecycleStore,
   createLlmCallStore,
   createRunMetricsStore,
+  createTaskScheduler,
 } from "@asteriskzuo/agent-runtime";
-import type { EnvProvider } from "@asteriskzuo/agent-runtime";
+import type { EnvProvider, TaskScheduler } from "@asteriskzuo/agent-runtime";
 import { createEntryLoop, createExitLoop } from "@asteriskzuo/agent-scheduler";
 import type {
   PlatformConfig,
@@ -107,6 +108,7 @@ export async function bootstrap(overrides?: {
   let db: Database | null = null;
   let entryLoop: SchedulerLoop | null = null;
   let exitLoop: SchedulerLoop | null = null;
+  let taskScheduler: TaskScheduler | null = null;
   let updates: UpdateCoordinator | null = null;
   let piConfigService: BusinessPiConfigService | null = null;
   let consoleApi: ConsoleApi | null = null;
@@ -243,6 +245,22 @@ export async function bootstrap(overrides?: {
       config: platformConfig,
       driver: exitDriver,
     });
+    // 定时任务调度器（spec 2026-11-13：平台第三条触发路径）：
+    // 无事件、跳过 check 阶段（main-only）、不入队不扇出；到期状态复用 lifecycles 表。
+    // 打标 store 另建实例（与 createLifecycle 内部同款）；屏障复用统一更新协调器
+    const scheduler = createTaskScheduler({
+      registry,
+      assets,
+      env: envProvider,
+      loader,
+      runner,
+      agentService,
+      lifecycle: createLifecycleStore(db),
+      workspaceRoot: config.workspace,
+      db,
+      gate: updatesCoordinator,
+    });
+    taskScheduler = scheduler;
 
     // 6. 崩溃恢复：processing 残留重置回 pending（start 前的装配纪律）。
     //    更新队列 recover 必须先于循环/适配器/管理 API 启动——重启后先按队列补应用，再开放执行
@@ -257,6 +275,8 @@ export async function bootstrap(overrides?: {
     // 7. 启动两个循环
     entryLoop.start();
     exitLoop.start();
+    // 定时任务到期扫描（tick 60s 平台常量，无配置项）：在 entryLoop 之后启动
+    scheduler.start();
 
     // 8. 入口适配器：内置清单按开关过滤后创建启动（关闭 = 不创建不启动不检查其配置）。
     //    开关键 = AGENT_ENTRY_{适配器 id 大写、'-' 转 '_'}_ENABLED，此处按 id 显式映射到 config 字段
@@ -341,6 +361,7 @@ export async function bootstrap(overrides?: {
         entryQueue,
         exitQueue,
         lifecycle: lifecycleStore,
+        taskScheduler: scheduler,
         config: configView,
       },
       {
@@ -405,6 +426,13 @@ export async function bootstrap(overrides?: {
         // 同上
       }
     }
+    if (taskScheduler) {
+      try {
+        await taskScheduler.stop();
+      } catch {
+        // 同上
+      }
+    }
     if (exitLoop) {
       try {
         await exitLoop.stop();
@@ -440,6 +468,7 @@ export async function bootstrap(overrides?: {
   // （到达此处装配必然成功：context/db/两循环/consoleApi 均已就位）
   const assembled = context as AssembledContext;
   const assembledConsoleApi = consoleApi as ConsoleApi;
+  const assembledTaskScheduler = taskScheduler as TaskScheduler;
   let stopPromise: Promise<void> | null = null;
   const adapters = startedAdapters;
   const stop = (): Promise<void> => {
@@ -460,6 +489,8 @@ export async function bootstrap(overrides?: {
           });
         }
       }
+      // 定时任务调度器随 API/适配器关闭后停：停 tick 并等在飞定时 run 落定（不打断执行中的 run）
+      await assembledTaskScheduler.stop();
       await assembled.entryLoop.stop();
       await assembled.exitLoop.stop();
       // 更新协调器随循环停止后停：进行中的应用窗口落定，未应用命令保留到下次启动
