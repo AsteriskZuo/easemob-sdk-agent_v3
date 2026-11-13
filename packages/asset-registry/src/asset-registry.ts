@@ -39,6 +39,9 @@ export interface AssetMeta {
   is_private: boolean;
   /** 上架/下架开关：false=下架（绑定业务运行时 asset_disabled 失败）；登记/绑定/commit/缓存均不受影响 */
   enabled: boolean;
+  /** 清单名（package/tool = agent-package.json 的 name；skill 无单一名，取技能名列表逗号拼接）；
+   *  登记/版本更新成功时落库；v3 之前登记的存量行为 null */
+  name: string | null;
   /** 仅 is_private 时有值 */
   credential_key?: string;
   /** ISO 时间戳 */
@@ -117,7 +120,7 @@ export interface AssetRegistry {
   clearCache(): void;
 }
 
-/** 存储迁移（spec §5.5）：下标即版本号，v1 建 assets 表，v2 加上下架开关 */
+/** 存储迁移（spec §5.5）：下标即版本号，v1 建 assets 表，v2 加上下架开关，v3 加清单名缓存列（spec 2026-11-13 D1） */
 const MIGRATIONS = [
   // commit 是 SQLite 保留字，列名须加双引号（列名仍为 commit，与 spec §5.5 一致）
   `CREATE TABLE assets (
@@ -135,6 +138,8 @@ const MIGRATIONS = [
 )`,
   // v2：上架/下架开关，既有数据默认 1（上架）
   `ALTER TABLE assets ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1`,
+  // v3：清单名缓存（可空无默认，存量行 = NULL 由展示层回退兜底）
+  `ALTER TABLE assets ADD COLUMN name TEXT`,
 ];
 
 /** assets 表行形态（snake_case 原样） */
@@ -149,6 +154,8 @@ interface AssetRow {
   credential_key: string | null;
   owner_id: string;
   enabled: number;
+  /** 清单名缓存（v3 列；存量行为 NULL） */
+  name: string | null;
   created_at: string;
   modified_at: string;
 }
@@ -161,6 +168,7 @@ function rowToMeta(row: AssetRow): AssetMeta {
     shared: row.shared === 1,
     is_private: row.is_private === 1,
     enabled: row.enabled === 1,
+    name: row.name,
     ...(row.credential_key !== null
       ? { credential_key: row.credential_key }
       : {}),
@@ -171,6 +179,12 @@ function rowToMeta(row: AssetRow): AssetMeta {
 
 function invalid(reason: string): never {
   throw new Error(`invalid_input: ${reason}`);
+}
+
+/** 清单名提取（spec 2026-11-13 D1）：package/tool 取清单 name；
+ *  skill 清单是集合扫描结果无单一名，取技能名列表逗号拼接（校验保证非空） */
+function manifestName(manifest: AssetManifest): string {
+  return manifest.kind === "skill" ? manifest.skills.join(", ") : manifest.name;
 }
 
 /** 校验相对路径形态（登记入参 subpath / 物化拼路径共用）：相对、不含 .. 段 */
@@ -258,7 +272,12 @@ class AssetRegistryImpl implements AssetRegistry {
     // 不让「subpath 指错、清单缺失」这类坏资产进入登记表
     try {
       const root = this.materialize(assetId, { credential: opts?.credential });
-      validateAsset(root, input.kind);
+      const manifest = validateAsset(root, input.kind);
+      // 名称落库（D1）：校验通过后才写；幂等返回路径（上方 existing）不补写
+      this.db.run("UPDATE assets SET name = ? WHERE asset_id = ?", [
+        manifestName(manifest),
+        assetId,
+      ]);
     } catch (err) {
       this.remove(assetId); // 登记失败的私有回滚清理，不是管理删除操作
       throw err;
@@ -399,7 +418,12 @@ class AssetRegistryImpl implements AssetRegistry {
     });
     try {
       const root = this.materialize(asset_id, { credential: opts?.credential });
-      validateAsset(root, row.kind as AssetKind);
+      const manifest = validateAsset(root, row.kind as AssetKind);
+      // 名称随版本刷新（D1：版本变更名称可能变）；回滚路径（下方 catch）不写，旧名仍对应旧 commit
+      this.db.run("UPDATE assets SET name = ? WHERE asset_id = ?", [
+        manifestName(manifest),
+        asset_id,
+      ]);
     } catch (err) {
       this.db.run('UPDATE assets SET "commit" = ? WHERE asset_id = ?', [
         oldCommit,

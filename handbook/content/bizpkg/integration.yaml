@@ -25,9 +25,10 @@ entries:
       cn: 资产登记：url + commit + subpath
     body:
       cn: |
-        package、tool、skill 都以 git 三元组登记：仓库 URL、完整 commit、资产根子路径。包位于仓库根时 subpath 留空；一仓多资产时分别填 `package`、`tools`、`skills` 等路径。
+        package、tool、skill 都以 git 三元组登记：仓库 URL、完整 commit、资产根子路径。包位于仓库根时 subpath 留空；一仓多资产时分别填 `package`、`tools/<工具名>`、`skills/<技能名>` 等路径。
         skill 资产根下的每个含 `SKILL.md` 的直接子目录是一个 skill，目录名就是代码引用名；skill 不构建。package/tool 必须有清单和物化脚本。
         工具与 skill 可设置共享，包不共享；共享属性登记后不可改。私有仓库凭据使用资产登记的 `credential_key`，它指向通用层安全桶，不等于某个业务的安全桶。
+        工具/Skill 建议按单个目录（叶子级）登记，共享时他人按个绑定。
     related:
       see_also: [bizpkg.layout.assets, bizpkg.integration.versioning]
     verify: packages/asset-registry/src/index.ts

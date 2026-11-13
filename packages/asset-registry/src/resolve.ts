@@ -1,14 +1,26 @@
+import { existsSync } from "node:fs";
 import path from "node:path";
 
 /** 调用方给定的资产视图项（绑定集合）；解析按传入顺序首个命中 */
 export interface ResolvedAsset {
   asset_id: string;
-  /** 物化后的资产根绝对路径 */
+  /** 物化后的资产根绝对路径（= 物化缓存目录/subpath，skill 叶子级时根本身即技能目录） */
   root: string;
   /** package/tool 的清单 programs；skill 资产传 {} */
   programs: Record<string, string>;
-  /** skill 资产的技能名列表；package/tool 传 [] */
-  skills: string[];
+  /** skill 资产：技能名 → 相对资产根的技能目录（集合级 = 目录名；叶子级 = "."）；
+   *  package/tool 传 {} */
+  skills: Record<string, string>;
+}
+
+/** 由清单技能名列表构造 skills 映射：资产根本身含 SKILL.md 时为叶子级（spec 2026-11-13
+ *  tool/skill 按单个登记，subpath 直指技能目录），统一映射 "."；否则按集合级原名映射目录名 */
+export function skillRelMap(
+  root: string,
+  names: readonly string[],
+): Record<string, string> {
+  const leaf = existsSync(path.join(root, "SKILL.md"));
+  return Object.fromEntries(names.map((n) => [n, leaf ? "." : n]));
 }
 
 export interface ResolvedResource {
@@ -38,13 +50,16 @@ export function resolveResource(
           path: path.join(asset.root, rel),
         };
       }
-    } else if (asset.skills.includes(name)) {
-      // skill 的资源路径 = 技能目录（技能名 = 目录名）
-      return {
-        asset_id: asset.asset_id,
-        name,
-        path: path.join(asset.root, name),
-      };
+    } else {
+      const rel = asset.skills[name];
+      if (rel !== undefined) {
+        // skill 的资源路径 = 技能目录（相对资产根；叶子级 rel = "."，根本身即技能目录）
+        return {
+          asset_id: asset.asset_id,
+          name,
+          path: path.join(asset.root, rel),
+        };
+      }
     }
   }
   throw new Error(`resource_not_found: ${kind} ${name}`);

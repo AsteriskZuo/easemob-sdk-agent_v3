@@ -9,7 +9,7 @@ import path from "node:path";
 import type { RunContext } from "@asteriskzuo/agent-run-core";
 import type { SkillRef } from "@asteriskzuo/agent-service";
 import type { LocalRunConfig } from "./config.js";
-import { resolveResource } from "./name-resolve.js";
+import { resolveResource, skillRelMap } from "./name-resolve.js";
 import type { ResolvedAsset } from "./name-resolve.js";
 import { stubFileContent } from "./stub.js";
 
@@ -84,6 +84,14 @@ function readManifest(assetRoot: string): {
  * （平台「no skill found」是资产上架期的校验，装载期清单可空）。
  */
 function scanSkills(assetRoot: string): string[] {
+  // 叶子级：资产根本身即技能目录（直接含 SKILL.md），技能名 = 目录名（与平台 validateSkill 一致）
+  try {
+    if (statSync(path.join(assetRoot, "SKILL.md")).isFile()) {
+      return [path.basename(assetRoot)];
+    }
+  } catch {
+    // 根下无 SKILL.md，走集合扫描
+  }
   return readdirSync(assetRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .filter((entry) => {
@@ -114,19 +122,19 @@ export function assembleRunContext(config: LocalRunConfig): RunContext {
       name: pkg.name ?? "package",
       root: config.assets.package.path,
       programs: pkg.programs,
-      skills: [],
+      skills: {},
     },
     ...config.assets.tools.map((asset) => ({
       name: asset.name,
       root: asset.path,
       programs: readManifest(asset.path).programs,
-      skills: [],
+      skills: {},
     })),
     ...config.assets.skills.map((asset) => ({
       name: asset.name,
       root: asset.path,
       programs: {},
-      skills: scanSkills(asset.path),
+      skills: skillRelMap(asset.path, scanSkills(asset.path)),
     })),
   ];
 
@@ -146,7 +154,7 @@ export function assembleRunContext(config: LocalRunConfig): RunContext {
   // skills 白名单全集：全部 skill 资产的技能并集（同名首个命中去重）
   const skillByName = new Map<string, SkillRef>();
   for (const asset of resolved) {
-    for (const name of asset.skills) {
+    for (const name of Object.keys(asset.skills)) {
       if (skillByName.has(name)) continue;
       const hit = resolveResource(resolved, "skill", name);
       skillByName.set(name, { name: hit.name, path: hit.path });

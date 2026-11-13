@@ -129,11 +129,12 @@ entries:
         小型业务可以把三族资产放在同一个 git 仓库：
         ```text
         business-repo/
-        ├── package/   # 登记为 package，subpath=package
-        ├── tools/     # 登记为 tool，subpath=tools
-        └── skills/    # 登记为 skill 集合，subpath=skills
+        ├── package/          # 登记为 package，subpath=package
+        ├── tools/<工具名>/   # 登记为 tool，subpath=tools/<工具名>（叶子级）
+        └── skills/<技能名>/  # 登记为 skill，subpath=skills/<技能名>（叶子级）
         ```
         每个资产独立登记 git 三元组并独立物化。包代码引用工具或 skill 的**名字**，不能 import 兄弟资产目录。规模扩大后可拆仓，业务代码无需因物理位置变化而改写。
+        工具/Skill 建议按单个目录（叶子级）登记，共享时他人按个绑定。
 
         模板的 `skills/`、`tools/` 只是可选占位；不使用时可以删除，同时移除清单中不再适用的 `requires` 示例。
     related:

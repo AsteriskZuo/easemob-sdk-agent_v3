@@ -5,12 +5,13 @@ import type { ResolvedAsset } from "../src/name-resolve.js";
 /**
  * 名解析测试：与平台 packages/asset-registry/src/resolve.ts 的行为逐条对齐——
  * 按资产数组顺序首个命中、program 路径 = join(root, 清单相对路径)、
- * skill 路径 = join(root, 技能名)、全无抛 `resource_not_found: <kind> <name>`。
+ * skill 路径 = join(root, 技能目录相对路径)（叶子级 rel = "."）、
+ * 全无抛 `resource_not_found: <kind> <name>`。
  */
 
 /** 构造资产视图项的便捷函数（缺省空 programs / 空 skills）。 */
 function asset(partial: Partial<ResolvedAsset> & { name: string }): ResolvedAsset {
-  return { root: `/assets/${partial.name}`, programs: {}, skills: [], ...partial };
+  return { root: `/assets/${partial.name}`, programs: {}, skills: {}, ...partial };
 }
 
 describe("resolveResource 与平台 resolve.ts 语义对齐", () => {
@@ -45,10 +46,10 @@ describe("resolveResource 与平台 resolve.ts 语义对齐", () => {
     expect(hit.path).toBe("/assets/tool/dist/notify.js");
   });
 
-  it("skill：命中后路径 = join(root, 技能名)（技能目录）", () => {
+  it("skill：命中后路径 = join(root, 技能目录相对路径)（集合级 = 目录名）", () => {
     const assets = [
       asset({ name: "pkg", programs: { main: "dist/main.js" } }),
-      asset({ name: "skills", skills: ["review-guide"] }),
+      asset({ name: "skills", skills: { "review-guide": "review-guide" } }),
     ];
     expect(resolveResource(assets, "skill", "review-guide")).toEqual({
       asset_name: "skills",
@@ -57,10 +58,25 @@ describe("resolveResource 与平台 resolve.ts 语义对齐", () => {
     });
   });
 
+  it("skill：叶子级资产（rel = '.'）路径 = 资产根本身", () => {
+    const assets = [
+      asset({
+        name: "skill-one",
+        root: "/assets/skill-one/skills/review-guide",
+        skills: { "review-guide": "." },
+      }),
+    ];
+    expect(resolveResource(assets, "skill", "review-guide")).toEqual({
+      asset_name: "skill-one",
+      name: "review-guide",
+      path: "/assets/skill-one/skills/review-guide",
+    });
+  });
+
   it("skill：同名技能按资产顺序首个命中", () => {
     const assets = [
-      asset({ name: "skill-a", skills: ["dup", "alpha"] }),
-      asset({ name: "skill-b", skills: ["dup", "beta"] }),
+      asset({ name: "skill-a", skills: { dup: "dup", alpha: "alpha" } }),
+      asset({ name: "skill-b", skills: { dup: "dup", beta: "beta" } }),
     ];
     const hit = resolveResource(assets, "skill", "dup");
     expect(hit.asset_name).toBe("skill-a");
@@ -69,7 +85,7 @@ describe("resolveResource 与平台 resolve.ts 语义对齐", () => {
 
   it("kind 区分：skill 资产的同名目录不算 program 命中，反之亦然", () => {
     const assets = [
-      asset({ name: "skill-asset", skills: ["wecom-notify"] }),
+      asset({ name: "skill-asset", skills: { "wecom-notify": "wecom-notify" } }),
       asset({ name: "tool-asset", programs: { "review-guide": "dist/x.js" } }),
     ];
     expect(() =>

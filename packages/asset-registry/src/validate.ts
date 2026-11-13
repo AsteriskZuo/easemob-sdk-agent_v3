@@ -302,6 +302,15 @@ function validateSkill(assetRoot: string): AssetManifest {
   } catch {
     fail(`资产根不可读: ${assetRoot}`);
   }
+  // 叶子级：资产根本身即技能目录（直接含 SKILL.md），技能名 = 目录名
+  // （spec 2026-11-13 叶子级约定：tool/skill 按单个登记，subpath 直指技能目录）
+  try {
+    if (statSync(path.join(assetRoot, "SKILL.md")).isFile()) {
+      return { kind: "skill", skills: [path.basename(assetRoot)] };
+    }
+  } catch {
+    // 根下无 SKILL.md，走集合扫描
+  }
   // 集合扫描：每个含 SKILL.md 文件的直接子目录是一个 skill，技能名 = 目录名
   const skills = entries
     .filter((entry) => entry.isDirectory())

@@ -97,6 +97,18 @@ function pkgInput(
   };
 }
 
+/** 在既有仓库上再提交一次，返回新 commit */
+function commitMore(dir: string, files: Record<string, string>): string {
+  for (const [rel, content] of Object.entries(files)) {
+    const p = join(dir, rel);
+    mkdirSync(dirname(p), { recursive: true });
+    writeFileSync(p, content);
+  }
+  git(["add", "-A"], dir);
+  git(["commit", "-m", "more"], dir);
+  return git(["rev-parse", "HEAD"], dir);
+}
+
 describe("register 基础", () => {
   it("register package → meta 字段一致，asset_id 形如 ast_ + 16 hex", () => {
     const repo = makeRepo(PKG_FILES);
@@ -389,18 +401,6 @@ describe("登记即校验（fail fast）", () => {
 });
 
 describe("updateRef", () => {
-  /** 在既有仓库上再提交一次，返回新 commit */
-  function commitMore(dir: string, files: Record<string, string>): string {
-    for (const [rel, content] of Object.entries(files)) {
-      const p = join(dir, rel);
-      mkdirSync(dirname(p), { recursive: true });
-      writeFileSync(p, content);
-    }
-    git(["add", "-A"], dir);
-    git(["commit", "-m", "more"], dir);
-    return git(["rev-parse", "HEAD"], dir);
-  }
-
   it("package 更新到新 commit → asset_id 不变、库行 commit 更新、modified_at 刷新、缓存重建为新内容", () => {
     const repo = makeRepo(PKG_FILES);
     const meta = registry.register(pkgInput(repo.dir));
@@ -488,6 +488,139 @@ describe("updateRef", () => {
       [meta.asset_id],
     );
     expect(row?.commit).toBe(repo.commit);
+  });
+});
+
+describe("名称落库（spec 2026-11-13 D1）", () => {
+  it("register package → meta/list/get 透出清单 name", () => {
+    const repo = makeRepo(PKG_FILES);
+    const meta = registry.register(pkgInput(repo.dir));
+    expect(meta.name).toBe("demo");
+    const listed = registry.list({});
+    expect(listed).toHaveLength(1);
+    expect(listed[0]?.name).toBe("demo");
+    expect(registry.get(meta.asset_id).meta.name).toBe("demo");
+    // 库行直查：name 列已落库
+    const row = db.get<{ name: string | null }>(
+      "SELECT name FROM assets WHERE asset_id = ?",
+      [meta.asset_id],
+    );
+    expect(row?.name).toBe("demo");
+  });
+
+  it("register skill → name 取技能名列表逗号拼接（集合扫描无单一名）", () => {
+    const repo = makeRepo({
+      "beta/SKILL.md": "# beta",
+      "alpha/SKILL.md": "# alpha",
+    });
+    const meta = registry.register(pkgInput(repo.dir, { kind: "skill" }));
+    expect(meta.name).toBe("alpha, beta");
+  });
+
+  it("register skill 叶子级（subpath 直指含 SKILL.md 的目录）→ 通过且 name = 目录名", () => {
+    // spec 2026-11-13 叶子级约定：skills/<技能名> 单个登记，根下直接是 SKILL.md
+    const repo = makeRepo({
+      "skills/jira-ticket-review/SKILL.md": "# jira-ticket-review",
+    });
+    const meta = registry.register(
+      pkgInput(repo.dir, { kind: "skill", subpath: "skills/jira-ticket-review" }),
+    );
+    expect(meta.name).toBe("jira-ticket-review");
+    const obj = registry.get(meta.asset_id);
+    expect(obj.manifest).toEqual({
+      kind: "skill",
+      skills: ["jira-ticket-review"],
+    });
+  });
+
+  it("updateRef 后 name 刷新为新清单名；物化失败回滚时 name 保持旧值", () => {
+    const repo = makeRepo(PKG_FILES);
+    const meta = registry.register(pkgInput(repo.dir));
+    // 新 commit 改清单名（模拟版本演进中改名）
+    const second = commitMore(repo.dir, {
+      "agent-package.json": JSON.stringify({
+        name: "demo-v2",
+        version: "1.0.0",
+        programs: {
+          main: "src/main.js",
+          "check-input": "src/check-input.js",
+          "check-output": "src/check-output.js",
+        },
+      }),
+    });
+
+    const updated = registry.updateRef(meta.asset_id, second);
+    expect(updated.name).toBe("demo-v2");
+    expect(registry.list({})[0]?.name).toBe("demo-v2");
+
+    // 再更到物化必失败的版本（删掉物化脚本）→ 回滚，name 保持 demo-v2
+    git(["rm", "-q", "agent.materialize.mjs"], repo.dir);
+    git(["commit", "-m", "break"], repo.dir);
+    const broken = git(["rev-parse", "HEAD"], repo.dir);
+    expect(() => registry.updateRef(meta.asset_id, broken)).toThrow();
+    expect(registry.list({})[0]?.name).toBe("demo-v2");
+  });
+
+  it("v3 之前建的存量库（无 name 列）→ 迁移补列后存量行 name 为 null，list 不报错", () => {
+    const legacyDb = openDatabase(":memory:");
+    // 手工铺 v1/v2 schema 与迁移簿记（簿记到 v2），模拟 v3 之前建的库
+    legacyDb.exec(`CREATE TABLE schema_migrations (
+  module TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  applied_at TEXT NOT NULL,
+  PRIMARY KEY (module, version)
+)`);
+    legacyDb.exec(`CREATE TABLE assets (
+  asset_id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  url TEXT NOT NULL,
+  "commit" TEXT NOT NULL,
+  subpath TEXT,
+  shared INTEGER NOT NULL,
+  is_private INTEGER NOT NULL,
+  credential_key TEXT,
+  owner_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  modified_at TEXT NOT NULL
+)`);
+    legacyDb.exec(
+      "ALTER TABLE assets ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1",
+    );
+    const appliedAt = new Date().toISOString();
+    for (const version of [1, 2]) {
+      legacyDb.run(
+        "INSERT INTO schema_migrations (module, version, applied_at) VALUES (?, ?, ?)",
+        ["asset-registry", version, appliedAt],
+      );
+    }
+    const now = new Date().toISOString();
+    legacyDb.run(
+      `INSERT INTO assets
+       (asset_id, kind, url, "commit", subpath, shared, is_private, credential_key, owner_id, enabled, created_at, modified_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+      [
+        "ast_0123456789abcdef",
+        "package",
+        "https://example.com/legacy.git",
+        "a".repeat(40),
+        null,
+        0,
+        0,
+        null,
+        "alice",
+        now,
+        now,
+      ],
+    );
+
+    // 装配即迁移：v3 补 name 列（存量行 = NULL）
+    const legacyRegistry = createAssetRegistry(legacyDb, {
+      cache_root: join(tmpDir, "legacy-cache"),
+    });
+    const metas = legacyRegistry.list({});
+    expect(metas).toHaveLength(1);
+    expect(metas[0]?.name).toBeNull();
+    legacyDb.close();
   });
 });
 

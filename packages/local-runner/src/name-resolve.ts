@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import path from "node:path";
 
 /**
@@ -5,6 +6,16 @@ import path from "node:path";
  * 差别仅在于资产视图项的标识字段——平台用 asset_id，本地用配置中的逻辑名。
  * 命中规则、路径拼接规则、错误消息格式与平台完全一致，保证本地装配与平台可对照。
  */
+
+/** 由技能名列表构造 skills 映射：资产根本身含 SKILL.md 时为叶子级，统一映射 "."；
+ *  否则按集合级原名映射目录名（与平台 skillRelMap 同语义） */
+export function skillRelMap(
+  root: string,
+  names: readonly string[],
+): Record<string, string> {
+  const leaf = existsSync(path.join(root, "SKILL.md"));
+  return Object.fromEntries(names.map((n) => [n, leaf ? "." : n]));
+}
 
 /** 调用方给定的资产视图项（配置中的资产绑定集合）；解析按传入顺序首个命中。 */
 export interface ResolvedAsset {
@@ -18,8 +29,8 @@ export interface ResolvedAsset {
   /** package/tool 清单的 programs（程序名 → 相对资产根路径）；skill 资产传 {}。 */
   programs: Record<string, string>;
 
-  /** skill 资产的技能名列表（= 含 SKILL.md 的直接子目录名）；package/tool 传 []。 */
-  skills: string[];
+  /** skill 资产：技能名 → 相对资产根的技能目录（集合级 = 目录名；叶子级 = "."）；package/tool 传 {}。 */
+  skills: Record<string, string>;
 }
 
 /** 名解析命中结果。 */
@@ -30,7 +41,7 @@ export interface ResolvedResource {
   /** 资源名（程序名或技能名）。 */
   name: string;
 
-  /** 绝对路径：program = join(root, 清单相对路径)；skill = join(root, 技能名)（技能目录）。 */
+  /** 绝对路径：program = join(root, 清单相对路径)；skill = join(root, 技能目录相对路径)（叶子级 = 资产根本身）。 */
   path: string;
 }
 
@@ -57,13 +68,16 @@ export function resolveResource(
           path: path.join(asset.root, rel),
         };
       }
-    } else if (asset.skills.includes(name)) {
-      // skill 的资源路径 = 技能目录（技能名 = 目录名）
-      return {
-        asset_name: asset.name,
-        name,
-        path: path.join(asset.root, name),
-      };
+    } else {
+      const rel = asset.skills[name];
+      if (rel !== undefined) {
+        // skill 的资源路径 = 技能目录（相对资产根；叶子级 rel = "."，根本身即技能目录）
+        return {
+          asset_name: asset.name,
+          name,
+          path: path.join(asset.root, rel),
+        };
+      }
     }
   }
   throw new Error(`resource_not_found: ${kind} ${name}`);

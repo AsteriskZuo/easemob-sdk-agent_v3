@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { resolveResource } from "@asteriskzuo/agent-asset-registry";
+import { resolveResource, skillRelMap } from "@asteriskzuo/agent-asset-registry";
 import type {
   AssetManifest,
   AssetRegistry,
@@ -83,14 +83,18 @@ export function createContextLoader(deps: {
       // 4. 名解析视图（get 已物化，此处 materialize 命中缓存）
       const resolved: ResolvedAsset[] = objects.map((obj, index) => {
         const manifest: AssetManifest = obj.manifest;
+        const root = deps.assets.materialize(
+          assetIds[index],
+          credentialFor(assetIds[index]),
+        );
         return {
           asset_id: assetIds[index],
-          root: deps.assets.materialize(
-            assetIds[index],
-            credentialFor(assetIds[index]),
-          ),
+          root,
           programs: manifest.kind === "skill" ? {} : manifest.programs,
-          skills: manifest.kind === "skill" ? manifest.skills : [],
+          skills:
+            manifest.kind === "skill"
+              ? skillRelMap(root, manifest.skills)
+              : {},
         };
       });
       if (!profile.entry_program) {
