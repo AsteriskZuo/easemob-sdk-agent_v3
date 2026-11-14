@@ -59,6 +59,7 @@ db.prepare('select * from lifecycles order by rowid desc limit 8').all()\
 **去哪看**：该 run 的 run 日志尾部（路径按总表模板）；`system.log` 同时段有无异常。
 
 **常见原因**：
+0. 业务自身内置延迟——真实案例：审查工单对 created 事件有 5 分钟延迟审查（run 日志可见 `created 事件延迟审查`），期间无输出，等够时间自然推进。
 1. run 日志尾部停在某个 `sdk.agent` / `sdk.run` 调用——大模型或工具调用挂起，等超时（quota.timeout_minutes）后才会 failed。
 2. 主程序里有未按预期 resolve 的异步等待（如等待子进程/网络响应无超时兜底）。
 

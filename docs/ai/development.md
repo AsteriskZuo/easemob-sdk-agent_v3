@@ -112,6 +112,7 @@ node packages/local-runner/dist/src/cli.js run \
 
 - 退出码：0=run 成功；1=业务失败（failed/timeout，看输出里的 RunOutcome 与日志路径）；2=配置/装配非法（错误信息直接指到字段）。
 - run 日志在 `workspace/` 派生目录下，终端输出会打印日志路径。
+- main 执行期间终端可能长时间无输出：业务自身可能内置延迟（真实案例：审查工单对 created 事件延迟 5 分钟处理）。等待时按 troubleshooting.md 总表打开 run 日志实时看进度，别急着中断。
 - 上下文等值校验：本地能复现平台 run 后，可用 `diff --config ... --snapshot <平台快照.json>` 对比本地装配的上下文与平台快照（退出码 1=有差异）。
 
 **验证**：本地 run 退出码 0，且 RunOutcome 输出符合 contract.json 的 output 形状。

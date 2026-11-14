@@ -214,7 +214,11 @@ agent-local run --config .local-run/config.json --event .local-run/events/HIM-xx
 rm -rf .local-run/workspace/businesses/<business_id>/data/<source>/<session_id>
 ```
 
+`cache/agent-sessions/` 是 agent 会话缓存，不影响去重语义，干净重放无需清理。
+
 ## 7. 常见问题
+
+- **终端长时间无输出** → 先按 §6.5 打开 run 日志确认进度：业务可能自带延迟（真实案例：jira-ticket-review 对 created 事件延迟 5 分钟再审查，日志可见 `created 事件延迟审查`），不是卡死。
 
 - **`programs["main"]` 指向的产物不存在** → 先在资产目录构建业务包（`node agent.materialize.mjs`，需先 `npm ci`）。
 - **diff 报 `program` / `programs.*` different** → 构建方式不一致：本地须用资产根的 `node agent.materialize.mjs`（与平台物化同款 esbuild）重建；`npm run build`（tsc）产物 digest 与平台不等。
