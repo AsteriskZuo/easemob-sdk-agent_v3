@@ -6,9 +6,9 @@
 - [x] 执行模型回写设计文档：新增 design/business-workflow.md；glossary（业务/门禁/生命周期/流程程序/SDK/agent 服务）、lifecycle、循环契约、core-modules、console-design 等同步（2026-09-27）
 - [x] 日志重新设计：四类日志（系统级/入口循环/出口循环/业务）+ 启动自检 fail-fast 与运行期不崩溃纪律；SDK 补 log API 与单轮审查工单伪代码示例（2026-09-27）
 - [x] 整体设计走查修补：Lifecycle 组装时序、agent 会话策略（channel/fresh）、流程程序运行时（上传即转译）、SDK 会话操作（compact/clear）、注册表一对多、max_agent_calls 键、业务日志按会话+业务组织、契约版本字段、「沙箱→子进程」措辞统一（2026-09-27）
-- [ ] MVP M1：事件信封契约 v1 + 注册表 + 双调度循环 + SQLite 队列 ×2
-- [ ] MVP M2：生命周期运行时（WorkflowRunner + AgentService + 业务 SDK）+ 通道 + 并发闸门
-- [ ] MVP M3：代码 Review + 企微出口工具，端到端跑通；单轮审查工单全链验收
+- [x] MVP M1：事件信封契约 v1 + 注册表 + 双调度循环 + SQLite 队列 ×2（2026-09-29；T1 6297061 / T3 1de87fa / T4 3b54982 / T8 9175cef，任务级验收见 docs/plans/2026-09-28-platform-implementation-progress.md 总览表）
+- [x] MVP M2：生命周期运行时（WorkflowRunner + AgentService + 业务 SDK）+ 通道 + 并发闸门（2026-10-02；T5 e728f90 / T10 84f0d77 / T11 7aa0105 / T17 e8e16ee，验收出处同上）
+- [x] MVP M3：代码 Review + 企微出口工具，端到端跑通；单轮审查工单全链验收（2026-11-11；T9 27eea75 出口工具、T12 2dbb911 平台装配端到端集成验证；真实工单全链 success 记录见 dailylog/AsteriskZuo/2026-11-03.md 14:19 与 dailylog/AsteriskZuo/2026-11-11.md 13:53 里程碑达成）
 - [x] T24：入口/出口配置统一占位符（{{key}}）机制——runtime 解析层 + EnvProvider.lookup 四级顺序、jira/webhook 入口字段重构、出口 exitSecretKey 约定废弃、console-api 保存校验、console Tabs 双视图（2026-10-10）
 - [x] T25：event_type 留空通配（接收该来源全部事件）+ 创建页 localStorage 草稿 + 创建接口随建 env（解创建死锁）；适配器默认事件标签（2026-10-10）
 - [x] T26：资产版本更新——asset_id 哈希去 commit（升级不换 id、绑定不断）、asset-registry updateRef（重新物化+失败回滚）、共享资产禁止更新（409）、console-api PUT /api/assets/:id、console 资产页更新入口（2026-10-11）

@@ -44,6 +44,6 @@ yarn build && yarn test && yarn typecheck && yarn lint && yarn format:check && y
 
 ## 文档约定
 
-- `docs/` 目录分工见 `docs/README.md`：drafts（探索）→ research（调研）→ decisions（决策）→ designs（设计）→ specs（规格）→ plans（计划）；
+- `docs/` 目录分工见 `docs/README.md`：drafts（探索）→ researches（调研）→ decisions（决策）→ designs（设计）→ specs（规格）→ plans（计划）；
 - spec/plan/进度文档一律中文；
 - 新文档放对目录，不新建顶层文档目录。

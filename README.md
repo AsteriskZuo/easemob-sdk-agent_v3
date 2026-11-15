@@ -97,7 +97,7 @@ rm -rf "$AGENT_WORKSPACE/platform/data" "$AGENT_WORKSPACE/platform/cache" "$AGEN
 | `AGENT_WORKSPACE` | **只能环境变量** | 平台工作目录（数据五类分根的根）；config.json 栖身于 workspace，故不能来自文件 |
 | `PATH` / `HOME` | 只能环境变量 | pi 子进程基础环境（pi_env 固定组）；正常 shell 天然存在，一般无需显式设置 |
 
-大模型配置**不归部署配置**：每个业务在控制台「业务编辑页 → 大模型配置区」维护自己的 `models.json`（Pi 原生结构，可配多个 provider 与模型；默认模型 = 第一个 provider 的第一个模型），经「在线验证全部模型 → 确认保存」生效，全部模型真实探针通过才允许保存；未配置的业务调用 `sdk.agent` 会被拒绝（`model_not_configured`）。完整键清单与默认值模板见 `templates/config.json.example`（拷贝后替换占位即用）。业务配置里的 `apiKey` 应使用字面量——Pi 子进程环境只有 PATH/HOME，不能依赖 `$ENV_VAR` 插值读取厂商密钥。
+大模型配置**不归部署配置**：每个业务在控制台「业务编辑页 → 大模型配置区」维护自己的 `models.json`（Pi 原生结构，可配多个 provider 与模型；默认模型 = 第一个 provider 的第一个模型），经「在线验证全部模型 → 确认保存」生效，全部模型真实探针通过才允许保存；未配置的业务调用 `sdk.agent` 会被拒绝（`model_not_configured`）。结构示例见 `templates/models.json.example`。业务配置里的 `apiKey` 应使用字面量——Pi 子进程环境只有 PATH/HOME，不能依赖 `$ENV_VAR` 插值读取厂商密钥。
 
 ### Pi 路径（可选，推荐默认）
 
@@ -141,17 +141,19 @@ rm -rf "$AGENT_WORKSPACE/platform/data" "$AGENT_WORKSPACE/platform/cache" "$AGEN
 
 ## 开发一个业务
 
-1. 拷贝 `templates/agent-package/` 为独立 git 仓库，按其中 README 开发流程程序（`@asteriskzuo/agent-sdk`：`sdk.input` / `sdk.runInput` / `sdk.config` / `sdk.agent` / `sdk.run` / `sdk.log` / `sdk.return`）；
+1. 拷贝 `templates/agent-package/` 为独立 git 仓库，按其中 README 开发流程程序（`@asteriskzuo/agent-sdk`：`sdk.input` / `sdk.runInput` / `sdk.config` / `sdk.agent` / `sdk.run` / `sdk.log` / `sdk.return`）；带 AI 开发时从平台仓根 `AI.md` 进入，按 `docs/ai/development.md` 逐节执行（每节有验证判据），配置取值查 `docs/ai/environment.md`、排障查 `docs/ai/troubleshooting.md`；
 2. 把仓库推送到 git（github/gitee 均可），在控制台「资产管理」登记为**包**资产（可复用的子程序/skill 分别登记为**工具**/**skill** 资产，可共享）；
 3. 在控制台「业务管理」创建业务：绑定包与流程程序入口、配置入口（触发源）、出口（通知工具）、提示词总纲、key-value 两桶；
 4. 事件到达后平台自动调度执行，结果按出口绑定投递；控制台「监控仪表盘」查看任务与运行记录。
 
-业务程序开发约束详见 `docs/designs/2026-09-14-skill-platform-spec-v3/design/asset-model.md`（作者指南）与 `business-workflow.md`（SDK 契约）。
+业务程序开发约束详见 `docs/designs/2026-09-14-skill-platform-spec-v3/design/asset-model.md`（作者指南）与同目录 `business-workflow.md`（SDK 契约）；面向 AI 的端到端开发流程见 `docs/ai/development.md`。
 
 ## 仓库结构
 
 ```text
-├── packages/           # 平台内部库（@asteriskzuo/agent-*；仅 sdk 对外发布 npm）
+├── AI.md               # 给 AI 的工作入口（业务包开发者视角：角色路由 + 纪律 + 文档地图）
+├── AGENTS.md           # 给 AI 的工程原则与纪律（平台维护者视角）
+├── packages/           # 平台内部库（21 个，@asteriskzuo/agent-*；sdk / process-runner / jira-client 可发布，其余 private）
 │   ├── contracts/      # 事件信封、channel_id、校验器（零依赖）
 │   ├── database/       # SQLite 薄封装，全平台唯一数据访问口
 │   ├── queue/          # 持久任务队列（入口/出口双实例）
@@ -162,25 +164,43 @@ rm -rf "$AGENT_WORKSPACE/platform/data" "$AGENT_WORKSPACE/platform/cache" "$AGEN
 │   ├── scheduler/      # 入口/出口双调度循环 + 并发闸门
 │   ├── runtime/        # Lifecycle 四步时序 + 上下文组装 + 两桶环境配置
 │   ├── asset-registry/ # 资产注册表（包/工具/skill：git 登记/物化/校验）
+│   ├── entry-adapters/ # 入口适配器（webhook / jira 轮询）
 │   ├── exit-tools/     # 出口工具群（企微×2/邮件/webhook/jira/confluence/github）
 │   ├── agent-service/  # agent 调用服务（unix socket + pi 子进程 + 配额 + 审计）
-│   ├── workflow-runner/# 业务子进程运行时（socket 协议平台侧）
+│   ├── workflow-runner/ # 业务子进程运行时（socket 协议平台侧）
+│   ├── run-core/       # 共享执行核（runner 与 local-runner 共用）
 │   ├── process-runner/ # 子进程创建唯一实现（超时/取消/输出上限/进程组清理；公共发布，SDK 依赖它）
+│   ├── jira-client/    # jira REST 客户端（可发布基础包）
+│   ├── local-runner/   # 业务包本地独立运行（事件导出/上下文装载/CLI）
 │   ├── pi-probe/       # 业务 Pi 配置在线验证探针（一次性最小真实调用）
 │   ├── sdk/            # @asteriskzuo/agent-sdk（业务程序唯一 SDK）
 │   └── console-api/    # 管理 API（HTTP + 账号体系 + 全部管理路由）
 ├── app/
 │   ├── server/         # 平台装配根 + 进程入口
 │   └── console/        # 控制台 SPA（React + Vite + antd）
+├── business/           # 两个样例业务仓（各自独立 git 仓，.gitignore 排除；各带 AI.md 指针）
+├── handbook/           # 平台产品文档体系：content/*.yaml 单一源 → generated/ 的 md + json
+├── dailylog/           # 工作日志（按 GitHub login / 日期，只追加）
+├── scripts/            # 模板验收等脚本
 ├── templates/
-│   ├── agent-package/      # 业务包模板（拷贝即用）
+│   ├── agent-package/      # 业务包模板（拷贝即用，含 AI.md 指针）
 │   ├── config.json.example # {workspace}/platform/config.json 完整模板（全部键 + 默认值 + 占位）
 │   └── models.json.example # 业务大模型配置（models.json）的结构示例
 ├── .easemob-agent-workspace/ # 本地开发约定俗成的 AGENT_WORKSPACE 指向（gitignore；变量必填、无默认值，上文示例命令即指向它）
-└── docs/               # 设计/规格/计划/进度（见 docs/README.md）
+└── docs/               # 设计/规格/计划/进度 + ai/（AI 工作手册）；目录约定见 docs/README.md
 ```
 
 ## 文档导航
+
+先按角色选入口（三个入口各自独立，内容不重复）：
+
+| 你要做什么 | 从哪开始 |
+|---|---|
+| 带 AI 开发/维护**业务包** | 根 `AI.md` → `docs/ai/`（开发手册 / 环境配置 / 问题排查） |
+| 维护**平台**本身（`packages/`） | 根 `AGENTS.md` → `docs/README.md` |
+| 查平台机制、字段语义、控制台说明 | `handbook/README.md` → `handbook/generated/` |
+
+按阶段查文档：
 
 - 设计骨架：`docs/designs/2026-09-14-skill-platform-spec-v3/`（先读骨架文档，子文档按需深入）
 - 实现计划与进度：`docs/plans/2026-09-28-platform-implementation-plan.md` / `...-progress.md`
